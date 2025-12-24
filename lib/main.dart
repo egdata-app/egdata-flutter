@@ -3,10 +3,24 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
+import 'package:windows_single_instance/windows_single_instance.dart';
 import 'pages/home_page.dart';
 
-void main() async {
+void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Ensure only one instance of the app runs on Windows
+  if (Platform.isWindows) {
+    await WindowsSingleInstance.ensureSingleInstance(
+      args,
+      'egdata_client_single_instance',
+      onSecondWindow: (args) async {
+        // When a second instance is launched, bring this window to front
+        await windowManager.show();
+        await windowManager.focus();
+      },
+    );
+  }
 
   // Initialize window manager for desktop platforms
   if (Platform.isWindows || Platform.isMacOS) {
