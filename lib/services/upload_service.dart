@@ -46,7 +46,7 @@ class UploadService {
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
         return UploadStatus.fromJson(json);
       } else if (response.statusCode == 409) {
