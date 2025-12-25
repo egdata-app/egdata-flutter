@@ -71,7 +71,7 @@ class DeleteConfirmationDialog extends StatelessWidget {
                 Text(
                   path,
                   style: const TextStyle(
-                    fontFamily: 'Consolas',
+                    fontFamily: 'JetBrainsMono',
                     fontSize: 11,
                     color: AppColors.textSecondary,
                   ),

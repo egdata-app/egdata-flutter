@@ -7,7 +7,8 @@
       "Bash(flutter pub add:*)",
       "WebSearch",
       "WebFetch(domain:cdn.egdata.app)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "WebFetch(domain:api.egdata.app)"
     ]
   }
 }

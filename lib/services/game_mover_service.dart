@@ -52,7 +52,7 @@ class GameMoverService {
     }
 
     // Check available disk space
-    final availableSpace = await _getAvailableDiskSpace(destinationPath);
+    final availableSpace = await getAvailableDiskSpace(destinationPath);
     final requiredSpace = (game.installSize * 1.1).round(); // 10% buffer
 
     if (availableSpace != null && availableSpace < requiredSpace) {
@@ -73,7 +73,7 @@ class GameMoverService {
     return null; // Valid
   }
 
-  Future<int?> _getAvailableDiskSpace(String path) async {
+  Future<int?> getAvailableDiskSpace(String path) async {
     try {
       if (Platform.isWindows) {
         // Get drive letter from path
@@ -108,6 +108,32 @@ class GameMoverService {
       // Ignore errors, return null to skip space check
     }
     return null;
+  }
+
+  /// Check if two paths are on the same drive
+  bool isSameDrive(String path1, String path2) {
+    if (Platform.isWindows) {
+      // Compare drive letters (case-insensitive)
+      if (path1.length >= 2 && path2.length >= 2) {
+        return path1.substring(0, 2).toLowerCase() ==
+            path2.substring(0, 2).toLowerCase();
+      }
+      return false;
+    } else {
+      // On macOS/Linux, we'd need to check mount points
+      // For simplicity, assume different paths could be different drives
+      return false;
+    }
+  }
+
+  /// Format bytes to human readable string
+  static String formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 
   /// Main move operation - copies files and updates manifest

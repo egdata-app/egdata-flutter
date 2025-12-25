@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:windows_single_instance/windows_single_instance.dart';
@@ -74,8 +73,9 @@ class EGDataApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final baseTextTheme = GoogleFonts.interTextTheme(
-      ThemeData.dark().textTheme,
+    const interTextStyle = TextStyle(fontFamily: 'Inter');
+    final baseTextTheme = ThemeData.dark().textTheme.apply(
+      fontFamily: 'Inter',
     );
 
     return MaterialApp(
@@ -84,6 +84,7 @@ class EGDataApp extends StatelessWidget {
       themeMode: ThemeMode.dark,
       darkTheme: ThemeData(
         brightness: Brightness.dark,
+        fontFamily: 'Inter',
         colorScheme: const ColorScheme.dark(
           surface: AppColors.surface,
           primary: AppColors.primary,
@@ -96,7 +97,7 @@ class EGDataApp extends StatelessWidget {
           backgroundColor: AppColors.background,
           elevation: 0,
           centerTitle: false,
-          titleTextStyle: GoogleFonts.inter(
+          titleTextStyle: interTextStyle.copyWith(
             color: AppColors.textPrimary,
             fontSize: 18,
             fontWeight: FontWeight.w600,

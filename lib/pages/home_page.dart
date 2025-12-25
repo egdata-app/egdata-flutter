@@ -129,11 +129,30 @@ class _HomePageState extends State<HomePage> with WindowListener {
     if (_settings.autoSync) {
       _syncTimer = Timer.periodic(
         Duration(minutes: _settings.syncIntervalMinutes),
-        (_) => _uploadAll(),
+        (_) => _performAutoSync(),
       );
       _addLog(
         'Auto-sync enabled: every ${_settings.syncIntervalMinutes} minutes',
       );
+    }
+  }
+
+  Future<void> _performAutoSync() async {
+    _addLog('Auto-sync: scanning for games...');
+
+    try {
+      final games = await _scanner.scanGames();
+      setState(() {
+        _games = games;
+      });
+      _addLog('Auto-sync: found ${games.length} games');
+    } catch (e) {
+      _addLog('Auto-sync: scan error - $e');
+      return;
+    }
+
+    if (_games.isNotEmpty) {
+      await _uploadAll();
     }
   }
 
@@ -642,7 +661,7 @@ class _HomePageState extends State<HomePage> with WindowListener {
               _scanner.getManifestsPath(),
               style: const TextStyle(
                 fontSize: 11,
-                fontFamily: 'Consolas',
+                fontFamily: 'JetBrainsMono',
                 color: AppColors.textMuted,
               ),
             ),
@@ -774,7 +793,7 @@ class _HomePageState extends State<HomePage> with WindowListener {
                         child: Text(
                           log,
                           style: TextStyle(
-                            fontFamily: 'Consolas',
+                            fontFamily: 'JetBrainsMono',
                             fontSize: 11,
                             color: isError
                                 ? AppColors.error

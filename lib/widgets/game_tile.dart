@@ -125,9 +125,9 @@ class _GameTileState extends State<GameTile> {
   }
 
   Widget _buildGameImage() {
-    final imageUrl = widget.game.metadata?.keyImages.isNotEmpty == true
-        ? widget.game.metadata!.keyImages.first
-        : null;
+    // Prefer tall box art for tile thumbnails, fallback to any available
+    final metadata = widget.game.metadata;
+    final imageUrl = metadata?.dieselGameBoxTall ?? metadata?.firstImageUrl;
 
     return Container(
       width: 64,
@@ -230,7 +230,7 @@ class _GameTileState extends State<GameTile> {
                 widget.game.installLocation,
                 style: const TextStyle(
                   fontSize: 10,
-                  fontFamily: 'Consolas',
+                  fontFamily: 'JetBrainsMono',
                   color: AppColors.textMuted,
                 ),
                 maxLines: 1,
