@@ -22,6 +22,7 @@ dependencies:
   windows_single_instance: ^1.1.0
   table_calendar: ^3.1.2
   local_notifier: ^0.1.6
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

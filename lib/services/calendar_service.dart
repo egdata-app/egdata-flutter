@@ -111,17 +111,20 @@ class CalendarService {
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
 
-        // Current free games
-        if (json['current'] != null) {
-          for (final game in json['current']) {
-            events.add(_parseFreGame(game));
-          }
-        }
+        // API returns a flat array of free games
+        if (json is List) {
+          // Group by title to merge platform variants
+          final Map<String, List<Map<String, dynamic>>> groupedByTitle = {};
 
-        // Upcoming free games
-        if (json['upcoming'] != null) {
-          for (final game in json['upcoming']) {
-            events.add(_parseFreGame(game));
+          for (final game in json) {
+            final title = game['title'] as String? ?? 'Unknown Game';
+            groupedByTitle.putIfAbsent(title, () => []).add(game);
+          }
+
+          // Create events, merging platforms for same-title games
+          for (final entry in groupedByTitle.entries) {
+            final games = entry.value;
+            events.add(_parseFreeGameGroup(games));
           }
         }
       }
@@ -132,15 +135,33 @@ class CalendarService {
     return events;
   }
 
-  CalendarEvent _parseFreGame(Map<String, dynamic> game) {
+  CalendarEvent _parseFreeGameGroup(List<Map<String, dynamic>> games) {
+    // Use first game as the primary source
+    final game = games.first;
+
+    // Collect all platforms
+    final platforms = <String>[];
+    for (final g in games) {
+      final platform = g['giveaway']?['platform'] as String?;
+      if (platform != null && !platforms.contains(platform)) {
+        platforms.add(platform);
+      }
+    }
+    // Sort platforms for consistent display
+    platforms.sort();
+
     String? thumbnailUrl;
     if (game['keyImages'] != null) {
       final keyImages = game['keyImages'] as List<dynamic>;
-      for (final img in keyImages) {
-        if (img['type'] == 'DieselGameBoxTall' || img['type'] == 'Thumbnail') {
-          thumbnailUrl = img['url'];
-          break;
+      // Prefer OfferImageWide for hero display, then DieselGameBoxTall
+      for (final type in ['OfferImageWide', 'DieselStoreFrontWide', 'DieselGameBoxTall', 'Thumbnail']) {
+        for (final img in keyImages) {
+          if (img['type'] == type) {
+            thumbnailUrl = img['url'];
+            break;
+          }
         }
+        if (thumbnailUrl != null) break;
       }
       if (thumbnailUrl == null && keyImages.isNotEmpty) {
         thumbnailUrl = keyImages.first['url'];
@@ -166,6 +187,7 @@ class CalendarService {
       thumbnailUrl: thumbnailUrl,
       startDate: startDate,
       endDate: endDate,
+      platforms: platforms,
     );
   }
 

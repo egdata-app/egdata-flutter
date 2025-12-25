@@ -15,6 +15,7 @@ class CalendarEvent {
   final DateTime startDate;
   final DateTime? endDate;
   final Map<String, dynamic>? metadata;
+  final List<String> platforms;
 
   const CalendarEvent({
     required this.id,
@@ -26,7 +27,11 @@ class CalendarEvent {
     required this.startDate,
     this.endDate,
     this.metadata,
+    this.platforms = const [],
   });
+
+  bool get hasPlatforms => platforms.isNotEmpty;
+  bool get isMultiPlatform => platforms.length > 1;
 
   bool get isActive {
     final now = DateTime.now();
@@ -47,6 +52,7 @@ class CalendarEvent {
     DateTime? startDate,
     DateTime? endDate,
     Map<String, dynamic>? metadata,
+    List<String>? platforms,
   }) {
     return CalendarEvent(
       id: id ?? this.id,
@@ -58,6 +64,7 @@ class CalendarEvent {
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
       metadata: metadata ?? this.metadata,
+      platforms: platforms ?? this.platforms,
     );
   }
 
@@ -72,6 +79,7 @@ class CalendarEvent {
       'startDate': startDate.toIso8601String(),
       'endDate': endDate?.toIso8601String(),
       'metadata': metadata,
+      'platforms': platforms,
     };
   }
 
@@ -91,6 +99,7 @@ class CalendarEvent {
           : DateTime.now(),
       endDate: json['endDate'] != null ? DateTime.parse(json['endDate']) : null,
       metadata: json['metadata'],
+      platforms: (json['platforms'] as List<dynamic>?)?.cast<String>() ?? [],
     );
   }
 

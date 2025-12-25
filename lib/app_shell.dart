@@ -287,15 +287,9 @@ class _AppShellState extends State<AppShell> with WindowListener {
     switch (_currentPage) {
       case AppPage.dashboard:
         return DashboardPage(
-          games: _games,
           settings: _settings,
           followService: _followService,
           calendarService: _calendarService,
-          isLoading: _isLoading,
-          isUploadingAll: _isUploadingAll,
-          onScanGames: _scanGames,
-          onUploadAll: _uploadAll,
-          logs: _logs,
         );
       case AppPage.discover:
         return DiscoverPage(

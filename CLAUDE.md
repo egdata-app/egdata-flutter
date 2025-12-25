@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-EGData Client - A Flutter application that scans Epic Games Store installations and uploads game manifest data to the EGData project for preservation and research purposes. Dark mode only.
+EGData Client - A Flutter application that scans Epic Games Store installations and uploads game manifest data to the EGData project for preservation and research purposes. Also provides discovery features for free games, sales, and upcoming releases. Dark mode only.
 
 **Supported Platforms:** Windows, macOS (manifest scanning only works on these platforms)
 
@@ -35,29 +35,66 @@ dart format .
 ## Code Architecture
 
 ### Entry Point
-- **lib/main.dart** - App entry with dark theme configuration (`EGDataApp`)
+- **lib/main.dart** - App entry with dark theme configuration, `AppColors` constants
+- **lib/app_shell.dart** - Main scaffold with sidebar navigation, manages shared state
+
+### Navigation (Sidebar)
+- **Dashboard** - Discovery-focused: free games carousel, sales, upcoming releases
+- **Discover** - Search and browse games
+- **Library** - Local installed games, manifest upload controls
+- **Calendar** - Event calendar view
+- **Settings** - App configuration
 
 ### Data Models (`lib/models/`)
-- **game_info.dart** - Game data with metadata, install info, manifest hash
-- **epic_manifest.dart** - Epic Games .item file JSON structure
-- **game_metadata.dart** - Additional metadata from EGData API
-- **upload_status.dart** - Upload state enum and result data
-- **settings.dart** - App settings (auto-sync, interval, etc.)
+- **game_info.dart** - Local game data with metadata, install info, manifest hash
+- **calendar_event.dart** - Events (free games, releases, sales) with `platforms` field for grouping
+- **followed_game.dart** - Games the user is following
+- **search_result.dart** - Search results from API
+- **settings.dart** - App settings (auto-sync, notifications, minimize to tray, etc.)
 
 ### Services (`lib/services/`)
 - **manifest_scanner.dart** - Scans Epic Games manifest directory for .item files
-  - Windows path: `C:\ProgramData\Epic\EpicGamesLauncher\Data\Manifests`
-  - macOS path: `~/Library/Application Support/Epic/EpicGamesLauncher/Data/Manifests`
-- **upload_service.dart** - Uploads manifests to `https://egdata-builds-api.snpm.workers.dev/upload-manifest`
-- **metadata_service.dart** - Fetches game metadata from `https://api.egdata.app/items/{id}`
-- **settings_service.dart** - Persists settings via SharedPreferences
-
-### UI (`lib/pages/`, `lib/widgets/`)
-- **home_page.dart** - Main screen with game list, search, log console, upload controls
-- **settings_page.dart** - Auto-sync configuration
-- **game_tile.dart** - Individual game card with upload status
+  - Windows: `C:\ProgramData\Epic\EpicGamesLauncher\Data\Manifests`
+  - macOS: `~/Library/Application Support/Epic/EpicGamesLauncher/Data/Manifests`
+- **upload_service.dart** - Uploads manifests to API
+- **calendar_service.dart** - Fetches free games, sales, releases from EGData API
+- **follow_service.dart** - Manages followed games (persisted locally)
+- **search_service.dart** - Game search functionality
+- **notification_service.dart** - Desktop notifications for free games
+- **tray_service.dart** - System tray integration
 
 ### Key Dependencies
 - `http` - API requests
 - `shared_preferences` - Settings persistence
-- `path` - Cross-platform path handling
+- `url_launcher` - Open URLs in browser
+- `window_manager` - Window controls
+- `tray_manager` - System tray
+- `local_notifier` - Desktop notifications
+
+## EGData API
+
+Base URL: `https://api.egdata.app`
+
+### Endpoints
+
+**GET /free-games**
+Returns a flat array of free game offers (not `{current, upcoming}`). Each game has:
+- `id`, `title`, `namespace`
+- `keyImages[]` - Use types: `OfferImageWide`, `DieselStoreFrontWide`, `DieselGameBoxTall`
+- `giveaway.startDate`, `giveaway.endDate` - Promotion period
+- `giveaway.platform` - Optional: `android`, `ios` (group by title to merge platforms)
+
+**GET /offers/upcoming?limit=N** - Upcoming game releases
+
+**GET /offers/featured-discounts?limit=N** - Current sales
+
+**GET /offers/{id}** - Single offer details
+
+**GET /offers/{id}/changelog** - Offer change history
+
+### Opening Games in Browser
+Use `https://egdata.app/offers/{offerId}` to link to game pages.
+
+## Windows App Icon
+
+The app icon at `windows/runner/resources/app_icon.ico` must contain multiple resolutions (16, 24, 32, 48, 64, 128, 256) for crisp display in taskbar/titlebar. Generate from a 512x512 PNG source.

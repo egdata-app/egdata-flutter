@@ -1,33 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../models/calendar_event.dart';
-import '../models/game_info.dart';
 import '../models/settings.dart';
 import '../services/calendar_service.dart';
 import '../services/follow_service.dart';
 
 class DashboardPage extends StatefulWidget {
-  final List<GameInfo> games;
   final AppSettings settings;
   final FollowService followService;
   final CalendarService calendarService;
-  final bool isLoading;
-  final bool isUploadingAll;
-  final VoidCallback onScanGames;
-  final VoidCallback onUploadAll;
-  final List<String> logs;
 
   const DashboardPage({
     super.key,
-    required this.games,
     required this.settings,
     required this.followService,
     required this.calendarService,
-    required this.isLoading,
-    required this.isUploadingAll,
-    required this.onScanGames,
-    required this.onUploadAll,
-    required this.logs,
   });
 
   @override
@@ -35,9 +23,14 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  List<CalendarEvent> _freeGames = [];
-  List<CalendarEvent> _upcomingReleases = [];
-  bool _isLoadingEvents = true;
+  List<CalendarEvent> _allFreeGames = [];
+  List<CalendarEvent> _sales = [];
+  List<CalendarEvent> _releases = [];
+  List<CalendarEvent> _followedUpdates = [];
+  bool _isLoading = true;
+  String? _error;
+  final ScrollController _freeGamesScrollController = ScrollController();
+  int _currentFreeGamePage = 0;
 
   @override
   void initState() {
@@ -45,29 +38,64 @@ class _DashboardPageState extends State<DashboardPage> {
     _loadEvents();
   }
 
+  @override
+  void dispose() {
+    _freeGamesScrollController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadEvents() async {
-    setState(() => _isLoadingEvents = true);
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
     try {
       final events = await widget.calendarService.fetchAllEvents(
         followedGames: widget.followService.followedGames,
+        forceRefresh: true,
       );
 
       final now = DateTime.now();
-      _freeGames = events
-          .where((e) => e.type == CalendarEventType.freeGame && !e.hasEnded)
-          .take(3)
+
+      // Combine current and upcoming free games, sorted by start date
+      _allFreeGames = events
+          .where((e) =>
+              e.type == CalendarEventType.freeGame && !e.hasEnded)
+          .toList()
+        ..sort((a, b) {
+          // Current games first, then upcoming
+          final aIsActive = a.isActive;
+          final bIsActive = b.isActive;
+          if (aIsActive && !bIsActive) return -1;
+          if (!aIsActive && bIsActive) return 1;
+          return a.startDate.compareTo(b.startDate);
+        });
+
+      _sales = events
+          .where((e) => e.type == CalendarEventType.sale)
+          .take(8)
           .toList();
-      _upcomingReleases = events
+
+      _releases = events
           .where((e) =>
               e.type == CalendarEventType.release &&
               e.startDate.isAfter(now))
-          .take(3)
+          .take(6)
           .toList();
+
+      _followedUpdates = events
+          .where((e) => e.type == CalendarEventType.followedUpdate)
+          .take(5)
+          .toList();
+
+      _currentFreeGamePage = 0;
     } catch (e) {
-      // Failed to load events
+      _error = 'Failed to load events';
     }
+
     if (mounted) {
-      setState(() => _isLoadingEvents = false);
+      setState(() => _isLoading = false);
     }
   }
 
@@ -79,21 +107,13 @@ class _DashboardPageState extends State<DashboardPage> {
         children: [
           _buildHeader(),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildStatsRow(),
-                  const SizedBox(height: 24),
-                  _buildCardsRow(),
-                  const SizedBox(height: 24),
-                  _buildQuickActions(),
-                  const SizedBox(height: 24),
-                  _buildRecentActivity(),
-                ],
-              ),
-            ),
+            child: _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  )
+                : _error != null
+                    ? _buildErrorState()
+                    : _buildContent(),
           ),
         ],
       ),
@@ -102,37 +122,24 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: const BoxDecoration(
         color: AppColors.surface,
         border: Border(bottom: BorderSide(color: AppColors.border)),
       ),
       child: Row(
         children: [
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Dashboard',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              SizedBox(height: 4),
-              Text(
-                'Overview of your library and events',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textMuted,
-                ),
-              ),
-            ],
+          const Text(
+            'Discover',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
           ),
           const Spacer(),
           IconButton(
-            onPressed: _loadEvents,
+            onPressed: _isLoading ? null : _loadEvents,
             icon: const Icon(Icons.refresh_rounded),
             color: AppColors.textSecondary,
             tooltip: 'Refresh',
@@ -142,520 +149,770 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _buildStatsRow() {
-    return Row(
+  Widget _buildErrorState() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.cloud_off_rounded, size: 48, color: AppColors.textMuted),
+          const SizedBox(height: 16),
+          Text(
+            _error!,
+            style: const TextStyle(color: AppColors.textMuted),
+          ),
+          const SizedBox(height: 16),
+          TextButton.icon(
+            onPressed: _loadEvents,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Try again'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_allFreeGames.isNotEmpty) ...[
+            _buildFreeGamesCarousel(),
+            const SizedBox(height: 32),
+          ],
+          if (_sales.isNotEmpty) ...[
+            _buildSection(
+              title: 'HOT DEALS',
+              icon: Icons.local_fire_department_rounded,
+              color: Colors.orange,
+              child: _buildSalesGrid(),
+            ),
+            const SizedBox(height: 32),
+          ],
+          if (_releases.isNotEmpty) ...[
+            _buildSection(
+              title: 'COMING SOON',
+              icon: Icons.rocket_launch_rounded,
+              color: AppColors.primary,
+              child: _buildReleasesGrid(),
+            ),
+            const SizedBox(height: 32),
+          ],
+          if (_followedUpdates.isNotEmpty) ...[
+            _buildSection(
+              title: 'WATCHLIST ACTIVITY',
+              icon: Icons.favorite_rounded,
+              color: AppColors.accent,
+              child: _buildFollowedUpdates(),
+            ),
+          ],
+          if (_allFreeGames.isEmpty &&
+              _sales.isEmpty &&
+              _releases.isEmpty)
+            _buildEmptyState(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFreeGamesCarousel() {
+    final hasCarousel = _allFreeGames.length > 3;
+    final totalPages = hasCarousel ? (_allFreeGames.length / 2).ceil() : 1;
+
+    // Find the first active game for countdown
+    final activeGame = _allFreeGames.where((g) => g.isActive).firstOrNull;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: _buildStatCard(
-            icon: Icons.games_rounded,
-            label: 'Installed Games',
-            value: '${widget.games.length}',
-            color: AppColors.primary,
-          ),
+        // Header row
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.success,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.card_giftcard_rounded,
+                      size: 16, color: Colors.white),
+                  SizedBox(width: 6),
+                  Text(
+                    'FREE GAMES',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              '${_allFreeGames.length} available',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textMuted,
+              ),
+            ),
+            const Spacer(),
+            if (activeGame?.endDate != null)
+              _buildCountdown(activeGame!.endDate!),
+            if (hasCarousel) ...[
+              const SizedBox(width: 16),
+              _buildCarouselControls(totalPages),
+            ],
+          ],
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildStatCard(
-            icon: Icons.favorite_rounded,
-            label: 'Following',
-            value: '${widget.followService.followedGames.length}',
-            color: AppColors.accent,
-          ),
+        const SizedBox(height: 16),
+        // Carousel or grid
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final cardWidth = ((constraints.maxWidth - 16) / 2).clamp(200.0, 450.0);
+            // Card height = 16:9 image + footer (padding 12*2 + title ~18 + gap 6 + badges ~24 + border 2)
+            final cardHeight = (cardWidth * 9 / 16) + 74;
+
+            if (!hasCarousel) {
+              // Simple grid for 3 or fewer
+              return Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                children: _allFreeGames
+                    .map((game) => SizedBox(
+                          width: _allFreeGames.length == 1
+                              ? constraints.maxWidth
+                              : cardWidth,
+                          child: _buildFreeGameCard(game),
+                        ))
+                    .toList(),
+              );
+            }
+
+            // Carousel for more than 3
+            return SizedBox(
+              height: cardHeight,
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  if (notification is ScrollUpdateNotification) {
+                    final page = (_freeGamesScrollController.offset /
+                            (cardWidth * 2 + 16))
+                        .round();
+                    if (page != _currentFreeGamePage) {
+                      setState(() => _currentFreeGamePage = page);
+                    }
+                  }
+                  return false;
+                },
+                child: ListView.separated(
+                  controller: _freeGamesScrollController,
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _allFreeGames.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 16),
+                  itemBuilder: (context, index) => SizedBox(
+                    width: cardWidth,
+                    child: _buildFreeGameCard(_allFreeGames[index]),
+                  ),
+                ),
+              ),
+            );
+          },
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildStatCard(
-            icon: Icons.sync_rounded,
-            label: 'Auto Sync',
-            value: widget.settings.autoSync
-                ? '${widget.settings.syncIntervalMinutes}m'
-                : 'Off',
-            color: widget.settings.autoSync
-                ? AppColors.success
-                : AppColors.textMuted,
-          ),
+        // Page indicators for carousel
+        if (hasCarousel) ...[
+          const SizedBox(height: 16),
+          _buildPageIndicators(totalPages),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildCarouselControls(int totalPages) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildCarouselButton(
+          icon: Icons.chevron_left_rounded,
+          onPressed: _currentFreeGamePage > 0
+              ? () => _scrollToPage(_currentFreeGamePage - 1)
+              : null,
+        ),
+        const SizedBox(width: 4),
+        _buildCarouselButton(
+          icon: Icons.chevron_right_rounded,
+          onPressed: _currentFreeGamePage < totalPages - 1
+              ? () => _scrollToPage(_currentFreeGamePage + 1)
+              : null,
         ),
       ],
     );
   }
 
-  Widget _buildStatCard({
+  Widget _buildCarouselButton({
     required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
+    required VoidCallback? onPressed,
   }) {
+    return Material(
+      color: onPressed != null ? AppColors.surface : AppColors.surfaceLight,
+      borderRadius: BorderRadius.circular(6),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Icon(
+            icon,
+            size: 18,
+            color: onPressed != null
+                ? AppColors.textSecondary
+                : AppColors.textMuted,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPageIndicators(int totalPages) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(totalPages, (index) {
+        final isActive = index == _currentFreeGamePage;
+        return GestureDetector(
+          onTap: () => _scrollToPage(index),
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            width: isActive ? 24 : 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: isActive ? AppColors.primary : AppColors.surfaceLight,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  void _scrollToPage(int page) {
+    if (!_freeGamesScrollController.hasClients) return;
+
+    // Calculate width based on current viewport
+    final viewportWidth = _freeGamesScrollController.position.viewportDimension;
+    final cardWidth = (viewportWidth - 16) / 2;
+    final offset = page * (cardWidth * 2 + 16);
+
+    _freeGamesScrollController.animateTo(
+      offset.clamp(0.0, _freeGamesScrollController.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+
+    setState(() => _currentFreeGamePage = page);
+  }
+
+  Widget _buildCountdown(DateTime endDate) {
+    final remaining = endDate.difference(DateTime.now());
+    final days = remaining.inDays;
+    final hours = remaining.inHours % 24;
+
+    String timeText;
+    if (days > 0) {
+      timeText = '${days}d ${hours}h remaining';
+    } else if (hours > 0) {
+      timeText = '${hours}h ${remaining.inMinutes % 60}m remaining';
+    } else {
+      timeText = '${remaining.inMinutes}m remaining';
+    }
+
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.timer_outlined, size: 14, color: AppColors.warning),
+          const SizedBox(width: 6),
+          Text(
+            timeText,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.warning,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFreeGameCard(CalendarEvent game) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => _openInStore(game.offerId),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.border),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Container(
+                  color: AppColors.surfaceLight,
+                  child: game.thumbnailUrl != null
+                      ? Image.network(
+                          game.thumbnailUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                        )
+                      : _buildPlaceholder(),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      game.title,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        if (game.isActive)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppColors.success.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'FREE NOW',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.success,
+                              ),
+                            ),
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppColors.accent.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              _formatDate(game.startDate),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.accent,
+                              ),
+                            ),
+                          ),
+                        if (game.hasPlatforms) ...[
+                          const SizedBox(width: 6),
+                          ...game.platforms.map((p) => Padding(
+                                padding: const EdgeInsets.only(right: 3),
+                                child: _buildPlatformBadge(p),
+                              )),
+                        ],
+                        const Spacer(),
+                        const Icon(
+                          Icons.open_in_new_rounded,
+                          size: 14,
+                          color: AppColors.textMuted,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSalesGrid() {
+    return SizedBox(
+      height: 180,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: _sales.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) =>
+            _buildCompactGameCard(_sales[index], showDiscount: true),
+      ),
+    );
+  }
+
+  Widget _buildReleasesGrid() {
+    return SizedBox(
+      height: 180,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: _releases.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) =>
+            _buildCompactGameCard(_releases[index], showDate: true),
+      ),
+    );
+  }
+
+  Widget _buildCompactGameCard(
+    CalendarEvent game, {
+    bool showDiscount = false,
+    bool showDate = false,
+  }) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => _openInStore(game.offerId),
+        child: Container(
+          width: 130,
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.border),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Container(
+                      color: AppColors.surfaceLight,
+                      child: game.thumbnailUrl != null
+                          ? Image.network(
+                              game.thumbnailUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                            )
+                          : _buildPlaceholder(),
+                    ),
+                    if (showDiscount && game.subtitle != null)
+                      Positioned(
+                        top: 8,
+                        left: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.orange,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            game.subtitle!,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      game.title,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textPrimary,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        if (showDate)
+                          Expanded(
+                            child: Text(
+                              _formatDate(game.startDate),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                          ),
+                        if (game.hasPlatforms)
+                          ...game.platforms.map((p) => Padding(
+                                padding: const EdgeInsets.only(left: 2),
+                                child: _buildPlatformBadge(p),
+                              )),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFollowedUpdates() {
+    return Column(
+      children: _followedUpdates
+          .map((update) => _buildUpdateItem(update))
+          .toList(),
+    );
+  }
+
+  Widget _buildUpdateItem(CalendarEvent update) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8),
+              color: AppColors.surfaceLight,
+              borderRadius: BorderRadius.circular(4),
             ),
-            child: Icon(icon, size: 24, color: color),
+            clipBehavior: Clip.antiAlias,
+            child: update.thumbnailUrl != null
+                ? Image.network(
+                    update.thumbnailUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const Icon(
+                      Icons.games_rounded,
+                      size: 20,
+                      color: AppColors.textMuted,
+                    ),
+                  )
+                : const Icon(
+                    Icons.games_rounded,
+                    size: 20,
+                    color: AppColors.textMuted,
+                  ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  value,
+                  update.title,
                   style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
                     color: AppColors.textPrimary,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
+                const SizedBox(height: 2),
                 Text(
-                  label,
+                  update.subtitle ?? 'Updated',
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 11,
                     color: AppColors.textMuted,
                   ),
                 ),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCardsRow() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(child: _buildFreeGamesCard()),
-        const SizedBox(width: 16),
-        Expanded(child: _buildUpcomingCard()),
-        const SizedBox(width: 16),
-        Expanded(child: _buildFollowingCard()),
-      ],
-    );
-  }
-
-  Widget _buildFreeGamesCard() {
-    return _buildEventCard(
-      title: 'FREE NOW',
-      icon: Icons.card_giftcard_rounded,
-      color: AppColors.success,
-      events: _freeGames,
-      emptyMessage: 'No free games available',
-      isLoading: _isLoadingEvents,
-    );
-  }
-
-  Widget _buildUpcomingCard() {
-    return _buildEventCard(
-      title: 'UPCOMING',
-      icon: Icons.rocket_launch_rounded,
-      color: AppColors.primary,
-      events: _upcomingReleases,
-      emptyMessage: 'No upcoming releases',
-      isLoading: _isLoadingEvents,
-    );
-  }
-
-  Widget _buildFollowingCard() {
-    final followedGames = widget.followService.followedGames.take(3).toList();
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Icon(
-                  Icons.favorite_rounded,
-                  size: 16,
-                  color: AppColors.accent,
-                ),
-              ),
-              const SizedBox(width: 10),
-              const Text(
-                'FOLLOWING',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1,
-                  color: AppColors.textMuted,
-                ),
-              ),
-            ],
+          Text(
+            _formatRelativeDate(update.startDate),
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppColors.textMuted,
+            ),
           ),
-          const SizedBox(height: 16),
-          if (followedGames.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
-              child: Center(
-                child: Text(
-                  'No games followed yet',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textMuted,
-                  ),
-                ),
-              ),
-            )
-          else
-            ...followedGames.map((game) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceLight,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: game.thumbnailUrl != null
-                              ? Image.network(
-                                  game.thumbnailUrl!,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      const Icon(Icons.games_rounded, size: 16),
-                                )
-                              : const Icon(Icons.games_rounded, size: 16),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          game.title,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textPrimary,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                )),
         ],
       ),
     );
   }
 
-  Widget _buildEventCard({
+  Widget _buildSection({
     required String title,
     required IconData icon,
     required Color color,
-    required List<CalendarEvent> events,
-    required String emptyMessage,
-    required bool isLoading,
+    required Widget child,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Icon(icon, size: 16, color: color),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1,
-                  color: AppColors.textMuted,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (isLoading)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 20),
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-            )
-          else if (events.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              child: Center(
-                child: Text(
-                  emptyMessage,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textMuted,
-                  ),
-                ),
-              ),
-            )
-          else
-            ...events.map((event) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceLight,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: event.thumbnailUrl != null
-                              ? Image.network(
-                                  event.thumbnailUrl!,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      Icon(icon, size: 16, color: color),
-                                )
-                              : Icon(icon, size: 16, color: color),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              event.title,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textPrimary,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            if (event.subtitle != null)
-                              Text(
-                                event.subtitle!,
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: AppColors.textMuted,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                )),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickActions() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 4, bottom: 12),
-          child: Text(
-            'QUICK ACTIONS',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1,
-              color: AppColors.textMuted,
-            ),
-          ),
-        ),
         Row(
           children: [
-            _buildActionButton(
-              icon: Icons.refresh_rounded,
-              label: 'Scan Games',
-              onPressed: widget.isLoading ? null : widget.onScanGames,
-              isLoading: widget.isLoading,
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(icon, size: 16, color: color),
             ),
-            const SizedBox(width: 12),
-            _buildActionButton(
-              icon: Icons.cloud_upload_rounded,
-              label: 'Upload All',
-              onPressed: widget.isUploadingAll || widget.games.isEmpty
-                  ? null
-                  : widget.onUploadAll,
-              isLoading: widget.isUploadingAll,
-              isPrimary: true,
+            const SizedBox(width: 10),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1,
+                color: AppColors.textMuted,
+              ),
             ),
           ],
         ),
+        const SizedBox(height: 16),
+        child,
       ],
     );
   }
 
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback? onPressed,
-    bool isLoading = false,
-    bool isPrimary = false,
-  }) {
-    return Material(
-      color: isPrimary
-          ? (onPressed == null ? AppColors.surfaceLight : AppColors.primary)
-          : AppColors.surface,
-      borderRadius: BorderRadius.circular(6),
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(6),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: isPrimary ? Colors.transparent : AppColors.border,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (isLoading)
-                SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: isPrimary ? Colors.white : AppColors.textSecondary,
-                  ),
-                )
-              else
-                Icon(
-                  icon,
-                  size: 18,
-                  color: isPrimary
-                      ? (onPressed == null
-                          ? AppColors.textMuted
-                          : Colors.white)
-                      : AppColors.textSecondary,
-                ),
-              const SizedBox(width: 10),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: isPrimary
-                      ? (onPressed == null ? AppColors.textMuted : Colors.white)
-                      : AppColors.textSecondary,
-                ),
+  Widget _buildPlaceholder() {
+    return const Center(
+      child: Icon(
+        Icons.games_rounded,
+        size: 32,
+        color: AppColors.textMuted,
+      ),
+    );
+  }
+
+  Widget _buildPlatformBadge(String platform) {
+    IconData icon;
+    String label;
+    Color color;
+
+    switch (platform.toLowerCase()) {
+      case 'android':
+        icon = Icons.android_rounded;
+        label = 'Android';
+        color = const Color(0xFF3DDC84);
+      case 'ios':
+        icon = Icons.apple_rounded;
+        label = 'iOS';
+        color = AppColors.textSecondary;
+      case 'windows':
+        icon = Icons.desktop_windows_rounded;
+        label = 'Windows';
+        color = const Color(0xFF00A4EF);
+      case 'mac':
+      case 'macos':
+        icon = Icons.laptop_mac_rounded;
+        label = 'Mac';
+        color = AppColors.textSecondary;
+      default:
+        icon = Icons.devices_rounded;
+        label = platform;
+        color = AppColors.textMuted;
+    }
+
+    return Tooltip(
+      message: label,
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Icon(icon, size: 14, color: color),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 60),
+        child: Column(
+          children: [
+            Icon(Icons.explore_rounded, size: 48, color: AppColors.textMuted),
+            const SizedBox(height: 16),
+            const Text(
+              'Nothing to show right now',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.textMuted,
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: _loadEvents,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Refresh'),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildRecentActivity() {
-    final recentLogs = widget.logs.take(5).toList();
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${months[date.month - 1]} ${date.day}';
+  }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 4, bottom: 12),
-          child: Text(
-            'RECENT ACTIVITY',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1,
-              color: AppColors.textMuted,
-            ),
-          ),
-        ),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: recentLogs.isEmpty
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 20),
-                    child: Text(
-                      'No recent activity',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textMuted,
-                      ),
-                    ),
-                  ),
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: recentLogs.map((log) {
-                    final isError =
-                        log.contains('Error') || log.contains('failed');
-                    final isSuccess = log.contains('uploaded') ||
-                        log.contains('complete') ||
-                        log.contains('exists');
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        log,
-                        style: TextStyle(
-                          fontFamily: 'JetBrainsMono',
-                          fontSize: 11,
-                          color: isError
-                              ? AppColors.error
-                              : isSuccess
-                                  ? AppColors.success
-                                  : AppColors.textMuted,
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-        ),
-      ],
-    );
+  String _formatRelativeDate(DateTime date) {
+    final diff = DateTime.now().difference(date);
+    if (diff.inDays > 0) {
+      return '${diff.inDays}d ago';
+    } else if (diff.inHours > 0) {
+      return '${diff.inHours}h ago';
+    } else {
+      return '${diff.inMinutes}m ago';
+    }
+  }
+
+  Future<void> _openInStore(String? offerId) async {
+    if (offerId == null) return;
+    final url = Uri.parse('https://egdata.app/offers/$offerId');
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    }
   }
 }
