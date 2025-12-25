@@ -4,8 +4,13 @@ import '../models/settings.dart';
 
 class SettingsPage extends StatefulWidget {
   final AppSettings settings;
+  final ValueChanged<AppSettings> onSettingsChanged;
 
-  const SettingsPage({super.key, required this.settings});
+  const SettingsPage({
+    super.key,
+    required this.settings,
+    required this.onSettingsChanged,
+  });
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -18,6 +23,13 @@ class _SettingsPageState extends State<SettingsPage> {
   void initState() {
     super.initState();
     _settings = widget.settings;
+  }
+
+  void _updateSettings(AppSettings newSettings) {
+    setState(() {
+      _settings = newSettings;
+    });
+    widget.onSettingsChanged(newSettings);
   }
 
   @override
@@ -42,9 +54,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         trailing: Switch(
                           value: _settings.autoSync,
                           onChanged: (value) {
-                            setState(() {
-                              _settings = _settings.copyWith(autoSync: value);
-                            });
+                            _updateSettings(_settings.copyWith(autoSync: value));
                           },
                           activeTrackColor: AppColors.primary,
                           activeThumbColor: Colors.white,
@@ -69,9 +79,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         trailing: Switch(
                           value: _settings.launchAtStartup,
                           onChanged: (value) {
-                            setState(() {
-                              _settings = _settings.copyWith(launchAtStartup: value);
-                            });
+                            _updateSettings(_settings.copyWith(launchAtStartup: value));
                           },
                           activeTrackColor: AppColors.primary,
                           activeThumbColor: Colors.white,
@@ -84,9 +92,64 @@ class _SettingsPageState extends State<SettingsPage> {
                         trailing: Switch(
                           value: _settings.minimizeToTray,
                           onChanged: (value) {
-                            setState(() {
-                              _settings = _settings.copyWith(minimizeToTray: value);
-                            });
+                            _updateSettings(_settings.copyWith(minimizeToTray: value));
+                          },
+                          activeTrackColor: AppColors.primary,
+                          activeThumbColor: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  _buildSection(
+                    title: 'NOTIFICATIONS',
+                    children: [
+                      _buildSettingTile(
+                        title: 'Free Games',
+                        subtitle: 'Notify when free games become available',
+                        trailing: Switch(
+                          value: _settings.notifyFreeGames,
+                          onChanged: (value) {
+                            _updateSettings(_settings.copyWith(notifyFreeGames: value));
+                          },
+                          activeTrackColor: AppColors.primary,
+                          activeThumbColor: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      _buildSettingTile(
+                        title: 'Releases',
+                        subtitle: 'Notify when upcoming games release',
+                        trailing: Switch(
+                          value: _settings.notifyReleases,
+                          onChanged: (value) {
+                            _updateSettings(_settings.copyWith(notifyReleases: value));
+                          },
+                          activeTrackColor: AppColors.primary,
+                          activeThumbColor: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      _buildSettingTile(
+                        title: 'Sales',
+                        subtitle: 'Notify when games go on sale',
+                        trailing: Switch(
+                          value: _settings.notifySales,
+                          onChanged: (value) {
+                            _updateSettings(_settings.copyWith(notifySales: value));
+                          },
+                          activeTrackColor: AppColors.primary,
+                          activeThumbColor: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      _buildSettingTile(
+                        title: 'Followed Games',
+                        subtitle: 'Notify when followed games are updated',
+                        trailing: Switch(
+                          value: _settings.notifyFollowedUpdates,
+                          onChanged: (value) {
+                            _updateSettings(_settings.copyWith(notifyFollowedUpdates: value));
                           },
                           activeTrackColor: AppColors.primary,
                           activeThumbColor: Colors.white,
@@ -141,56 +204,32 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       decoration: const BoxDecoration(
         color: AppColors.surface,
         border: Border(
           bottom: BorderSide(color: AppColors.border),
         ),
       ),
-      child: Row(
+      child: const Row(
         children: [
-          Material(
-            color: AppColors.surfaceLight,
-            borderRadius: BorderRadius.circular(6),
-            child: InkWell(
-              onTap: () => Navigator.pop(context, _settings),
-              borderRadius: BorderRadius.circular(6),
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: const Icon(
-                  Icons.arrow_back_rounded,
-                  size: 18,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          const Column(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'SETTINGS',
+                'Settings',
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.5,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary,
                 ),
               ),
+              SizedBox(height: 4),
               Text(
                 'Configure app behavior',
                 style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 12,
                   color: AppColors.textMuted,
-                  letterSpacing: 0.5,
                 ),
               ),
             ],
@@ -302,9 +341,7 @@ class _SettingsPageState extends State<SettingsPage> {
           onChanged: _settings.autoSync
               ? (value) {
                   if (value != null) {
-                    setState(() {
-                      _settings = _settings.copyWith(syncIntervalMinutes: value);
-                    });
+                    _updateSettings(_settings.copyWith(syncIntervalMinutes: value));
                   }
                 }
               : null,

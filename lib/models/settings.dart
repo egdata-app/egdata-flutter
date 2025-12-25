@@ -3,12 +3,20 @@ class AppSettings {
   final int syncIntervalMinutes;
   final bool minimizeToTray;
   final bool launchAtStartup;
+  final bool notifyFreeGames;
+  final bool notifyReleases;
+  final bool notifySales;
+  final bool notifyFollowedUpdates;
 
   AppSettings({
     this.autoSync = false,
     this.syncIntervalMinutes = 60,
     this.minimizeToTray = true,
     this.launchAtStartup = false,
+    this.notifyFreeGames = true,
+    this.notifyReleases = false,
+    this.notifySales = false,
+    this.notifyFollowedUpdates = true,
   });
 
   AppSettings copyWith({
@@ -16,12 +24,20 @@ class AppSettings {
     int? syncIntervalMinutes,
     bool? minimizeToTray,
     bool? launchAtStartup,
+    bool? notifyFreeGames,
+    bool? notifyReleases,
+    bool? notifySales,
+    bool? notifyFollowedUpdates,
   }) {
     return AppSettings(
       autoSync: autoSync ?? this.autoSync,
       syncIntervalMinutes: syncIntervalMinutes ?? this.syncIntervalMinutes,
       minimizeToTray: minimizeToTray ?? this.minimizeToTray,
       launchAtStartup: launchAtStartup ?? this.launchAtStartup,
+      notifyFreeGames: notifyFreeGames ?? this.notifyFreeGames,
+      notifyReleases: notifyReleases ?? this.notifyReleases,
+      notifySales: notifySales ?? this.notifySales,
+      notifyFollowedUpdates: notifyFollowedUpdates ?? this.notifyFollowedUpdates,
     );
   }
 
@@ -31,6 +47,10 @@ class AppSettings {
       'syncIntervalMinutes': syncIntervalMinutes,
       'minimizeToTray': minimizeToTray,
       'launchAtStartup': launchAtStartup,
+      'notifyFreeGames': notifyFreeGames,
+      'notifyReleases': notifyReleases,
+      'notifySales': notifySales,
+      'notifyFollowedUpdates': notifyFollowedUpdates,
     };
   }
 
@@ -40,6 +60,10 @@ class AppSettings {
       syncIntervalMinutes: json['syncIntervalMinutes'] ?? 60,
       minimizeToTray: json['minimizeToTray'] ?? true,
       launchAtStartup: json['launchAtStartup'] ?? false,
+      notifyFreeGames: json['notifyFreeGames'] ?? true,
+      notifyReleases: json['notifyReleases'] ?? false,
+      notifySales: json['notifySales'] ?? false,
+      notifyFollowedUpdates: json['notifyFollowedUpdates'] ?? true,
     );
   }
 }

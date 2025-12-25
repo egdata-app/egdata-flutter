@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../main.dart';
 import '../models/game_info.dart';
 import '../models/upload_status.dart';
+import 'follow_button.dart';
 
 class GameTile extends StatefulWidget {
   final GameInfo game;
@@ -10,6 +11,8 @@ class GameTile extends StatefulWidget {
   final VoidCallback? onUpload;
   final VoidCallback? onMove;
   final bool isUploading;
+  final bool isFollowing;
+  final VoidCallback? onFollowToggle;
 
   const GameTile({
     super.key,
@@ -18,6 +21,8 @@ class GameTile extends StatefulWidget {
     this.onUpload,
     this.onMove,
     this.isUploading = false,
+    this.isFollowing = false,
+    this.onFollowToggle,
   });
 
   @override
@@ -78,10 +83,12 @@ class _GameTileState extends State<GameTile> {
                     // Details row
                     Row(
                       children: [
-                        _buildDetailChip(
-                          icon: Icons.tag_rounded,
-                          label: widget.game.appName,
-                          isMono: true,
+                        Flexible(
+                          child: _buildDetailChip(
+                            icon: Icons.tag_rounded,
+                            label: widget.game.appName,
+                            isMono: true,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         _buildDetailChip(
@@ -112,6 +119,14 @@ class _GameTileState extends State<GameTile> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (widget.onFollowToggle != null) ...[
+                    FollowButton(
+                      isFollowing: widget.isFollowing,
+                      onToggle: widget.onFollowToggle!,
+                      compact: true,
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   _buildMoveButton(),
                   const SizedBox(width: 8),
                   _buildUploadButton(),
@@ -181,15 +196,17 @@ class _GameTileState extends State<GameTile> {
           color: AppColors.textMuted,
         ),
         const SizedBox(width: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontFamily: isMono ? 'Consolas' : null,
-            color: AppColors.textSecondary,
+        Flexible(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontFamily: isMono ? 'Consolas' : null,
+              color: AppColors.textSecondary,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
         ),
       ],
     );
@@ -201,7 +218,10 @@ class _GameTileState extends State<GameTile> {
         Clipboard.setData(ClipboardData(text: widget.game.installLocation));
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Path copied to clipboard'),
+            content: const Text(
+              'Path copied to clipboard',
+              style: TextStyle(color: AppColors.textPrimary),
+            ),
             backgroundColor: AppColors.surface,
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 2),

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:windows_single_instance/windows_single_instance.dart';
-import 'pages/home_page.dart';
+import 'app_shell.dart';
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,8 +26,8 @@ void main(List<String> args) async {
     await windowManager.ensureInitialized();
 
     const windowOptions = WindowOptions(
-      size: Size(1100, 750),
-      minimumSize: Size(800, 600),
+      size: Size(1280, 800),
+      minimumSize: Size(900, 650),
       center: true,
       backgroundColor: Colors.transparent,
       skipTaskbar: false,
@@ -174,7 +174,7 @@ class EGDataApp extends StatelessWidget {
           radius: const Radius.circular(2),
         ),
       ),
-      home: const HomePage(),
+      home: const AppShell(),
     );
   }
 }

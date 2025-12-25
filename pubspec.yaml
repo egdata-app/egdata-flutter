@@ -20,12 +20,21 @@ dependencies:
   window_manager: ^0.5.1
   launch_at_startup: ^0.5.1
   windows_single_instance: ^1.1.0
+  table_calendar: ^3.1.2
+  local_notifier: ^0.1.6
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
   msix: ^3.16.12
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  windows:
+    generate: true
+    image_path: assets/logo.png
+    icon_size: 256
 
 flutter:
   uses-material-design: true
@@ -50,3 +59,5 @@ msix_config:
   capabilities: internetClient
   languages: en-us
   store: true
+  logo_path: assets/logo.png
+  icons_background_color: '#121212'
