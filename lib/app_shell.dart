@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
 import 'main.dart';
+import 'database/database_service.dart';
 import 'models/game_info.dart';
 import 'models/settings.dart';
 import 'models/upload_status.dart';
@@ -12,6 +13,7 @@ import 'services/follow_service.dart';
 import 'services/manifest_scanner.dart';
 import 'services/notification_service.dart';
 import 'services/search_service.dart';
+import 'services/sync_service.dart';
 import 'services/upload_service.dart';
 import 'services/settings_service.dart';
 import 'services/tray_service.dart';
@@ -38,10 +40,14 @@ class _AppShellState extends State<AppShell> with WindowListener {
   final UploadService _uploadService = UploadService();
   final SettingsService _settingsService = SettingsService();
   final TrayService _trayService = TrayService();
-  final FollowService _followService = FollowService();
   final SearchService _searchService = SearchService();
   final CalendarService _calendarService = CalendarService();
   final NotificationService _notificationService = NotificationService();
+
+  // Database-dependent services (initialized in _init)
+  DatabaseService? _db;
+  FollowService? _followService;
+  SyncService? _syncService;
 
   // Shared state
   List<GameInfo> _games = [];
@@ -64,7 +70,7 @@ class _AppShellState extends State<AppShell> with WindowListener {
   @override
   void dispose() {
     _syncTimer?.cancel();
-    _followService.dispose();
+    _followService?.dispose();
     _notificationService.dispose();
     if (Platform.isWindows || Platform.isMacOS) {
       windowManager.removeListener(this);
@@ -74,19 +80,43 @@ class _AppShellState extends State<AppShell> with WindowListener {
   }
 
   Future<void> _init() async {
+    // Initialize database first
+    _db = await DatabaseService.getInstance();
+    await _db!.migrateFromSharedPreferences();
+
+    // Initialize database-dependent services
+    _followService = FollowService(db: _db!);
+    _syncService = SyncService(
+      db: _db!,
+      notification: _notificationService,
+    );
+
     await _loadSettings();
     await _scanGames();
-    await _followService.loadFollowedGames();
+    await _followService!.loadFollowedGames();
     _setupAutoSync();
     await _initTray();
     await _initNotifications();
+
+    // Perform startup sync
+    _addLog('Performing startup sync...');
+    final result = await _syncService!.performSync(_settings);
+    if (result.error != null) {
+      _addLog('Startup sync error: ${result.error}');
+    } else if (result.hasChanges) {
+      _addLog('Startup sync: ${result.newFreeGames.length} new free games, '
+          '${result.gamesOnSale.length} games on sale, '
+          '${result.newChangelogs.length} changelog updates');
+    } else {
+      _addLog('Startup sync complete: no changes detected');
+    }
   }
 
   Future<void> _initNotifications() async {
     await _notificationService.init();
     _notificationService.configure(
       calendarService: _calendarService,
-      followService: _followService,
+      followService: _followService!,
       settings: _settings,
     );
     _notificationService.updateSettings(_settings);
@@ -152,6 +182,20 @@ class _AppShellState extends State<AppShell> with WindowListener {
   }
 
   Future<void> _performAutoSync() async {
+    // Sync API data (free games, sales, changelogs)
+    _addLog('Auto-sync: syncing API data...');
+    if (_syncService != null) {
+      final result = await _syncService!.performSync(_settings);
+      if (result.error != null) {
+        _addLog('Auto-sync: API sync error - ${result.error}');
+      } else if (result.hasChanges) {
+        _addLog('Auto-sync: ${result.newFreeGames.length} new free games, '
+            '${result.gamesOnSale.length} games on sale, '
+            '${result.newChangelogs.length} changelog updates');
+      }
+    }
+
+    // Scan local games and upload manifests
     _addLog('Auto-sync: scanning for games...');
     try {
       final games = await _scanner.scanGames();
@@ -260,6 +304,26 @@ class _AppShellState extends State<AppShell> with WindowListener {
 
   @override
   Widget build(BuildContext context) {
+    // Show loading indicator while services are initializing
+    if (_followService == null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: AppColors.primary),
+              const SizedBox(height: 16),
+              Text(
+                'Initializing...',
+                style: TextStyle(color: AppColors.textMuted, fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Column(
@@ -288,12 +352,12 @@ class _AppShellState extends State<AppShell> with WindowListener {
       case AppPage.dashboard:
         return DashboardPage(
           settings: _settings,
-          followService: _followService,
+          followService: _followService!,
           calendarService: _calendarService,
         );
       case AppPage.discover:
         return DiscoverPage(
-          followService: _followService,
+          followService: _followService!,
           searchService: _searchService,
         );
       case AppPage.library:
@@ -303,7 +367,7 @@ class _AppShellState extends State<AppShell> with WindowListener {
           uploadingGames: _uploadingGames,
           isLoading: _isLoading,
           isUploadingAll: _isUploadingAll,
-          followService: _followService,
+          followService: _followService!,
           manifestPath: _scanner.getManifestsPath(),
           onScanGames: _scanGames,
           onUploadManifest: _uploadManifest,
@@ -315,7 +379,7 @@ class _AppShellState extends State<AppShell> with WindowListener {
       case AppPage.calendar:
         return CalendarPage(
           calendarService: _calendarService,
-          followService: _followService,
+          followService: _followService!,
         );
       case AppPage.settings:
         return SettingsPage(
