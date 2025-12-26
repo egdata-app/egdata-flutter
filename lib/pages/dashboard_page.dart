@@ -41,6 +41,8 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void dispose() {
     _freeGamesScrollController.dispose();
+    _platformPickerOverlay?.remove();
+    _platformPickerOverlay = null;
     super.dispose();
   }
 
@@ -302,7 +304,8 @@ class _DashboardPageState extends State<DashboardPage> {
                   if (notification is ScrollUpdateNotification) {
                     final page = (_freeGamesScrollController.offset /
                             (cardWidth * 2 + 16))
-                        .round();
+                        .round()
+                        .clamp(0, totalPages - 1);
                     if (page != _currentFreeGamePage) {
                       setState(() => _currentFreeGamePage = page);
                     }
@@ -382,13 +385,16 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildPageIndicators(int totalPages) {
+    final clampedPage = _currentFreeGamePage.clamp(0, totalPages - 1);
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(totalPages, (index) {
-        final isActive = index == _currentFreeGamePage;
+        final isActive = index == clampedPage;
         return GestureDetector(
           onTap: () => _scrollToPage(index),
-          child: Container(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
             margin: const EdgeInsets.symmetric(horizontal: 4),
             width: isActive ? 24 : 8,
             height: 8,
@@ -405,9 +411,9 @@ class _DashboardPageState extends State<DashboardPage> {
   void _scrollToPage(int page) {
     if (!_freeGamesScrollController.hasClients) return;
 
-    // Calculate width based on current viewport
+    // Calculate width based on current viewport (must match LayoutBuilder calculation)
     final viewportWidth = _freeGamesScrollController.position.viewportDimension;
-    final cardWidth = (viewportWidth - 16) / 2;
+    final cardWidth = ((viewportWidth - 16) / 2).clamp(200.0, 450.0);
     final offset = page * (cardWidth * 2 + 16);
 
     _freeGamesScrollController.animateTo(
@@ -462,7 +468,7 @@ class _DashboardPageState extends State<DashboardPage> {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-        onTap: () => _openInStore(game.offerId),
+        onTapUp: (details) => _handleGameCardTap(game, details.globalPosition),
         child: Container(
           decoration: BoxDecoration(
             color: AppColors.surface,
@@ -908,9 +914,196 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  void _handleGameCardTap(CalendarEvent game, Offset position) {
+    final platformOffers = game.metadata?['platformOffers'] as List<dynamic>?;
+
+    if (platformOffers != null && platformOffers.length > 1) {
+      _showPlatformPicker(position, platformOffers);
+    } else {
+      _openInStore(game.offerId);
+    }
+  }
+
+  OverlayEntry? _platformPickerOverlay;
+
+  void _dismissPlatformPicker() {
+    _platformPickerOverlay?.remove();
+    _platformPickerOverlay = null;
+  }
+
+  void _showPlatformPicker(Offset position, List<dynamic> platformOffers) {
+    _dismissPlatformPicker();
+
+    final overlay = Overlay.of(context);
+    final screenSize = MediaQuery.of(context).size;
+
+    // Adjust position to keep popup on screen
+    const popupWidth = 180.0;
+    const itemHeight = 42.0;
+    final popupHeight = platformOffers.length * itemHeight + 16;
+
+    double left = position.dx - popupWidth / 2;
+    double top = position.dy + 8;
+
+    // Keep within screen bounds
+    if (left < 8) left = 8;
+    if (left + popupWidth > screenSize.width - 8) {
+      left = screenSize.width - popupWidth - 8;
+    }
+    if (top + popupHeight > screenSize.height - 8) {
+      top = position.dy - popupHeight - 8;
+    }
+
+    _platformPickerOverlay = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          // Dismiss on tap outside
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _dismissPlatformPicker,
+              behavior: HitTestBehavior.opaque,
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+          // Popup
+          Positioned(
+            left: left,
+            top: top,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
+              builder: (context, value, child) => Transform.scale(
+                scale: 0.95 + (0.05 * value),
+                alignment: Alignment.topCenter,
+                child: Opacity(opacity: value, child: child),
+              ),
+              child: Container(
+                width: popupWidth,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E1E1E),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.4),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+                        child: Text(
+                          'Open on',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textMuted,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                      ...platformOffers.map((offer) {
+                        final platform = offer['platform'] as String? ?? 'epic';
+                        final offerId = offer['offerId'] as String?;
+                        return _buildPlatformOption(platform, offerId);
+                      }),
+                      const SizedBox(height: 6),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    overlay.insert(_platformPickerOverlay!);
+  }
+
+  Widget _buildPlatformOption(String platform, String? offerId) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          _dismissPlatformPicker();
+          _openInStore(offerId);
+        },
+        hoverColor: AppColors.surfaceLight,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              _getPlatformIcon(platform),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  _getPlatformLabel(platform),
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              const Icon(
+                Icons.arrow_outward_rounded,
+                size: 14,
+                color: AppColors.textMuted,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _getPlatformIcon(String platform) {
+    IconData icon;
+    Color color;
+
+    switch (platform.toLowerCase()) {
+      case 'android':
+        icon = Icons.android_rounded;
+        color = const Color(0xFF3DDC84);
+      case 'ios':
+        icon = Icons.apple_rounded;
+        color = AppColors.textSecondary;
+      case 'epic':
+        icon = Icons.games_rounded;
+        color = AppColors.textSecondary;
+      default:
+        icon = Icons.devices_rounded;
+        color = AppColors.textMuted;
+    }
+
+    return Icon(icon, size: 18, color: color);
+  }
+
+  String _getPlatformLabel(String platform) {
+    switch (platform.toLowerCase()) {
+      case 'android':
+        return 'Android';
+      case 'ios':
+        return 'iOS';
+      case 'epic':
+        return 'Epic Games Store';
+      default:
+        return platform;
+    }
+  }
+
   Future<void> _openInStore(String? offerId) async {
     if (offerId == null) return;
-    final url = Uri.parse('https://egdata.app/offers/$offerId');
+    final url = Uri.parse('https://egdata.app/offers/$offerId?utm_source=egdata-client');
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     }

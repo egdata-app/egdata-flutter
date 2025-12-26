@@ -139,16 +139,23 @@ class CalendarService {
     // Use first game as the primary source
     final game = games.first;
 
-    // Collect all platforms
+    // Collect all platforms and their offer IDs
     final platforms = <String>[];
+    final platformOffers = <Map<String, String>>[];
     for (final g in games) {
       final platform = g['giveaway']?['platform'] as String?;
-      if (platform != null && !platforms.contains(platform)) {
+      final offerId = g['id'] as String?;
+      if (platform != null && !platforms.contains(platform) && offerId != null) {
         platforms.add(platform);
+        platformOffers.add({'platform': platform, 'offerId': offerId});
+      } else if (platform == null && offerId != null) {
+        // Desktop/default platform
+        platformOffers.add({'platform': 'epic', 'offerId': offerId});
       }
     }
     // Sort platforms for consistent display
     platforms.sort();
+    platformOffers.sort((a, b) => (a['platform'] ?? '').compareTo(b['platform'] ?? ''));
 
     String? thumbnailUrl;
     if (game['keyImages'] != null) {
@@ -188,6 +195,7 @@ class CalendarService {
       startDate: startDate,
       endDate: endDate,
       platforms: platforms,
+      metadata: platformOffers.length > 1 ? {'platformOffers': platformOffers} : null,
     );
   }
 
