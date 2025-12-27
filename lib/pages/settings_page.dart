@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../main.dart';
 import '../models/settings.dart';
@@ -73,19 +74,22 @@ class _SettingsPageState extends State<SettingsPage> {
                   _buildSection(
                     title: 'STARTUP',
                     children: [
-                      _buildSettingTile(
-                        title: 'Launch at Startup',
-                        subtitle: 'Start EGData Client when you log in',
-                        trailing: Switch(
-                          value: _settings.launchAtStartup,
-                          onChanged: (value) {
-                            _updateSettings(_settings.copyWith(launchAtStartup: value));
-                          },
-                          activeTrackColor: AppColors.primary,
-                          activeThumbColor: Colors.white,
+                      // Launch at startup only available on Windows
+                      // macOS requires LaunchAtLogin native setup
+                      if (Platform.isWindows)
+                        _buildSettingTile(
+                          title: 'Launch at Startup',
+                          subtitle: 'Start EGData Client when you log in',
+                          trailing: Switch(
+                            value: _settings.launchAtStartup,
+                            onChanged: (value) {
+                              _updateSettings(_settings.copyWith(launchAtStartup: value));
+                            },
+                            activeTrackColor: AppColors.primary,
+                            activeThumbColor: Colors.white,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
+                      if (Platform.isWindows) const SizedBox(height: 2),
                       _buildSettingTile(
                         title: 'Minimize to Tray',
                         subtitle: 'Keep running in system tray when window is closed',

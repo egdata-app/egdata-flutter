@@ -131,12 +131,16 @@ class _AppShellState extends State<AppShell> with WindowListener {
       _trayService.onShowWindow = _showWindow;
       _trayService.onQuit = _quitApp;
 
-      final isEnabled = await launchAtStartup.isEnabled();
-      if (isEnabled != _settings.launchAtStartup) {
-        if (_settings.launchAtStartup) {
-          await launchAtStartup.enable();
-        } else {
-          await launchAtStartup.disable();
+      // launch_at_startup requires native setup on macOS (LaunchAtLogin Swift package)
+      // Only use on Windows until macOS native code is configured
+      if (Platform.isWindows) {
+        final isEnabled = await launchAtStartup.isEnabled();
+        if (isEnabled != _settings.launchAtStartup) {
+          if (_settings.launchAtStartup) {
+            await launchAtStartup.enable();
+          } else {
+            await launchAtStartup.disable();
+          }
         }
       }
     }
@@ -289,7 +293,8 @@ class _AppShellState extends State<AppShell> with WindowListener {
     _setupAutoSync();
     _notificationService.updateSettings(newSettings);
 
-    if (Platform.isWindows || Platform.isMacOS) {
+    // launch_at_startup only works on Windows until macOS native code is configured
+    if (Platform.isWindows) {
       if (oldSettings.launchAtStartup != newSettings.launchAtStartup) {
         if (newSettings.launchAtStartup) {
           await launchAtStartup.enable();
