@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../main.dart';
 import '../models/settings.dart';
@@ -97,17 +98,19 @@ class _SettingsPageState extends State<SettingsPage> {
                     icon: Icons.power_settings_new_rounded,
                     color: AppColors.success,
                     children: [
-                      _buildSettingTile(
-                        title: 'Launch at Startup',
-                        subtitle: 'Start EGData Client when you log in',
-                        trailing: Switch(
-                          value: _settings.launchAtStartup,
-                          onChanged: (value) {
-                            _updateSettings(_settings.copyWith(launchAtStartup: value));
-                          },
+                      if (Platform.isWindows) ...[
+                        _buildSettingTile(
+                          title: 'Launch at Startup',
+                          subtitle: 'Start EGData Client when you log in',
+                          trailing: Switch(
+                            value: _settings.launchAtStartup,
+                            onChanged: (value) {
+                              _updateSettings(_settings.copyWith(launchAtStartup: value));
+                            },
+                          ),
                         ),
-                      ),
-                      _buildDivider(),
+                        _buildDivider(),
+                      ],
                       _buildSettingTile(
                         title: 'Minimize to Tray',
                         subtitle: 'Keep running in system tray when window is closed',

@@ -13,11 +13,28 @@ class ManifestScanner {
     if (Platform.isWindows) {
       return r'C:\ProgramData\Epic\EpicGamesLauncher\Data\Manifests';
     } else if (Platform.isMacOS) {
-      final home = Platform.environment['HOME'] ?? '';
+      final home = _getMacOSHomeDirectory();
       return p.join(home, 'Library', 'Application Support', 'Epic',
           'EpicGamesLauncher', 'Data', 'Manifests');
     }
     throw UnsupportedError('Platform not supported');
+  }
+
+  String _getMacOSHomeDirectory() {
+    // Try HOME environment variable first
+    final home = Platform.environment['HOME'];
+    if (home != null && home.isNotEmpty && home.startsWith('/')) {
+      return home;
+    }
+
+    // Fallback: use /Users/<username> pattern
+    final user = Platform.environment['USER'] ?? Platform.environment['LOGNAME'];
+    if (user != null && user.isNotEmpty) {
+      return '/Users/$user';
+    }
+
+    // Last resort fallback
+    throw UnsupportedError('Could not determine home directory on macOS');
   }
 
   Future<List<GameInfo>> scanGames() async {
