@@ -122,6 +122,17 @@ class PlaytimeService {
     final games = _getInstalledGames();
     if (games.isEmpty) return null;
 
+    // On Windows, use install directory detection (most reliable)
+    if (Platform.isWindows) {
+      for (final game in games) {
+        if (await _hasProcessInInstallDir(game)) {
+          return game;
+        }
+      }
+      return null;
+    }
+
+    // On macOS, fall back to process name matching
     for (final game in games) {
       final processNames = await _getProcessNamesForGame(game);
       for (final processName in processNames) {
@@ -132,6 +143,36 @@ class PlaytimeService {
     }
 
     return null;
+  }
+
+  /// Check if any process is running from the game's install directory (Windows)
+  Future<bool> _hasProcessInInstallDir(GameInfo game) async {
+    try {
+      // Normalize path for wmic query (use backslashes, escape for LIKE)
+      final normalizedPath = game.installLocation
+          .replaceAll('/', '\\')
+          .replaceAll('\\', '\\\\');
+
+      final result = await Process.run('wmic', [
+        'process',
+        'where',
+        "ExecutablePath like '%$normalizedPath%'",
+        'get',
+        'Name',
+        '/format:csv',
+      ]);
+
+      // CSV output has header line, so more than 1 non-empty line means process found
+      final lines = result.stdout
+          .toString()
+          .split('\n')
+          .where((line) => line.trim().isNotEmpty)
+          .toList();
+
+      return lines.length > 1;
+    } catch (e) {
+      return false;
+    }
   }
 
   /// Get process names for a game (with caching)

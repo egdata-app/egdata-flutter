@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../database/collections/playtime_session_entry.dart';
 import '../database/database_service.dart';
 import '../main.dart';
 import '../models/game_info.dart';
@@ -48,8 +47,9 @@ class _DashboardPageState extends State<DashboardPage> {
       }
     });
 
-    _activeGameSubscription =
-        widget.playtimeService?.activeGameStream.listen((session) {
+    _activeGameSubscription = widget.playtimeService?.activeGameStream.listen((
+      session,
+    ) {
       if (mounted) {
         final wasActive = _activeSession != null;
         final isActive = session != null;
@@ -106,10 +106,12 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _updateGameInfo() async {
     if (widget.playtimeService == null || _playtimeStats == null) return;
 
-    final names = await widget.playtimeService!
-        .getGameNamesForStats(_playtimeStats!.playtimeByGame);
-    final thumbnails = await widget.playtimeService!
-        .getGameThumbnailsForStats(_playtimeStats!.playtimeByGame);
+    final names = await widget.playtimeService!.getGameNamesForStats(
+      _playtimeStats!.playtimeByGame,
+    );
+    final thumbnails = await widget.playtimeService!.getGameThumbnailsForStats(
+      _playtimeStats!.playtimeByGame,
+    );
 
     if (mounted) {
       setState(() {
@@ -196,10 +198,7 @@ class _DashboardPageState extends State<DashboardPage> {
               const SizedBox(height: 4),
               Text(
                 'Your gaming overview',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textSecondary,
-                ),
+                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
               ),
             ],
           ),
@@ -217,8 +216,8 @@ class _DashboardPageState extends State<DashboardPage> {
     final timeStr = hours > 0
         ? '${hours}h ${minutes}m ${seconds}s'
         : minutes > 0
-            ? '${minutes}m ${seconds}s'
-            : '${seconds}s';
+        ? '${minutes}m ${seconds}s'
+        : '${seconds}s';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -324,7 +323,9 @@ class _DashboardPageState extends State<DashboardPage> {
             decoration: BoxDecoration(
               color: AppColors.primary.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.3),
+              ),
             ),
             child: Text(
               timeStr,
@@ -445,7 +446,11 @@ class _DashboardPageState extends State<DashboardPage> {
               color: AppColors.warning.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(AppColors.radiusSmall),
             ),
-            child: const Icon(Icons.star_rounded, size: 20, color: AppColors.warning),
+            child: const Icon(
+              Icons.star_rounded,
+              size: 20,
+              color: AppColors.warning,
+            ),
           ),
           const SizedBox(height: 14),
           if (mostPlayed != null) ...[
@@ -577,18 +582,12 @@ class _DashboardPageState extends State<DashboardPage> {
               const SizedBox(height: 16),
               const Text(
                 'No games played this week',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textMuted,
-                ),
+                style: TextStyle(fontSize: 14, color: AppColors.textMuted),
               ),
               const SizedBox(height: 4),
               const Text(
                 'Launch a game to start tracking',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textMuted,
-                ),
+                style: TextStyle(fontSize: 12, color: AppColors.textMuted),
               ),
             ],
           ),
@@ -612,7 +611,8 @@ class _DashboardPageState extends State<DashboardPage> {
           final playtime = entry.value;
           final gameName = _gameNames[gameId] ?? 'Unknown Game';
           final thumbnail = _gameThumbnails[gameId];
-          final isLast = sortedGames.indexOf(entry) ==
+          final isLast =
+              sortedGames.indexOf(entry) ==
               (sortedGames.length > 5 ? 4 : sortedGames.length - 1);
 
           return _buildRecentGameItem(

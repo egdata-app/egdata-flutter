@@ -59,6 +59,8 @@ dart format .
   - macOS: `~/Library/Application Support/Epic/EpicGamesLauncher/Data/Manifests`
 - **upload_service.dart** - Uploads manifests to EGData API
 - **playtime_service.dart** - Tracks game playtime via process detection, stores sessions in database
+  - Windows: Uses `wmic` to detect processes running from game's `InstallLocation` directory
+  - macOS: Falls back to process name matching via `pgrep`
 - **follow_service.dart** - Manages followed games (persisted in Isar database)
 - **sync_service.dart** - Background sync for free games, followed game prices, and changelogs
 - **notification_service.dart** - Desktop notifications (free games, sales, game updates)
