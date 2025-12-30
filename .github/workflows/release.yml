@@ -72,13 +72,14 @@ jobs:
         shell: pwsh
         run: |
           $version = "${{ steps.version.outputs.version }}"
-          Move-Item "build\windows\x64\installer\egdata.app Setup.exe" "build\windows\x64\installer\egdata-app-$version-setup.exe"
+          $installer = Get-ChildItem "build\windows\x64\installer\Release\*.exe" | Select-Object -First 1
+          Move-Item $installer.FullName "build\windows\x64\installer\Release\egdata-app-$version-setup.exe"
 
       - name: Upload Windows installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-installer
-          path: build/windows/x64/installer/egdata-app-*-setup.exe
+          path: build/windows/x64/installer/Release/egdata-app-*-setup.exe
           retention-days: 7
 
   create-release:
