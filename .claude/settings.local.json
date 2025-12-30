@@ -8,7 +8,9 @@
       "WebSearch",
       "WebFetch(domain:cdn.egdata.app)",
       "Bash(dir:*)",
-      "WebFetch(domain:api.egdata.app)"
+      "WebFetch(domain:api.egdata.app)",
+      "WebFetch(domain:egdata.app)",
+      "WebFetch(domain:www.unrealengine.com)"
     ]
   }
 }
