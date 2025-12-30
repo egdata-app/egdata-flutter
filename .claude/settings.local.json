@@ -10,7 +10,9 @@
       "Bash(dir:*)",
       "WebFetch(domain:api.egdata.app)",
       "WebFetch(domain:egdata.app)",
-      "WebFetch(domain:www.unrealengine.com)"
+      "WebFetch(domain:www.unrealengine.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:pub.dev)"
     ]
   }
 }
