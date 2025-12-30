@@ -74,3 +74,15 @@ inno_bundle:
   name: egdata.app
   version: 1.0.0
   publisher: Ignacio Aldama Vicente
+  languages:
+    - english
+    - french
+    - german
+    - spanish
+    - portuguese
+    - italian
+    - dutch
+    - polish
+    - russian
+    - japanese
+    - turkish
