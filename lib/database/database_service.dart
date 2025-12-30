@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:isar/isar.dart';
@@ -325,5 +326,24 @@ class DatabaseService {
     await _isar.close();
     _initialized = false;
     _instance = null;
+  }
+
+  // Manifest Upload Count operations
+  static const String _uploadCountKey = 'manifest_upload_count';
+  final _uploadCountController = StreamController<int>.broadcast();
+
+  Stream<int> get uploadCountStream => _uploadCountController.stream;
+
+  Future<int> getManifestUploadCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_uploadCountKey) ?? 0;
+  }
+
+  Future<void> incrementManifestUploadCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    final currentCount = prefs.getInt(_uploadCountKey) ?? 0;
+    final newCount = currentCount + 1;
+    await prefs.setInt(_uploadCountKey, newCount);
+    _uploadCountController.add(newCount);
   }
 }

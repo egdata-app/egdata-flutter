@@ -1,23 +1,23 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../database/collections/playtime_session_entry.dart';
+import '../database/database_service.dart';
 import '../main.dart';
 import '../models/game_info.dart';
 import '../models/playtime_stats.dart';
-import '../models/upload_status.dart';
 import '../services/playtime_service.dart';
 import '../widgets/weekly_activity_chart.dart';
 
 class DashboardPage extends StatefulWidget {
   final PlaytimeService? playtimeService;
   final List<GameInfo> installedGames;
-  final Map<String, UploadStatus> uploadStatuses;
+  final DatabaseService? db;
 
   const DashboardPage({
     super.key,
     this.playtimeService,
     this.installedGames = const [],
-    this.uploadStatuses = const {},
+    this.db,
   });
 
   @override
@@ -31,12 +31,15 @@ class _DashboardPageState extends State<DashboardPage> {
   PlaytimeSessionEntry? _activeSession;
   StreamSubscription<PlaytimeStats>? _statsSubscription;
   StreamSubscription<PlaytimeSessionEntry?>? _activeGameSubscription;
+  StreamSubscription<int>? _uploadCountSubscription;
   Timer? _durationTimer;
+  int _uploadCount = 0;
 
   @override
   void initState() {
     super.initState();
     _loadPlaytimeStats();
+    _loadUploadCount();
 
     _statsSubscription = widget.playtimeService?.statsStream.listen((stats) {
       if (mounted) {
@@ -60,12 +63,19 @@ class _DashboardPageState extends State<DashboardPage> {
         }
       }
     });
+
+    _uploadCountSubscription = widget.db?.uploadCountStream.listen((count) {
+      if (mounted) {
+        setState(() => _uploadCount = count);
+      }
+    });
   }
 
   @override
   void dispose() {
     _statsSubscription?.cancel();
     _activeGameSubscription?.cancel();
+    _uploadCountSubscription?.cancel();
     _stopDurationTimer();
     super.dispose();
   }
@@ -109,11 +119,12 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  int get _uploadedCount {
-    return widget.uploadStatuses.values
-        .where((s) => s.status == UploadStatusType.uploaded ||
-                      s.status == UploadStatusType.alreadyUploaded)
-        .length;
+  Future<void> _loadUploadCount() async {
+    if (widget.db == null) return;
+    final count = await widget.db!.getManifestUploadCount();
+    if (mounted) {
+      setState(() => _uploadCount = count);
+    }
   }
 
   @override
@@ -355,7 +366,7 @@ class _DashboardPageState extends State<DashboardPage> {
           child: _buildStatCard(
             icon: Icons.cloud_done_rounded,
             label: 'Manifests Uploaded',
-            value: '$_uploadedCount',
+            value: '$_uploadCount',
             color: AppColors.success,
           ),
         ),

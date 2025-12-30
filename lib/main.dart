@@ -3,7 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:windows_single_instance/windows_single_instance.dart';
+import 'package:updat/updat_window_manager.dart';
+import 'package:updat/theme/chips/flat.dart';
 import 'app_shell.dart';
+import 'services/update_service.dart';
+
+// App version - keep in sync with pubspec.yaml
+const String appVersion = '1.0.0';
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -99,11 +105,12 @@ class AppColors {
   );
 
   // Glass decoration with custom radius
-  static BoxDecoration glassDecorationWithRadius(double radius) => BoxDecoration(
-    color: surfaceGlass,
-    borderRadius: BorderRadius.circular(radius),
-    border: Border.all(color: borderGlass),
-  );
+  static BoxDecoration glassDecorationWithRadius(double radius) =>
+      BoxDecoration(
+        color: surfaceGlass,
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: borderGlass),
+      );
 
   // Radial gradient background decoration
   static BoxDecoration get radialGradientBackground => const BoxDecoration(
@@ -124,10 +131,7 @@ class AppColors {
     gradient: RadialGradient(
       center: const Alignment(0.8, 0.6),
       radius: 1.2,
-      colors: [
-        primary.withValues(alpha: 0.03),
-        Colors.transparent,
-      ],
+      colors: [primary.withValues(alpha: 0.03), Colors.transparent],
       stops: const [0.0, 0.6],
     ),
   );
@@ -139,9 +143,7 @@ class EGDataApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const interTextStyle = TextStyle(fontFamily: 'Inter');
-    final baseTextTheme = ThemeData.dark().textTheme.apply(
-      fontFamily: 'Inter',
-    );
+    final baseTextTheme = ThemeData.dark().textTheme.apply(fontFamily: 'Inter');
 
     return MaterialApp(
       title: 'EGData Client',
@@ -196,9 +198,15 @@ class EGDataApp extends StatelessWidget {
             color: AppColors.textPrimary,
             fontWeight: FontWeight.w600,
           ),
-          bodyLarge: baseTextTheme.bodyLarge?.copyWith(color: AppColors.textPrimary),
-          bodyMedium: baseTextTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
-          bodySmall: baseTextTheme.bodySmall?.copyWith(color: AppColors.textMuted),
+          bodyLarge: baseTextTheme.bodyLarge?.copyWith(
+            color: AppColors.textPrimary,
+          ),
+          bodyMedium: baseTextTheme.bodyMedium?.copyWith(
+            color: AppColors.textSecondary,
+          ),
+          bodySmall: baseTextTheme.bodySmall?.copyWith(
+            color: AppColors.textMuted,
+          ),
         ),
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
@@ -256,7 +264,10 @@ class EGDataApp extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppColors.radiusSmall),
             borderSide: const BorderSide(color: AppColors.primary, width: 2),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
           hintStyle: const TextStyle(color: AppColors.textMuted),
         ),
         chipTheme: ChipThemeData(
@@ -315,7 +326,21 @@ class EGDataApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const AppShell(),
+      home: UpdatWindowManager(
+        appName: 'EGData Client',
+        currentVersion: appVersion,
+        getLatestVersion: () async {
+          return await UpdateService.getLatestVersion() ?? appVersion;
+        },
+        getBinaryUrl: (version) async {
+          return UpdateService.getBinaryUrl(version ?? appVersion);
+        },
+        getChangelog: (_, version) async {
+          return await UpdateService.getChangelog(version) ?? '';
+        },
+        updateChipBuilder: flatChip,
+        child: const AppShell(),
+      ),
     );
   }
 }

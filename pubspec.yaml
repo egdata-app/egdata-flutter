@@ -25,6 +25,7 @@ dependencies:
   url_launcher: ^6.3.2
   isar: ^3.1.0+1
   isar_flutter_libs: ^3.1.0+1
+  updat: ^1.4.0
 
 dev_dependencies:
   flutter_test:
@@ -34,6 +35,7 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.4
   isar_generator: ^3.1.0+1
   build_runner: ^2.4.0
+  inno_bundle: ^0.11.2
 
 flutter_launcher_icons:
   windows:
@@ -66,3 +68,9 @@ msix_config:
   store: true
   logo_path: assets/logo.png
   icons_background_color: "#121212"
+
+inno_bundle:
+  id: ab497711-5d34-47ed-8d75-b0b70e1c7cd6
+  name: egdata.app
+  version: 1.0.0
+  publisher: Ignacio Aldama Vicente

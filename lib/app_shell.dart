@@ -256,6 +256,11 @@ class _AppShellState extends State<AppShell> with WindowListener {
       _uploadStatuses[game.installationGuid] = status;
     });
     _addLog('${game.displayName}: ${status.message}');
+
+    // Only increment count for newly uploaded manifests (not already existing)
+    if (status.status == UploadStatusType.uploaded) {
+      await _db?.incrementManifestUploadCount();
+    }
   }
 
   Future<void> _uploadAll() async {
@@ -266,12 +271,17 @@ class _AppShellState extends State<AppShell> with WindowListener {
     _addLog('Starting upload of all manifests...');
     await _uploadService.uploadAllManifests(
       _games,
-      onProgress: (gameName, status) {
+      onProgress: (gameName, status) async {
         setState(() {
           final game = _games.firstWhere((g) => g.displayName == gameName);
           _uploadStatuses[game.installationGuid] = status;
         });
         _addLog('$gameName: ${status.message}');
+
+        // Only increment count for newly uploaded manifests (not already existing)
+        if (status.status == UploadStatusType.uploaded) {
+          await _db?.incrementManifestUploadCount();
+        }
       },
     );
     setState(() {
@@ -365,7 +375,7 @@ class _AppShellState extends State<AppShell> with WindowListener {
         return DashboardPage(
           playtimeService: _playtimeService,
           installedGames: _games,
-          uploadStatuses: _uploadStatuses,
+          db: _db,
         );
       case AppPage.library:
         return LibraryPage(
