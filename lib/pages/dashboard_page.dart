@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import '../database/collections/playtime_session_entry.dart';
 import '../main.dart';
 import '../models/game_info.dart';
 import '../models/playtime_stats.dart';
@@ -26,18 +28,60 @@ class _DashboardPageState extends State<DashboardPage> {
   PlaytimeStats? _playtimeStats;
   Map<String, String> _gameNames = {};
   Map<String, String?> _gameThumbnails = {};
+  PlaytimeSessionEntry? _activeSession;
+  StreamSubscription<PlaytimeStats>? _statsSubscription;
+  StreamSubscription<PlaytimeSessionEntry?>? _activeGameSubscription;
+  Timer? _durationTimer;
 
   @override
   void initState() {
     super.initState();
     _loadPlaytimeStats();
 
-    widget.playtimeService?.statsStream.listen((stats) {
+    _statsSubscription = widget.playtimeService?.statsStream.listen((stats) {
       if (mounted) {
         setState(() => _playtimeStats = stats);
         _updateGameInfo();
       }
     });
+
+    _activeGameSubscription =
+        widget.playtimeService?.activeGameStream.listen((session) {
+      if (mounted) {
+        final wasActive = _activeSession != null;
+        final isActive = session != null;
+        setState(() => _activeSession = session);
+
+        // Start/stop the duration timer based on active state
+        if (isActive && !wasActive) {
+          _startDurationTimer();
+        } else if (!isActive && wasActive) {
+          _stopDurationTimer();
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _statsSubscription?.cancel();
+    _activeGameSubscription?.cancel();
+    _stopDurationTimer();
+    super.dispose();
+  }
+
+  void _startDurationTimer() {
+    _durationTimer?.cancel();
+    _durationTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && _activeSession != null) {
+        setState(() {}); // Trigger rebuild to update duration
+      }
+    });
+  }
+
+  void _stopDurationTimer() {
+    _durationTimer?.cancel();
+    _durationTimer = null;
   }
 
   Future<void> _loadPlaytimeStats() async {
@@ -85,6 +129,10 @@ class _DashboardPageState extends State<DashboardPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (_activeSession != null) ...[
+                    _buildNowPlayingCard(),
+                    const SizedBox(height: 20),
+                  ],
                   _buildStatsRow(),
                   const SizedBox(height: 32),
                   if (_playtimeStats != null &&
@@ -143,6 +191,139 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNowPlayingCard() {
+    final session = _activeSession!;
+    final duration = session.duration;
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes % 60;
+    final seconds = duration.inSeconds % 60;
+    final timeStr = hours > 0
+        ? '${hours}h ${minutes}m ${seconds}s'
+        : minutes > 0
+            ? '${minutes}m ${seconds}s'
+            : '${seconds}s';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.primary.withValues(alpha: 0.15),
+            AppColors.primary.withValues(alpha: 0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(AppColors.radiusMedium),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          // Game thumbnail
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: AppColors.surfaceLight,
+              borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.3),
+                  blurRadius: 12,
+                  spreadRadius: 0,
+                ),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: session.thumbnailUrl != null
+                ? Image.network(
+                    session.thumbnailUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const Icon(
+                      Icons.games_rounded,
+                      size: 28,
+                      color: AppColors.textMuted,
+                    ),
+                  )
+                : const Icon(
+                    Icons.games_rounded,
+                    size: 28,
+                    color: AppColors.textMuted,
+                  ),
+          ),
+          const SizedBox(width: 16),
+          // Game info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    // Pulsing indicator
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: AppColors.success,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.success.withValues(alpha: 0.5),
+                            blurRadius: 6,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'NOW PLAYING',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.success,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  session.gameName,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          // Duration
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+            ),
+            child: Text(
+              timeStr,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppColors.primary,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+            ),
           ),
         ],
       ),

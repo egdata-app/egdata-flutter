@@ -21,9 +21,15 @@ class PlaytimeService {
       StreamController<PlaytimeStats>.broadcast();
   Stream<PlaytimeStats> get statsStream => _statsController.stream;
 
+  // Stream for currently running game
+  final StreamController<PlaytimeSessionEntry?> _activeGameController =
+      StreamController<PlaytimeSessionEntry?>.broadcast();
+  Stream<PlaytimeSessionEntry?> get activeGameStream =>
+      _activeGameController.stream;
+
   // Configuration
   static const Duration _pollInterval = Duration(seconds: 10);
-  static const Duration _sessionGracePeriod = Duration(minutes: 2);
+  static const Duration _sessionGracePeriod = Duration(seconds: 30);
 
   PlaytimeService({
     required DatabaseService db,
@@ -102,6 +108,10 @@ class PlaytimeService {
       // Emit updated stats
       final stats = await getWeeklyStats();
       _statsController.add(stats);
+
+      // Emit active game state
+      final activeSession = await _db.getActiveSession();
+      _activeGameController.add(activeSession);
     } catch (e) {
       // Silently handle errors to keep polling running
     }
@@ -320,5 +330,6 @@ class PlaytimeService {
   void dispose() {
     stopTracking();
     _statsController.close();
+    _activeGameController.close();
   }
 }
