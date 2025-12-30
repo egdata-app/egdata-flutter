@@ -4,7 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-EGData Client - A Flutter application that scans Epic Games Store installations and uploads game manifest data to the EGData project for preservation and research purposes. Also provides discovery features for free games, sales, and upcoming releases. Dark mode only.
+EGData Client - A Flutter desktop application focused on Epic Games library management and playtime tracking. Core features:
+- Scans Epic Games installations and uploads manifest data to EGData for preservation
+- Tracks playtime for installed games
+- Background sync for free game notifications and followed game updates
 
 **Supported Platforms:** Windows, macOS (manifest scanning only works on these platforms)
 
@@ -35,65 +38,68 @@ dart format .
 ## Code Architecture
 
 ### Entry Point
-- **lib/main.dart** - App entry with dark theme configuration, `AppColors` constants
-- **lib/app_shell.dart** - Main scaffold with sidebar navigation, manages shared state
+- **lib/main.dart** - App entry with dark theme configuration, `AppColors` constants (Unreal Engine-inspired dark theme with cyan accents)
+- **lib/app_shell.dart** - Main scaffold with glassmorphic sidebar, manages shared state and services
 
 ### Navigation (Sidebar)
-- **Dashboard** - Discovery-focused: free games carousel, sales, upcoming releases
-- **Discover** - Search and browse games
-- **Library** - Local installed games, manifest upload controls
-- **Calendar** - Event calendar view
-- **Settings** - App configuration
+- **Dashboard** - Personal stats: weekly playtime, games installed, manifests uploaded, most played game, weekly activity chart, recently played list
+- **Library** - Local installed games, manifest upload controls, follow games for notifications
+- **Settings** - App configuration (auto-sync, notifications, minimize to tray, launch at startup)
 
 ### Data Models (`lib/models/`)
 - **game_info.dart** - Local game data with metadata, install info, manifest hash
-- **calendar_event.dart** - Events (free games, releases, sales) with `platforms` field for grouping
-- **followed_game.dart** - Games the user is following
-- **search_result.dart** - Search results from API
+- **followed_game.dart** - Games the user is following (for sale/update notifications)
+- **playtime_stats.dart** - Weekly playtime statistics and most played game data
 - **settings.dart** - App settings (auto-sync, notifications, minimize to tray, etc.)
+- **upload_status.dart** - Manifest upload status tracking
 
 ### Services (`lib/services/`)
 - **manifest_scanner.dart** - Scans Epic Games manifest directory for .item files
   - Windows: `C:\ProgramData\Epic\EpicGamesLauncher\Data\Manifests`
   - macOS: `~/Library/Application Support/Epic/EpicGamesLauncher/Data/Manifests`
-- **upload_service.dart** - Uploads manifests to API
-- **calendar_service.dart** - Fetches free games, sales, releases from EGData API
-- **follow_service.dart** - Manages followed games (persisted locally)
-- **search_service.dart** - Game search functionality
-- **notification_service.dart** - Desktop notifications for free games
-- **tray_service.dart** - System tray integration
+- **upload_service.dart** - Uploads manifests to EGData API
+- **playtime_service.dart** - Tracks game playtime via process detection, stores sessions in database
+- **follow_service.dart** - Manages followed games (persisted in Isar database)
+- **sync_service.dart** - Background sync for free games, followed game prices, and changelogs
+- **notification_service.dart** - Desktop notifications (free games, sales, game updates)
+- **tray_service.dart** - System tray integration with minimize-to-tray support
+
+### Database (`lib/database/`)
+- **database_service.dart** - Isar database for persistent storage (followed games, free games, changelogs, playtime sessions, process cache)
 
 ### Key Dependencies
 - `http` - API requests
-- `shared_preferences` - Settings persistence
+- `isar` - Local database for persistent storage
 - `url_launcher` - Open URLs in browser
 - `window_manager` - Window controls
 - `tray_manager` - System tray
 - `local_notifier` - Desktop notifications
+- `launch_at_startup` - Auto-start on login
 
 ## EGData API
 
 Base URL: `https://api.egdata.app`
 
-### Endpoints
+### Endpoints Used
 
-**GET /free-games**
-Returns a flat array of free game offers (not `{current, upcoming}`). Each game has:
-- `id`, `title`, `namespace`
-- `keyImages[]` - Use types: `OfferImageWide`, `DieselStoreFrontWide`, `DieselGameBoxTall`
-- `giveaway.startDate`, `giveaway.endDate` - Promotion period
-- `giveaway.platform` - Optional: `android`, `ios` (group by title to merge platforms)
+**GET /free-games** - Free game offers (used by sync_service for notifications)
 
-**GET /offers/upcoming?limit=N** - Upcoming game releases
+**GET /offers/{id}** - Single offer details (used to check followed game prices)
 
-**GET /offers/featured-discounts?limit=N** - Current sales
+**GET /offers/{id}/changelog** - Offer change history (used for followed game update notifications)
 
-**GET /offers/{id}** - Single offer details
-
-**GET /offers/{id}/changelog** - Offer change history
+**POST /manifests** - Upload game manifests
 
 ### Opening Games in Browser
 Use `https://egdata.app/offers/{offerId}` to link to game pages.
+
+## UI Design
+
+The app uses an Unreal Engine-inspired dark theme:
+- **Background:** Near-black (#0A0A0A) with subtle radial gradients
+- **Primary accent:** Cyan (#00D4FF)
+- **Glassmorphism:** Semi-transparent surfaces with subtle borders
+- **Cards:** Dark surfaces (#141414) with subtle borders
 
 ## Windows App Icon
 

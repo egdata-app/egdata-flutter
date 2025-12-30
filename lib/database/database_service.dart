@@ -7,10 +7,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'collections/free_game_entry.dart';
 import 'collections/followed_game_entry.dart';
 import 'collections/changelog_entry.dart';
+import 'collections/playtime_session_entry.dart';
+import 'collections/game_process_cache_entry.dart';
 
 export 'collections/free_game_entry.dart';
 export 'collections/followed_game_entry.dart';
 export 'collections/changelog_entry.dart';
+export 'collections/playtime_session_entry.dart';
+export 'collections/game_process_cache_entry.dart';
 
 class DatabaseService {
   static DatabaseService? _instance;
@@ -32,7 +36,13 @@ class DatabaseService {
 
     final dir = await getApplicationDocumentsDirectory();
     _isar = await Isar.open(
-      [FreeGameEntrySchema, FollowedGameEntrySchema, ChangelogEntrySchema],
+      [
+        FreeGameEntrySchema,
+        FollowedGameEntrySchema,
+        ChangelogEntrySchema,
+        PlaytimeSessionEntrySchema,
+        GameProcessCacheEntrySchema,
+      ],
       directory: dir.path,
       name: 'egdata',
     );
@@ -191,6 +201,124 @@ class DatabaseService {
           .timestampLessThan(threshold)
           .deleteAll();
     });
+  }
+
+  // Playtime Session operations
+  Future<List<PlaytimeSessionEntry>> getAllPlaytimeSessions() async {
+    return _isar.playtimeSessionEntrys.where().findAll();
+  }
+
+  Future<List<PlaytimeSessionEntry>> getSessionsForGame(String gameId) async {
+    return _isar.playtimeSessionEntrys
+        .filter()
+        .gameIdEqualTo(gameId)
+        .sortByStartTimeDesc()
+        .findAll();
+  }
+
+  Future<List<PlaytimeSessionEntry>> getSessionsInRange(
+      DateTime start, DateTime end) async {
+    return _isar.playtimeSessionEntrys
+        .filter()
+        .startTimeGreaterThan(start)
+        .and()
+        .startTimeLessThan(end)
+        .sortByStartTimeDesc()
+        .findAll();
+  }
+
+  Future<PlaytimeSessionEntry?> getActiveSession() async {
+    return _isar.playtimeSessionEntrys
+        .filter()
+        .endTimeIsNull()
+        .findFirst();
+  }
+
+  Future<void> savePlaytimeSession(PlaytimeSessionEntry entry) async {
+    await _isar.writeTxn(() => _isar.playtimeSessionEntrys.put(entry));
+  }
+
+  Future<void> endSession(int sessionId, DateTime endTime) async {
+    await _isar.writeTxn(() async {
+      final session = await _isar.playtimeSessionEntrys.get(sessionId);
+      if (session != null) {
+        session.endTime = endTime;
+        session.durationSeconds = endTime.difference(session.startTime).inSeconds;
+        await _isar.playtimeSessionEntrys.put(session);
+      }
+    });
+  }
+
+  Future<int> getTotalPlaytimeSeconds(String gameId) async {
+    final sessions = await _isar.playtimeSessionEntrys
+        .filter()
+        .gameIdEqualTo(gameId)
+        .and()
+        .endTimeIsNotNull()
+        .findAll();
+    return sessions.fold<int>(0, (sum, s) => sum + s.durationSeconds);
+  }
+
+  Future<Map<String, int>> getWeeklyPlaytimeByGame() async {
+    final now = DateTime.now();
+    final weekStart = now.subtract(Duration(days: now.weekday - 1));
+    final startOfWeek = DateTime(weekStart.year, weekStart.month, weekStart.day);
+
+    final sessions = await _isar.playtimeSessionEntrys
+        .filter()
+        .startTimeGreaterThan(startOfWeek)
+        .and()
+        .endTimeIsNotNull()
+        .findAll();
+
+    final playtimeByGame = <String, int>{};
+    for (final session in sessions) {
+      playtimeByGame[session.gameId] =
+          (playtimeByGame[session.gameId] ?? 0) + session.durationSeconds;
+    }
+    return playtimeByGame;
+  }
+
+  Future<List<PlaytimeSessionEntry>> getRecentSessions({int limit = 10}) async {
+    return _isar.playtimeSessionEntrys
+        .where()
+        .sortByStartTimeDesc()
+        .limit(limit)
+        .findAll();
+  }
+
+  // Clean up old playtime sessions (older than 90 days)
+  Future<void> cleanupOldPlaytimeSessions() async {
+    final threshold = DateTime.now().subtract(const Duration(days: 90));
+    await _isar.writeTxn(() async {
+      await _isar.playtimeSessionEntrys
+          .filter()
+          .startTimeLessThan(threshold)
+          .deleteAll();
+    });
+  }
+
+  // Game Process Cache operations
+  Future<GameProcessCacheEntry?> getProcessCache(String catalogItemId) async {
+    return _isar.gameProcessCacheEntrys
+        .filter()
+        .catalogItemIdEqualTo(catalogItemId)
+        .findFirst();
+  }
+
+  Future<void> saveProcessCache(GameProcessCacheEntry entry) async {
+    // Delete existing entry for this catalogItemId first
+    await _isar.writeTxn(() async {
+      await _isar.gameProcessCacheEntrys
+          .filter()
+          .catalogItemIdEqualTo(entry.catalogItemId)
+          .deleteAll();
+      await _isar.gameProcessCacheEntrys.put(entry);
+    });
+  }
+
+  Future<void> clearProcessCache() async {
+    await _isar.writeTxn(() => _isar.gameProcessCacheEntrys.clear());
   }
 
   Future<void> close() async {

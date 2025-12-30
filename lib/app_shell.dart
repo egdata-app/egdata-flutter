@@ -8,20 +8,17 @@ import 'database/database_service.dart';
 import 'models/game_info.dart';
 import 'models/settings.dart';
 import 'models/upload_status.dart';
-import 'services/calendar_service.dart';
 import 'services/follow_service.dart';
 import 'services/manifest_scanner.dart';
 import 'services/notification_service.dart';
-import 'services/search_service.dart';
+import 'services/playtime_service.dart';
 import 'services/sync_service.dart';
 import 'services/upload_service.dart';
 import 'services/settings_service.dart';
 import 'services/tray_service.dart';
 import 'widgets/app_sidebar.dart';
 import 'pages/dashboard_page.dart';
-import 'pages/discover_page.dart';
 import 'pages/library_page.dart';
-import 'pages/calendar_page.dart';
 import 'pages/settings_page.dart';
 
 class AppShell extends StatefulWidget {
@@ -40,14 +37,13 @@ class _AppShellState extends State<AppShell> with WindowListener {
   final UploadService _uploadService = UploadService();
   final SettingsService _settingsService = SettingsService();
   final TrayService _trayService = TrayService();
-  final SearchService _searchService = SearchService();
-  final CalendarService _calendarService = CalendarService();
   final NotificationService _notificationService = NotificationService();
 
   // Database-dependent services (initialized in _init)
   DatabaseService? _db;
   FollowService? _followService;
   SyncService? _syncService;
+  PlaytimeService? _playtimeService;
 
   // Shared state
   List<GameInfo> _games = [];
@@ -71,6 +67,7 @@ class _AppShellState extends State<AppShell> with WindowListener {
   void dispose() {
     _syncTimer?.cancel();
     _followService?.dispose();
+    _playtimeService?.dispose();
     _notificationService.dispose();
     if (Platform.isWindows || Platform.isMacOS) {
       windowManager.removeListener(this);
@@ -90,6 +87,11 @@ class _AppShellState extends State<AppShell> with WindowListener {
       db: _db!,
       notification: _notificationService,
     );
+    _playtimeService = PlaytimeService(
+      db: _db!,
+      getInstalledGames: () => _games,
+    );
+    _playtimeService!.startTracking();
 
     await _loadSettings();
     await _scanGames();
@@ -114,12 +116,6 @@ class _AppShellState extends State<AppShell> with WindowListener {
 
   Future<void> _initNotifications() async {
     await _notificationService.init();
-    _notificationService.configure(
-      calendarService: _calendarService,
-      followService: _followService!,
-      settings: _settings,
-    );
-    _notificationService.updateSettings(_settings);
   }
 
   Future<void> _initTray() async {
@@ -287,7 +283,6 @@ class _AppShellState extends State<AppShell> with WindowListener {
     });
     await _settingsService.saveSettings(newSettings);
     _setupAutoSync();
-    _notificationService.updateSettings(newSettings);
 
     if (Platform.isWindows || Platform.isMacOS) {
       if (oldSettings.launchAtStartup != newSettings.launchAtStartup) {
@@ -326,22 +321,34 @@ class _AppShellState extends State<AppShell> with WindowListener {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Column(
+      body: Stack(
+        fit: StackFit.expand,
         children: [
-          Expanded(
-            child: Row(
-              children: [
-                AppSidebar(
-                  currentPage: _currentPage,
-                  onPageSelected: (page) => setState(() => _currentPage = page),
+          // Radial gradient background
+          Container(decoration: AppColors.radialGradientBackground),
+          // Accent glow overlay
+          Container(decoration: AppColors.accentGlowBackground),
+          // Main content
+          Column(
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    AppSidebar(
+                      currentPage: _currentPage,
+                      onPageSelected: (page) {
+                        setState(() {
+                          _currentPage = page;
+                        });
+                      },
+                    ),
+                    Expanded(child: _buildCurrentPage()),
+                  ],
                 ),
-                Expanded(
-                  child: _buildCurrentPage(),
-                ),
-              ],
-            ),
+              ),
+              if (_showConsole) _buildConsolePanel(),
+            ],
           ),
-          if (_showConsole) _buildConsolePanel(),
         ],
       ),
     );
@@ -351,14 +358,9 @@ class _AppShellState extends State<AppShell> with WindowListener {
     switch (_currentPage) {
       case AppPage.dashboard:
         return DashboardPage(
-          settings: _settings,
-          followService: _followService!,
-          calendarService: _calendarService,
-        );
-      case AppPage.discover:
-        return DiscoverPage(
-          followService: _followService!,
-          searchService: _searchService,
+          playtimeService: _playtimeService,
+          installedGames: _games,
+          uploadStatuses: _uploadStatuses,
         );
       case AppPage.library:
         return LibraryPage(
@@ -376,72 +378,109 @@ class _AppShellState extends State<AppShell> with WindowListener {
           showConsole: _showConsole,
           addLog: _addLog,
         );
-      case AppPage.calendar:
-        return CalendarPage(
-          calendarService: _calendarService,
-          followService: _followService!,
-        );
       case AppPage.settings:
         return SettingsPage(
           settings: _settings,
           onSettingsChanged: _onSettingsChanged,
+          onClearProcessCache: () => _db!.clearProcessCache(),
         );
     }
   }
 
   Widget _buildConsolePanel() {
     return Container(
-      height: 160,
-      decoration: const BoxDecoration(
-        color: Color(0xFF0A0A0A),
-        border: Border(top: BorderSide(color: AppColors.border)),
+      height: 180,
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        border: const Border(top: BorderSide(color: AppColors.border)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: const BoxDecoration(
+              color: AppColors.surface,
               border: Border(bottom: BorderSide(color: AppColors.border)),
             ),
             child: Row(
               children: [
-                const Icon(
-                  Icons.terminal_rounded,
-                  size: 14,
-                  color: AppColors.textMuted,
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Icon(
+                    Icons.terminal_rounded,
+                    size: 14,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'Console',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
                 const SizedBox(width: 8),
-                const Text(
-                  'CONSOLE',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1,
-                    color: AppColors.textMuted,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceLight,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${_logs.length}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textMuted,
+                    ),
                   ),
                 ),
                 const Spacer(),
                 if (_logs.isNotEmpty)
-                  InkWell(
-                    onTap: () => setState(() => _logs.clear()),
-                    child: const Text(
-                      'CLEAR',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
-                        color: AppColors.textMuted,
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () => setState(() => _logs.clear()),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppColors.borderLight),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'Clear',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                const SizedBox(width: 16),
-                InkWell(
-                  onTap: () => setState(() => _showConsole = false),
-                  child: const Icon(
-                    Icons.close_rounded,
-                    size: 14,
-                    color: AppColors.textMuted,
+                const SizedBox(width: 8),
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: () => setState(() => _showConsole = false),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        size: 16,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -449,14 +488,25 @@ class _AppShellState extends State<AppShell> with WindowListener {
           ),
           Expanded(
             child: _logs.isEmpty
-                ? const Center(
-                    child: Text(
-                      'No activity yet',
-                      style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.inbox_rounded,
+                          size: 32,
+                          color: AppColors.textMuted.withOpacity(0.5),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'No activity yet',
+                          style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                        ),
+                      ],
                     ),
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(14),
                     itemCount: _logs.length,
                     itemBuilder: (context, index) {
                       final log = _logs[index];
@@ -465,17 +515,18 @@ class _AppShellState extends State<AppShell> with WindowListener {
                           log.contains('complete') ||
                           log.contains('exists');
                       return Padding(
-                        padding: const EdgeInsets.only(bottom: 3),
+                        padding: const EdgeInsets.only(bottom: 4),
                         child: Text(
                           log,
                           style: TextStyle(
                             fontFamily: 'JetBrainsMono',
                             fontSize: 11,
+                            height: 1.4,
                             color: isError
                                 ? AppColors.error
                                 : isSuccess
                                     ? AppColors.success
-                                    : AppColors.textMuted,
+                                    : AppColors.textSecondary,
                           ),
                         ),
                       );

@@ -32,37 +32,42 @@ class _FollowButtonState extends State<FollowButton> {
     return Tooltip(
       message: widget.isFollowing ? 'Unfollow' : 'Follow',
       child: MouseRegion(
+        cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
-        child: Material(
-          color: widget.isFollowing
-              ? (_isHovered ? AppColors.error.withValues(alpha: 0.15) : AppColors.accent.withValues(alpha: 0.15))
-              : (_isHovered ? AppColors.surfaceLight : AppColors.surface),
-          borderRadius: BorderRadius.circular(4),
-          child: InkWell(
-            onTap: widget.onToggle,
-            borderRadius: BorderRadius.circular(4),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(
-                  color: widget.isFollowing
-                      ? (_isHovered ? AppColors.error : AppColors.accent)
-                      : (_isHovered ? AppColors.borderLight : AppColors.border),
-                ),
-              ),
-              child: Icon(
-                widget.isFollowing
-                    ? (_isHovered ? Icons.heart_broken_rounded : Icons.favorite_rounded)
-                    : (_isHovered ? Icons.favorite_rounded : Icons.favorite_border_rounded),
-                size: 18,
+        child: GestureDetector(
+          onTap: widget.onToggle,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: widget.isFollowing
+                  ? (_isHovered
+                      ? AppColors.error.withOpacity(0.15)
+                      : AppColors.accentPink.withOpacity(0.12))
+                  : (_isHovered
+                      ? AppColors.primary.withOpacity(0.12)
+                      : AppColors.surfaceLight),
+              borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+              border: Border.all(
                 color: widget.isFollowing
-                    ? (_isHovered ? AppColors.error : AppColors.accent)
-                    : (_isHovered ? AppColors.primary : AppColors.textSecondary),
+                    ? (_isHovered
+                        ? AppColors.error.withOpacity(0.4)
+                        : AppColors.accentPink.withOpacity(0.25))
+                    : (_isHovered
+                        ? AppColors.primary.withOpacity(0.4)
+                        : AppColors.borderLight),
               ),
+            ),
+            child: Icon(
+              widget.isFollowing
+                  ? (_isHovered ? Icons.heart_broken_rounded : Icons.favorite_rounded)
+                  : (_isHovered ? Icons.favorite_rounded : Icons.favorite_border_rounded),
+              size: 18,
+              color: widget.isFollowing
+                  ? (_isHovered ? AppColors.error : AppColors.accentPink)
+                  : (_isHovered ? AppColors.primary : AppColors.textSecondary),
             ),
           ),
         ),
@@ -72,57 +77,59 @@ class _FollowButtonState extends State<FollowButton> {
 
   Widget _buildFullButton() {
     return MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        child: Material(
-          color: widget.isFollowing
-              ? (_isHovered ? AppColors.error.withValues(alpha: 0.15) : AppColors.accent.withValues(alpha: 0.15))
-              : (_isHovered ? AppColors.primary : AppColors.surface),
-          borderRadius: BorderRadius.circular(4),
-          child: InkWell(
-            onTap: widget.onToggle,
-            borderRadius: BorderRadius.circular(4),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(
+      child: GestureDetector(
+        onTap: widget.onToggle,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: widget.isFollowing
+                ? (_isHovered
+                    ? AppColors.error.withOpacity(0.15)
+                    : AppColors.accentPink.withOpacity(0.12))
+                : (_isHovered
+                    ? AppColors.primary
+                    : Colors.transparent),
+            borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+            border: Border.all(
+              color: widget.isFollowing
+                  ? (_isHovered
+                      ? AppColors.error.withOpacity(0.4)
+                      : AppColors.accentPink.withOpacity(0.25))
+                  : (_isHovered
+                      ? AppColors.primary
+                      : AppColors.borderLight),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                widget.isFollowing
+                    ? (_isHovered ? Icons.heart_broken_rounded : Icons.favorite_rounded)
+                    : Icons.favorite_border_rounded,
+                size: 16,
+                color: widget.isFollowing
+                    ? (_isHovered ? AppColors.error : AppColors.accentPink)
+                    : (_isHovered ? Colors.white : AppColors.textSecondary),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                widget.isFollowing
+                    ? (_isHovered ? 'Unfollow' : 'Following')
+                    : 'Follow',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                   color: widget.isFollowing
-                      ? (_isHovered ? AppColors.error : AppColors.accent)
-                      : (_isHovered ? AppColors.primary : AppColors.border),
+                      ? (_isHovered ? AppColors.error : AppColors.accentPink)
+                      : (_isHovered ? Colors.white : AppColors.textSecondary),
                 ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    widget.isFollowing
-                        ? (_isHovered ? Icons.heart_broken_rounded : Icons.favorite_rounded)
-                        : Icons.favorite_border_rounded,
-                    size: 16,
-                    color: widget.isFollowing
-                        ? (_isHovered ? AppColors.error : AppColors.accent)
-                        : (_isHovered ? Colors.white : AppColors.textSecondary),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    widget.isFollowing
-                        ? (_isHovered ? 'UNFOLLOW' : 'FOLLOWING')
-                        : 'FOLLOW',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
-                      color: widget.isFollowing
-                          ? (_isHovered ? AppColors.error : AppColors.accent)
-                          : (_isHovered ? Colors.white : AppColors.textSecondary),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            ],
           ),
         ),
       ),

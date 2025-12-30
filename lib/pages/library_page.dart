@@ -101,7 +101,7 @@ class _LibraryPageState extends State<LibraryPage> {
     final filteredGames = _filteredGames;
 
     return Container(
-      color: AppColors.background,
+      color: Colors.transparent,
       child: Column(
         children: [
           _buildHeader(),
@@ -114,48 +114,60 @@ class _LibraryPageState extends State<LibraryPage> {
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        border: Border(bottom: BorderSide(color: AppColors.border)),
-      ),
+      padding: const EdgeInsets.fromLTRB(28, 24, 28, 20),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          const Column(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 'Library',
                 style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
                   color: AppColors.textPrimary,
+                  letterSpacing: -0.5,
                 ),
               ),
-              SizedBox(height: 4),
+              const SizedBox(height: 4),
               Text(
                 'Manage your installed games',
                 style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textMuted,
+                  fontSize: 14,
+                  color: AppColors.textSecondary,
                 ),
               ),
             ],
           ),
           const Spacer(),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
-              color: AppColors.surfaceLight,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Text(
-              '${widget.games.length} games',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
+              color: AppColors.primary.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: AppColors.primary.withOpacity(0.25),
               ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.games_rounded,
+                  size: 16,
+                  color: AppColors.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${widget.games.length} games',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -165,16 +177,15 @@ class _LibraryPageState extends State<LibraryPage> {
 
   Widget _buildToolbar(int gameCount) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(28, 0, 28, 20),
       child: Row(
         children: [
-          // Search field
           Expanded(
             child: Container(
-              height: 44,
+              height: 46,
               decoration: BoxDecoration(
                 color: AppColors.surface,
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(AppColors.radiusMedium),
                 border: Border.all(color: AppColors.border),
               ),
               child: TextField(
@@ -187,32 +198,49 @@ class _LibraryPageState extends State<LibraryPage> {
                 decoration: InputDecoration(
                   hintText: 'Search games...',
                   hintStyle: const TextStyle(color: AppColors.textMuted),
-                  prefixIcon: const Icon(
-                    Icons.search_rounded,
-                    size: 20,
-                    color: AppColors.textMuted,
+                  prefixIcon: const Padding(
+                    padding: EdgeInsets.only(left: 14, right: 10),
+                    child: Icon(
+                      Icons.search_rounded,
+                      size: 20,
+                      color: AppColors.textMuted,
+                    ),
                   ),
+                  prefixIconConstraints: const BoxConstraints(minWidth: 44),
                   suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.close_rounded, size: 18),
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() => _searchQuery = '');
-                          },
-                          color: AppColors.textMuted,
+                      ? MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            onTap: () {
+                              _searchController.clear();
+                              setState(() => _searchQuery = '');
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.only(right: 8),
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceLight,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Icon(
+                                Icons.close_rounded,
+                                size: 16,
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                          ),
                         )
                       : null,
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
-                    vertical: 12,
+                    vertical: 14,
                   ),
                 ),
               ),
             ),
           ),
           const SizedBox(width: 12),
-          // Console toggle
           _buildIconButton(
             icon: Icons.terminal_rounded,
             onPressed: widget.onToggleConsole,
@@ -220,14 +248,12 @@ class _LibraryPageState extends State<LibraryPage> {
             isActive: widget.showConsole,
           ),
           const SizedBox(width: 8),
-          // Refresh button
           _buildIconButton(
             icon: Icons.refresh_rounded,
             onPressed: widget.isLoading ? () {} : widget.onScanGames,
             tooltip: 'Rescan games',
           ),
           const SizedBox(width: 12),
-          // Upload button
           _buildUploadButton(),
         ],
       ),
@@ -242,26 +268,25 @@ class _LibraryPageState extends State<LibraryPage> {
   }) {
     return Tooltip(
       message: tooltip,
-      child: Material(
-        color: isActive
-            ? AppColors.primary.withValues(alpha: 0.1)
-            : AppColors.surfaceLight,
-        borderRadius: BorderRadius.circular(6),
-        child: InkWell(
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
           onTap: onPressed,
-          borderRadius: BorderRadius.circular(6),
           child: Container(
-            width: 40,
-            height: 40,
+            width: 46,
+            height: 46,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(6),
+              color: isActive
+                  ? AppColors.primary.withOpacity(0.12)
+                  : AppColors.surface,
+              borderRadius: BorderRadius.circular(AppColors.radiusSmall),
               border: Border.all(
-                color: isActive ? AppColors.primary : AppColors.border,
+                color: isActive ? AppColors.primary.withOpacity(0.3) : AppColors.border,
               ),
             ),
             child: Icon(
               icon,
-              size: 18,
+              size: 20,
               color: isActive ? AppColors.primary : AppColors.textSecondary,
             ),
           ),
@@ -273,22 +298,25 @@ class _LibraryPageState extends State<LibraryPage> {
   Widget _buildUploadButton() {
     final isDisabled = widget.isUploadingAll || widget.games.isEmpty;
 
-    return Material(
-      color: isDisabled ? AppColors.surfaceLight : AppColors.primary,
-      borderRadius: BorderRadius.circular(6),
-      child: InkWell(
+    return MouseRegion(
+      cursor: isDisabled ? SystemMouseCursors.basic : SystemMouseCursors.click,
+      child: GestureDetector(
         onTap: isDisabled ? null : widget.onUploadAll,
-        borderRadius: BorderRadius.circular(6),
         child: Container(
-          height: 44,
+          height: 46,
           padding: const EdgeInsets.symmetric(horizontal: 20),
+          decoration: BoxDecoration(
+            color: isDisabled ? AppColors.surface : AppColors.primary,
+            borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+            border: isDisabled ? Border.all(color: AppColors.border) : null,
+          ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (widget.isUploadingAll)
                 const SizedBox(
-                  width: 16,
-                  height: 16,
+                  width: 18,
+                  height: 18,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
                     color: Colors.white,
@@ -297,16 +325,15 @@ class _LibraryPageState extends State<LibraryPage> {
               else
                 Icon(
                   Icons.cloud_upload_rounded,
-                  size: 18,
+                  size: 20,
                   color: isDisabled ? AppColors.textMuted : Colors.white,
                 ),
               const SizedBox(width: 10),
               Text(
-                widget.isUploadingAll ? 'UPLOADING...' : 'UPLOAD ALL',
+                widget.isUploadingAll ? 'Uploading...' : 'Upload All',
                 style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                   color: isDisabled ? AppColors.textMuted : Colors.white,
                 ),
               ),
@@ -323,7 +350,7 @@ class _LibraryPageState extends State<LibraryPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
+            const SizedBox(
               width: 48,
               height: 48,
               child: CircularProgressIndicator(
@@ -331,13 +358,20 @@ class _LibraryPageState extends State<LibraryPage> {
                 color: AppColors.primary,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             const Text(
-              'SCANNING LIBRARY',
+              'Scanning Library',
               style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.5,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Looking for installed games...',
+              style: TextStyle(
+                fontSize: 13,
                 color: AppColors.textSecondary,
               ),
             ),
@@ -352,26 +386,23 @@ class _LibraryPageState extends State<LibraryPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 80,
-              height: 80,
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
+                color: AppColors.surfaceLight,
+                borderRadius: BorderRadius.circular(AppColors.radiusLarge),
               ),
               child: const Icon(
                 Icons.games_rounded,
-                size: 40,
+                size: 48,
                 color: AppColors.textMuted,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             const Text(
-              'NO GAMES FOUND',
+              'No Games Found',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 18,
                 fontWeight: FontWeight.w700,
-                letterSpacing: 1,
                 color: AppColors.textPrimary,
               ),
             ),
@@ -379,16 +410,16 @@ class _LibraryPageState extends State<LibraryPage> {
             Text(
               widget.manifestPath,
               style: const TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 fontFamily: 'JetBrainsMono',
                 color: AppColors.textMuted,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: widget.onScanGames,
               icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('SCAN AGAIN'),
+              label: const Text('Scan Again'),
             ),
           ],
         ),
@@ -400,16 +431,23 @@ class _LibraryPageState extends State<LibraryPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.search_off_rounded,
-              size: 48,
-              color: AppColors.textMuted,
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceLight,
+                borderRadius: BorderRadius.circular(AppColors.radiusLarge),
+              ),
+              child: const Icon(
+                Icons.search_off_rounded,
+                size: 48,
+                color: AppColors.textMuted,
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             Text(
               'No results for "$_searchQuery"',
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: 15,
                 color: AppColors.textSecondary,
               ),
             ),
@@ -419,9 +457,9 @@ class _LibraryPageState extends State<LibraryPage> {
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
       itemCount: games.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 2),
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final game = games[index];
         return GameTile(
