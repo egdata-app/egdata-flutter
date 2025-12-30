@@ -12,6 +12,7 @@ class GameInfo {
   final String? manifestHash;
   final String? manifestLocation;
   final String? itemFilePath;
+  final String? launchExecutable;
   final GameMetadata? metadata;
 
   GameInfo({
@@ -26,6 +27,7 @@ class GameInfo {
     this.manifestHash,
     this.manifestLocation,
     this.itemFilePath,
+    this.launchExecutable,
     this.metadata,
   });
 
@@ -50,6 +52,7 @@ class GameInfo {
     String? manifestHash,
     String? manifestLocation,
     String? itemFilePath,
+    String? launchExecutable,
     GameMetadata? metadata,
   }) {
     return GameInfo(
@@ -64,6 +67,7 @@ class GameInfo {
       manifestHash: manifestHash ?? this.manifestHash,
       manifestLocation: manifestLocation ?? this.manifestLocation,
       itemFilePath: itemFilePath ?? this.itemFilePath,
+      launchExecutable: launchExecutable ?? this.launchExecutable,
       metadata: metadata ?? this.metadata,
     );
   }

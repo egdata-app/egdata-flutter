@@ -110,6 +110,9 @@ class ManifestScanner {
       manifestHash: manifestHash,
       manifestLocation: manifestLocation,
       itemFilePath: itemFile.path,
+      launchExecutable: manifest.launchExecutable.isNotEmpty
+          ? manifest.launchExecutable
+          : null,
       metadata: metadata,
     );
   }

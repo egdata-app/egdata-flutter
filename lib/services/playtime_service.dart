@@ -132,21 +132,28 @@ class PlaytimeService {
       return cached.processNames;
     }
 
-    // Fetch from API
     List<String> processNames = [];
 
-    // Try API first using the offerId (which is catalogItemId for installed games)
-    if (game.catalogItemId.isNotEmpty) {
-      processNames = await _processApiService.fetchProcessNames(game.catalogItemId);
+    // Primary source: Use launchExecutable from local manifest
+    // This is the actual executable name specified by Epic Games
+    if (game.launchExecutable != null && game.launchExecutable!.isNotEmpty) {
+      final executable = game.launchExecutable!;
+      // Add the executable and common variant patterns
+      processNames = [
+        executable,
+        // Some games use -Win64-Shipping suffix for the actual game process
+        if (!executable.contains('-Win64-Shipping'))
+          executable.replaceAll('.exe', '-Win64-Shipping.exe'),
+      ];
     }
 
-    // Fallback: Extract from local manifest if API didn't return anything
-    if (processNames.isEmpty && game.metadata != null) {
-      // Try to get the executable name from metadata
-      // This is a fallback when API doesn't have ProcessNames
+    // Fallback: Try API if local manifest didn't have launchExecutable
+    if (processNames.isEmpty && game.catalogItemId.isNotEmpty) {
+      processNames =
+          await _processApiService.fetchProcessNames(game.catalogItemId);
     }
 
-    // Fallback: use appName as a guess
+    // Last resort fallback: use appName as a guess
     if (processNames.isEmpty && game.appName.isNotEmpty) {
       // Common patterns: game.exe, game-Win64-Shipping.exe
       processNames = [
