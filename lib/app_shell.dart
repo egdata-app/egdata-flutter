@@ -71,7 +71,8 @@ class _AppShellState extends State<AppShell> with WindowListener {
     _notificationService.dispose();
     if (Platform.isWindows || Platform.isMacOS) {
       windowManager.removeListener(this);
-      _trayService.destroy();
+      // Only destroy tray when actually quitting, not on widget dispose
+      // Tray destruction is handled by _quitApp() and onWindowClose()
     }
     super.dispose();
   }
