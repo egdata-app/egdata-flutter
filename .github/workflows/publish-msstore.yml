@@ -1,0 +1,60 @@
+name: Publish to Microsoft Store
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 0.3.1.0)'
+        required: false
+        type: string
+
+jobs:
+  build-and-publish:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate Isar bindings
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Build Windows app
+        run: flutter build windows --release
+
+      - name: Setup Microsoft Store CLI
+        uses: microsoft/setup-msstore-cli@v1
+
+      - name: Configure MS Store credentials
+        run: msstore reconfigure --tenantId ${{ secrets.AZURE_TENANT_ID }} --clientId ${{ secrets.AZURE_CLIENT_ID }} --clientSecret ${{ secrets.AZURE_CLIENT_SECRET }} --sellerId ${{ secrets.MS_SELLER_ID }}
+
+      - name: Update version (if provided)
+        if: ${{ github.event.inputs.version != '' }}
+        run: |
+          $content = Get-Content pubspec.yaml -Raw
+          $content = $content -replace 'msix_version: \d+\.\d+\.\d+\.\d+', "msix_version: ${{ github.event.inputs.version }}"
+          Set-Content pubspec.yaml $content
+
+      - name: Create MSIX package
+        run: dart run msix:create --store
+
+      - name: Publish to Microsoft Store
+        run: msstore publish -i build/windows/x64/runner/Release -id ${{ secrets.MS_APP_ID }}
+
+      - name: Upload MSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: msix-package
+          path: build/windows/x64/runner/Release/*.msix
+          retention-days: 30
