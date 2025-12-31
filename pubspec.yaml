@@ -1,7 +1,7 @@
 name: egdata_flutter
 description: "EGData Client - Epic Games manifest uploader"
 publish_to: "none"
-version: 1.0.5
+version: 1.0.6
 
 environment:
   sdk: ^3.10.4
@@ -70,7 +70,7 @@ msix_config:
   publisher_display_name: Ignacio Aldama Vicente
   identity_name: IgnacioAldamaVicente.egdata.app
   publisher: CN=D9F4560B-64F8-46C1-AB63-C46F5454F331
-  msix_version: 1.0.5.0
+  msix_version: 1.0.6.0
   capabilities: internetClient
   languages: en-us
   store: true
@@ -80,7 +80,7 @@ msix_config:
 inno_bundle:
   id: ab497711-5d34-47ed-8d75-b0b70e1c7cd6
   name: egdata.app
-  version: 1.0.5
+  version: 1.0.6
   publisher: Ignacio Aldama Vicente
   languages:
     - english
