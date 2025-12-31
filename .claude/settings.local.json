@@ -9,10 +9,12 @@
       "WebFetch(domain:cdn.egdata.app)",
       "Bash(dir:*)",
       "WebFetch(domain:api.egdata.app)",
-      "WebFetch(domain:egdata.app)",
-      "WebFetch(domain:www.unrealengine.com)",
-      "WebFetch(domain:github.com)",
-      "WebFetch(domain:pub.dev)"
+      "Bash(flutter pub search:*)",
+      "Bash(flutter build:*)",
+      "Bash(git -C /Users/nacho/Documents/code/egdata-flutter log --oneline -10)",
+      "WebFetch(domain:pub.dev)",
+      "Bash(/opt/homebrew/bin/flutter analyze:*)",
+      "Bash(git -C /Users/nacho/Documents/code/egdata-flutter diff lib/app_shell.dart lib/pages/settings_page.dart)"
     ]
   }
 }
