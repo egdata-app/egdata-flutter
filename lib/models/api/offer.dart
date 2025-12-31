@@ -6,27 +6,27 @@ class Offer {
   final String description;
   final String? longDescription;
   final String offerType;
-  final DateTime effectiveDate;
-  final DateTime creationDate;
-  final DateTime lastModifiedDate;
+  final DateTime? effectiveDate;
+  final DateTime? creationDate;
+  final DateTime? lastModifiedDate;
   final bool isCodeRedemptionOnly;
   final List<KeyImage> keyImages;
-  final Seller seller;
+  final Seller? seller;
   final String? productSlug;
-  final String urlSlug;
+  final String? urlSlug;
   final String? url;
   final List<Tag> tags;
   final List<OfferItem> items;
   final Map<String, CustomAttribute> customAttributes;
   final List<String> categories;
-  final String developerDisplayName;
-  final String publisherDisplayName;
+  final String? developerDisplayName;
+  final String? publisherDisplayName;
   final DateTime? releaseDate;
   final DateTime? pcReleaseDate;
-  final DateTime viewableDate;
+  final DateTime? viewableDate;
   final List<String>? countriesBlacklist;
   final List<String>? countriesWhitelist;
-  final String refundType;
+  final String? refundType;
   final OfferPrice? price;
 
   Offer({
@@ -36,27 +36,27 @@ class Offer {
     required this.description,
     this.longDescription,
     required this.offerType,
-    required this.effectiveDate,
-    required this.creationDate,
-    required this.lastModifiedDate,
+    this.effectiveDate,
+    this.creationDate,
+    this.lastModifiedDate,
     required this.isCodeRedemptionOnly,
     required this.keyImages,
-    required this.seller,
+    this.seller,
     this.productSlug,
-    required this.urlSlug,
+    this.urlSlug,
     this.url,
     required this.tags,
     required this.items,
     required this.customAttributes,
     required this.categories,
-    required this.developerDisplayName,
-    required this.publisherDisplayName,
+    this.developerDisplayName,
+    this.publisherDisplayName,
     this.releaseDate,
     this.pcReleaseDate,
-    required this.viewableDate,
+    this.viewableDate,
     this.countriesBlacklist,
     this.countriesWhitelist,
-    required this.refundType,
+    this.refundType,
     this.price,
   });
 
@@ -65,40 +65,50 @@ class Offer {
       id: json['id'] as String,
       namespace: json['namespace'] as String,
       title: json['title'] as String,
-      description: json['description'] as String,
+      description: (json['description'] as String?) ?? '',
       longDescription: json['longDescription'] as String?,
-      offerType: json['offerType'] as String,
-      effectiveDate: DateTime.parse(json['effectiveDate'] as String),
-      creationDate: DateTime.parse(json['creationDate'] as String),
-      lastModifiedDate: DateTime.parse(json['lastModifiedDate'] as String),
-      isCodeRedemptionOnly: json['isCodeRedemptionOnly'] as bool,
-      keyImages: (json['keyImages'] as List<dynamic>)
-          .map((e) => KeyImage.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      seller: Seller.fromJson(json['seller'] as Map<String, dynamic>),
+      offerType: (json['offerType'] as String?) ?? 'UNKNOWN',
+      effectiveDate: json['effectiveDate'] != null
+          ? DateTime.parse(json['effectiveDate'] as String)
+          : null,
+      creationDate: json['creationDate'] != null
+          ? DateTime.parse(json['creationDate'] as String)
+          : null,
+      lastModifiedDate: json['lastModifiedDate'] != null
+          ? DateTime.parse(json['lastModifiedDate'] as String)
+          : null,
+      isCodeRedemptionOnly: (json['isCodeRedemptionOnly'] as bool?) ?? false,
+      keyImages: (json['keyImages'] as List<dynamic>?)
+          ?.map((e) => KeyImage.fromJson(e as Map<String, dynamic>))
+          .toList() ?? [],
+      seller: json['seller'] != null
+          ? Seller.fromJson(json['seller'] as Map<String, dynamic>)
+          : null,
       productSlug: json['productSlug'] as String?,
-      urlSlug: json['urlSlug'] as String,
+      urlSlug: json['urlSlug'] as String?,
       url: json['url'] as String?,
-      tags: (json['tags'] as List<dynamic>)
-          .map((e) => Tag.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      items: (json['items'] as List<dynamic>)
-          .map((e) => OfferItem.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      tags: (json['tags'] as List<dynamic>?)
+          ?.map((e) => Tag.fromJson(e as Map<String, dynamic>))
+          .toList() ?? [],
+      items: (json['items'] as List<dynamic>?)
+          ?.map((e) => OfferItem.fromJson(e as Map<String, dynamic>))
+          .toList() ?? [],
       customAttributes: _parseCustomAttributes(json['customAttributes']),
-      categories: (json['categories'] as List<dynamic>).cast<String>(),
-      developerDisplayName: json['developerDisplayName'] as String,
-      publisherDisplayName: json['publisherDisplayName'] as String,
+      categories: (json['categories'] as List<dynamic>?)?.cast<String>() ?? [],
+      developerDisplayName: json['developerDisplayName'] as String?,
+      publisherDisplayName: json['publisherDisplayName'] as String?,
       releaseDate: json['releaseDate'] != null
           ? DateTime.parse(json['releaseDate'] as String)
           : null,
       pcReleaseDate: json['pcReleaseDate'] != null
           ? DateTime.parse(json['pcReleaseDate'] as String)
           : null,
-      viewableDate: DateTime.parse(json['viewableDate'] as String),
+      viewableDate: json['viewableDate'] != null
+          ? DateTime.parse(json['viewableDate'] as String)
+          : null,
       countriesBlacklist: (json['countriesBlacklist'] as List<dynamic>?)?.cast<String>(),
       countriesWhitelist: (json['countriesWhitelist'] as List<dynamic>?)?.cast<String>(),
-      refundType: json['refundType'] as String,
+      refundType: json['refundType'] as String?,
       price: json['price'] != null
           ? OfferPrice.fromJson(json['price'] as Map<String, dynamic>)
           : null,
@@ -208,13 +218,18 @@ class CustomAttribute {
 }
 
 class OfferPrice {
-  final TotalPrice totalPrice;
+  final TotalPrice? totalPrice;
 
-  OfferPrice({required this.totalPrice});
+  OfferPrice({this.totalPrice});
 
   factory OfferPrice.fromJson(Map<String, dynamic> json) {
+    // API returns 'totalPrice' for single offer endpoint
+    // and 'price' for search endpoint
+    final priceData = json['totalPrice'] ?? json['price'];
     return OfferPrice(
-      totalPrice: TotalPrice.fromJson(json['totalPrice'] as Map<String, dynamic>),
+      totalPrice: priceData != null
+          ? TotalPrice.fromJson(priceData as Map<String, dynamic>)
+          : null,
     );
   }
 }

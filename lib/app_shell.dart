@@ -26,7 +26,7 @@ import 'pages/dashboard_page.dart';
 import 'pages/library_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/free_games_page.dart';
-import 'pages/browse_page.dart';
+import 'pages/mobile_browse_page.dart';
 import 'pages/mobile_dashboard_page.dart';
 
 class AppShell extends StatefulWidget {
@@ -482,11 +482,10 @@ class _AppShellState extends State<AppShell> {
         );
       case AppPage.library:
         // Desktop: installed games with manifest upload
-        // Mobile: redirects to followed games (browse page)
+        // Mobile: redirects to browse page
         if (PlatformUtils.isMobile) {
-          return BrowsePage(
-            followService: _followService!,
-            db: _db!,
+          return MobileBrowsePage(
+            settings: _settings,
           );
         }
         return LibraryPage(
@@ -506,9 +505,8 @@ class _AppShellState extends State<AppShell> {
         );
       case AppPage.browse:
         // Mobile only: browse/search games
-        return BrowsePage(
-          followService: _followService!,
-          db: _db!,
+        return MobileBrowsePage(
+          settings: _settings,
         );
       case AppPage.freeGames:
         // Mobile only: free games list
