@@ -17,6 +17,7 @@ import 'services/upload_service.dart';
 import 'services/settings_service.dart';
 import 'services/tray_service.dart';
 import 'widgets/app_sidebar.dart';
+import 'widgets/custom_title_bar.dart';
 import 'pages/dashboard_page.dart';
 import 'pages/library_page.dart';
 import 'pages/settings_page.dart';
@@ -28,7 +29,7 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> with WindowListener {
+class _AppShellState extends State<AppShell> {
   // Navigation
   AppPage _currentPage = AppPage.dashboard;
 
@@ -54,7 +55,6 @@ class _AppShellState extends State<AppShell> with WindowListener {
   AppSettings _settings = AppSettings();
   Timer? _syncTimer;
   final List<String> _logs = [];
-  bool _forceQuit = false;
   bool _showConsole = false;
 
   @override
@@ -69,11 +69,6 @@ class _AppShellState extends State<AppShell> with WindowListener {
     _followService?.dispose();
     _playtimeService?.dispose();
     _notificationService.dispose();
-    if (Platform.isWindows || Platform.isMacOS) {
-      windowManager.removeListener(this);
-      // Only destroy tray when actually quitting, not on widget dispose
-      // Tray destruction is handled by _quitApp() and onWindowClose()
-    }
     super.dispose();
   }
 
@@ -121,9 +116,6 @@ class _AppShellState extends State<AppShell> with WindowListener {
 
   Future<void> _initTray() async {
     if (Platform.isWindows || Platform.isMacOS) {
-      windowManager.addListener(this);
-      await windowManager.setPreventClose(true);
-
       await _trayService.init();
       _trayService.onShowWindow = _showWindow;
       _trayService.onQuit = _quitApp;
@@ -144,23 +136,29 @@ class _AppShellState extends State<AppShell> with WindowListener {
   }
 
   Future<void> _showWindow() async {
+    if (Platform.isWindows) {
+      await windowManager.setSkipTaskbar(false);
+    }
     await windowManager.show();
     await windowManager.focus();
   }
 
   Future<void> _quitApp() async {
-    _forceQuit = true;
     await _trayService.destroy();
     await windowManager.destroy();
   }
 
-  @override
-  void onWindowClose() async {
-    if (_settings.minimizeToTray && !_forceQuit) {
-      await windowManager.hide();
+  Future<void> _handleClose() async {
+    if (_settings.minimizeToTray) {
+      // Minimize to tray instead of closing
+      if (Platform.isWindows) {
+        await windowManager.setSkipTaskbar(true);
+        await windowManager.minimize();
+      } else {
+        await windowManager.hide();
+      }
     } else {
-      await _trayService.destroy();
-      await windowManager.destroy();
+      await _quitApp();
     }
   }
 
@@ -347,6 +345,9 @@ class _AppShellState extends State<AppShell> with WindowListener {
           // Main content
           Column(
             children: [
+              // Custom title bar for Windows/macOS
+              if (Platform.isWindows || Platform.isMacOS)
+                CustomTitleBar(onClose: _handleClose),
               Expanded(
                 child: Row(
                   children: [

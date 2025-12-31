@@ -37,7 +37,7 @@ void main(List<String> args) async {
       center: true,
       backgroundColor: Colors.transparent,
       skipTaskbar: false,
-      titleBarStyle: TitleBarStyle.normal,
+      titleBarStyle: TitleBarStyle.hidden,
       title: 'EGData Client',
     );
 
