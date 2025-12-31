@@ -10,12 +10,14 @@ class FreeGameCard extends StatefulWidget {
   final FreeGameEntry game;
   final FollowService followService;
   final bool isActive;
+  final VoidCallback? onTap;
 
   const FreeGameCard({
     super.key,
     required this.game,
     required this.followService,
     required this.isActive,
+    this.onTap,
   });
 
   @override
@@ -106,7 +108,7 @@ class _FreeGameCardState extends State<FreeGameCard> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: _openInBrowser,
+      onTap: widget.onTap ?? _openInBrowser,
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.surface,

@@ -5,6 +5,7 @@ import '../models/settings.dart';
 import '../services/follow_service.dart';
 import '../services/sync_service.dart';
 import '../widgets/free_game_card.dart';
+import 'mobile_offer_detail_page.dart';
 
 class FreeGamesPage extends StatefulWidget {
   final FollowService followService;
@@ -59,6 +60,20 @@ class _FreeGamesPageState extends State<FreeGamesPage> {
     } finally {
       setState(() => _isRefreshing = false);
     }
+  }
+
+  void _navigateToOffer(FreeGameEntry game) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MobileOfferDetailPage(
+          offerId: game.offerId,
+          followService: widget.followService,
+          initialTitle: game.title,
+          initialImageUrl: game.thumbnailUrl,
+        ),
+      ),
+    );
   }
 
   @override
@@ -190,6 +205,7 @@ class _FreeGamesPageState extends State<FreeGamesPage> {
                         game: game,
                         followService: widget.followService,
                         isActive: true,
+                        onTap: () => _navigateToOffer(game),
                       ),
                     );
                   }, childCount: _activeGames.length),
@@ -255,6 +271,7 @@ class _FreeGamesPageState extends State<FreeGamesPage> {
                         game: game,
                         followService: widget.followService,
                         isActive: false,
+                        onTap: () => _navigateToOffer(game),
                       ),
                     );
                   }, childCount: _upcomingGames.length),

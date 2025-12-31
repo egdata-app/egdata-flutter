@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../database/database_service.dart';
 import '../models/followed_game.dart';
 import '../services/api_service.dart';
 import '../services/follow_service.dart';
 import '../services/sync_service.dart';
+import 'mobile_offer_detail_page.dart';
 
 class MobileDashboardPage extends StatefulWidget {
   final FollowService followService;
@@ -82,11 +82,18 @@ class _MobileDashboardPageState extends State<MobileDashboardPage> {
     }
   }
 
-  Future<void> _openGame(String offerId) async {
-    final url = Uri.parse('https://egdata.app/offers/$offerId');
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    }
+  void _openGame(String offerId, {String? title, String? imageUrl}) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MobileOfferDetailPage(
+          offerId: offerId,
+          followService: widget.followService,
+          initialTitle: title,
+          initialImageUrl: imageUrl,
+        ),
+      ),
+    );
   }
 
   @override
@@ -359,7 +366,7 @@ class _MobileDashboardPageState extends State<MobileDashboardPage> {
   Widget _buildFreeGameCard(FreeGame game) {
     final thumbnailUrl = _getThumbnailUrl(game);
     return GestureDetector(
-      onTap: () => _openGame(game.id),
+      onTap: () => _openGame(game.id, title: game.title, imageUrl: thumbnailUrl),
       child: Container(
         width: 200,
         decoration: BoxDecoration(
@@ -430,7 +437,7 @@ class _MobileDashboardPageState extends State<MobileDashboardPage> {
 
   Widget _buildSaleCard(FollowedGameEntry game) {
     return GestureDetector(
-      onTap: () => _openGame(game.offerId),
+      onTap: () => _openGame(game.offerId, title: game.title, imageUrl: game.thumbnailUrl),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(

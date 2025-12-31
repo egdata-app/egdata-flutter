@@ -14,6 +14,7 @@ class GameCard extends StatelessWidget {
   final String? offerType;
   final String? seller;
   final String currencyCode;
+  final VoidCallback? onTap;
 
   const GameCard({
     super.key,
@@ -26,6 +27,7 @@ class GameCard extends StatelessWidget {
     this.offerType,
     this.seller,
     this.currencyCode = 'USD',
+    this.onTap,
   });
 
   bool get isOnSale =>
@@ -87,7 +89,7 @@ class GameCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: _openInBrowser,
+      onTap: onTap ?? _openInBrowser,
       child: Container(
         height: 100,
         decoration: BoxDecoration(

@@ -498,6 +498,7 @@ class _AppShellState extends State<AppShell> {
         if (PlatformUtils.isMobile) {
           return MobileBrowsePage(
             settings: _settings,
+            followService: _followService!,
           );
         }
         return LibraryPage(
@@ -519,6 +520,7 @@ class _AppShellState extends State<AppShell> {
         // Mobile only: browse/search games
         return MobileBrowsePage(
           settings: _settings,
+          followService: _followService!,
         );
       case AppPage.freeGames:
         // Mobile only: free games list

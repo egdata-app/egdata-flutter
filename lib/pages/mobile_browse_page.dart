@@ -4,14 +4,18 @@ import 'package:flutter/material.dart';
 import '../main.dart';
 import '../models/settings.dart';
 import '../services/api_service.dart';
+import '../services/follow_service.dart';
 import '../widgets/game_card.dart';
+import 'mobile_offer_detail_page.dart';
 
 class MobileBrowsePage extends StatefulWidget {
   final AppSettings settings;
+  final FollowService followService;
 
   const MobileBrowsePage({
     super.key,
     required this.settings,
+    required this.followService,
   });
 
   @override
@@ -580,9 +584,24 @@ class _MobileBrowsePageState extends State<MobileBrowsePage> {
             offerType: offer.offerType,
             seller: offer.seller?.name,
             currencyCode: offer.price?.totalPrice?.currencyCode ?? 'USD',
+            onTap: () => _navigateToOffer(offer),
           ),
         );
       },
+    );
+  }
+
+  void _navigateToOffer(Offer offer) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MobileOfferDetailPage(
+          offerId: offer.id,
+          followService: widget.followService,
+          initialTitle: offer.title,
+          initialImageUrl: _getThumbnailUrl(offer),
+        ),
+      ),
     );
   }
 

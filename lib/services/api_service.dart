@@ -121,6 +121,52 @@ class ApiService {
     return ChangelogResponse.fromJson(data);
   }
 
+  /// Fetches features for an offer (single player, controller support, etc.)
+  Future<OfferFeatures> getOfferFeatures(String offerId) async {
+    final data = await _get('/offers/$offerId/features') as Map<String, dynamic>;
+    return OfferFeatures.fromJson(data);
+  }
+
+  /// Fetches achievements for an offer
+  Future<List<AchievementSet>> getOfferAchievements(String offerId) async {
+    final data = await _get('/offers/$offerId/achievements') as List<dynamic>;
+    return data
+        .map((e) => AchievementSet.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Fetches How Long To Beat data for an offer
+  Future<OfferHltb?> getOfferHltb(String offerId) async {
+    try {
+      final data = await _get('/offers/$offerId/hltb') as Map<String, dynamic>;
+      return OfferHltb.fromJson(data);
+    } on ApiException catch (e) {
+      // HLTB data may not exist for all games
+      if (e.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
+  /// Fetches media (images and videos) for an offer
+  Future<OfferMedia?> getOfferMedia(String offerId) async {
+    try {
+      final data = await _get('/offers/$offerId/media') as Map<String, dynamic>;
+      return OfferMedia.fromJson(data);
+    } on ApiException catch (e) {
+      // Media may not exist for all games
+      if (e.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
+  /// Fetches related offers (DLCs, editions, etc.)
+  Future<List<Offer>> getOfferRelated(String offerId) async {
+    final data = await _get('/offers/$offerId/related') as List<dynamic>;
+    return data
+        .map((e) => Offer.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   /// Fetches item metadata
   Future<Item> getItem(String catalogItemId) async {
     final data = await _get('/items/$catalogItemId') as Map<String, dynamic>;
