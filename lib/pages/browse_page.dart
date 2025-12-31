@@ -265,7 +265,7 @@ class _BrowsePageState extends State<BrowsePage> {
           thumbnailUrl: result.thumbnailUrl,
           originalPrice: result.originalPrice,
           discountPrice: result.discountPrice,
-          followService: widget.followService,
+          currencyCode: result.currencyCode ?? 'USD',
         );
       },
     );
@@ -366,7 +366,6 @@ class _BrowsePageState extends State<BrowsePage> {
                 thumbnailUrl: game.thumbnailUrl,
                 // FollowedGame UI model doesn't have price info
                 // Price info is stored in FollowedGameEntry in the database
-                followService: widget.followService,
               );
             },
           ),

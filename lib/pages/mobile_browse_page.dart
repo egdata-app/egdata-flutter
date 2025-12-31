@@ -70,6 +70,16 @@ class _MobileBrowsePageState extends State<MobileBrowsePage> {
   }
 
   @override
+  void didUpdateWidget(covariant MobileBrowsePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Re-fetch search results if country changed
+    if (oldWidget.settings.country != widget.settings.country) {
+      _log('didUpdateWidget - country changed from ${oldWidget.settings.country} to ${widget.settings.country}');
+      _performSearch(resetPage: true);
+    }
+  }
+
+  @override
   void dispose() {
     _log('dispose');
     _searchController.dispose();
@@ -569,6 +579,7 @@ class _MobileBrowsePageState extends State<MobileBrowsePage> {
             discountPrice: offer.price?.totalPrice?.discountPrice,
             offerType: offer.offerType,
             seller: offer.seller?.name,
+            currencyCode: offer.price?.totalPrice?.currencyCode ?? 'USD',
           ),
         );
       },

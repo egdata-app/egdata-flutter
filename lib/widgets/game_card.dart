@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
+import '../utils/currency_utils.dart';
 import 'progressive_image.dart';
 
 class GameCard extends StatelessWidget {
@@ -12,6 +13,7 @@ class GameCard extends StatelessWidget {
   final int? discountPrice;
   final String? offerType;
   final String? seller;
+  final String currencyCode;
 
   const GameCard({
     super.key,
@@ -23,6 +25,7 @@ class GameCard extends StatelessWidget {
     this.discountPrice,
     this.offerType,
     this.seller,
+    this.currencyCode = 'USD',
   });
 
   bool get isOnSale =>
@@ -40,14 +43,12 @@ class GameCard extends StatelessWidget {
 
   String get formattedPrice {
     if (isFree) return 'Free';
-    final price = discountPrice! / 100;
-    return '\$${price.toStringAsFixed(2)}';
+    return CurrencyUtils.formatPrice(discountPrice!, currencyCode);
   }
 
   String get formattedOriginalPrice {
     if (originalPrice == null || originalPrice == 0) return '';
-    final price = originalPrice! / 100;
-    return '\$${price.toStringAsFixed(2)}';
+    return CurrencyUtils.formatPrice(originalPrice!, currencyCode);
   }
 
   String get _formattedOfferType {

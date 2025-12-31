@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../utils/currency_utils.dart';
 
 class SearchResult {
   final String id;
@@ -32,14 +33,12 @@ class SearchResult {
 
   String get formattedPrice {
     if (discountPrice == null || discountPrice == 0) return 'Free';
-    final price = discountPrice! / 100;
-    return '\$${price.toStringAsFixed(2)}';
+    return CurrencyUtils.formatPrice(discountPrice!, currencyCode ?? 'USD');
   }
 
   String get formattedOriginalPrice {
     if (originalPrice == null || originalPrice == 0) return 'Free';
-    final price = originalPrice! / 100;
-    return '\$${price.toStringAsFixed(2)}';
+    return CurrencyUtils.formatPrice(originalPrice!, currencyCode ?? 'USD');
   }
 
   factory SearchResult.fromJson(Map<String, dynamic> json) {
