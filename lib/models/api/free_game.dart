@@ -63,28 +63,28 @@ class FreeGame {
       id: json['id'] as String,
       namespace: json['namespace'] as String,
       title: json['title'] as String,
-      description: json['description'] as String,
-      offerType: json['offerType'] as String,
+      description: (json['description'] as String?) ?? '',
+      offerType: (json['offerType'] as String?) ?? 'UNKNOWN',
       effectiveDate: DateTime.parse(json['effectiveDate'] as String),
       creationDate: DateTime.parse(json['creationDate'] as String),
       lastModifiedDate: DateTime.parse(json['lastModifiedDate'] as String),
-      isCodeRedemptionOnly: json['isCodeRedemptionOnly'] as bool,
-      keyImages: (json['keyImages'] as List<dynamic>)
-          .map((e) => KeyImage.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      isCodeRedemptionOnly: (json['isCodeRedemptionOnly'] as bool?) ?? false,
+      keyImages: (json['keyImages'] as List<dynamic>?)
+          ?.map((e) => KeyImage.fromJson(e as Map<String, dynamic>))
+          .toList() ?? [],
       seller: Seller.fromJson(json['seller'] as Map<String, dynamic>),
       productSlug: json['productSlug'] as String?,
-      urlSlug: json['urlSlug'] as String,
+      urlSlug: (json['urlSlug'] as String?) ?? '',
       url: json['url'] as String?,
-      tags: (json['tags'] as List<dynamic>)
-          .map((e) => Tag.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      items: (json['items'] as List<dynamic>)
-          .map((e) => OfferItem.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      categories: (json['categories'] as List<dynamic>).cast<String>(),
-      developerDisplayName: json['developerDisplayName'] as String,
-      publisherDisplayName: json['publisherDisplayName'] as String,
+      tags: (json['tags'] as List<dynamic>?)
+          ?.map((e) => Tag.fromJson(e as Map<String, dynamic>))
+          .toList() ?? [],
+      items: (json['items'] as List<dynamic>?)
+          ?.map((e) => OfferItem.fromJson(e as Map<String, dynamic>))
+          .toList() ?? [],
+      categories: (json['categories'] as List<dynamic>?)?.cast<String>() ?? [],
+      developerDisplayName: (json['developerDisplayName'] as String?) ?? '',
+      publisherDisplayName: (json['publisherDisplayName'] as String?) ?? '',
       releaseDate: json['releaseDate'] != null
           ? DateTime.parse(json['releaseDate'] as String)
           : null,
@@ -93,7 +93,7 @@ class FreeGame {
           : null,
       viewableDate: DateTime.parse(json['viewableDate'] as String),
       countriesBlacklist: (json['countriesBlacklist'] as List<dynamic>?)?.cast<String>(),
-      refundType: json['refundType'] as String,
+      refundType: (json['refundType'] as String?) ?? 'NON_REFUNDABLE',
       giveaway: json['giveaway'] != null
           ? Giveaway.fromJson(json['giveaway'] as Map<String, dynamic>)
           : null,
@@ -137,9 +137,9 @@ class FreeGamePrice {
 
   factory FreeGamePrice.fromJson(Map<String, dynamic> json) {
     return FreeGamePrice(
-      currencyCode: json['currencyCode'] as String,
-      originalPrice: json['originalPrice'] as int,
-      discountPrice: json['discountPrice'] as int,
+      currencyCode: (json['currencyCode'] as String?) ?? 'USD',
+      originalPrice: (json['originalPrice'] as int?) ?? 0,
+      discountPrice: (json['discountPrice'] as int?) ?? 0,
     );
   }
 }

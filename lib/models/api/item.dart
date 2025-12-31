@@ -22,21 +22,46 @@ class Item {
 
   factory Item.fromJson(Map<String, dynamic> json) {
     return Item(
-      id: json['id'] as String,
-      namespace: json['namespace'] as String,
+      id: (json['id'] as String?) ?? '',
+      namespace: (json['namespace'] as String?) ?? '',
       title: json['title'] as String?,
       description: json['description'] as String?,
       developer: json['developer'] as String?,
       publisher: json['publisher'] as String?,
-      customAttributes: (json['customAttributes'] as List<dynamic>?)
-              ?.map((e) => ItemCustomAttribute.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
+      customAttributes: _parseCustomAttributes(json['customAttributes']),
       keyImages: (json['keyImages'] as List<dynamic>?)
               ?.map((e) => ItemKeyImage.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
     );
+  }
+
+  /// Parse customAttributes which can be either a Map or a List
+  static List<ItemCustomAttribute> _parseCustomAttributes(dynamic attrs) {
+    if (attrs == null) return [];
+
+    // Handle object format: {"key": {"type": "...", "value": "..."}}
+    if (attrs is Map<String, dynamic>) {
+      return attrs.entries.map((entry) {
+        final value = entry.value;
+        if (value is Map<String, dynamic>) {
+          return ItemCustomAttribute(
+            key: entry.key,
+            value: (value['value'] as String?) ?? '',
+          );
+        }
+        return ItemCustomAttribute(key: entry.key, value: value?.toString() ?? '');
+      }).toList();
+    }
+
+    // Handle array format: [{"key": "...", "value": "..."}]
+    if (attrs is List<dynamic>) {
+      return attrs
+          .map((e) => ItemCustomAttribute.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+
+    return [];
   }
 
   /// Extracts process names from customAttributes

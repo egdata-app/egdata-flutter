@@ -142,8 +142,8 @@ class KeyImage {
 
   factory KeyImage.fromJson(Map<String, dynamic> json) {
     return KeyImage(
-      type: json['type'] as String,
-      url: json['url'] as String,
+      type: (json['type'] as String?) ?? '',
+      url: (json['url'] as String?) ?? '',
       md5: json['md5'] as String?,
     );
   }
@@ -160,8 +160,8 @@ class Seller {
 
   factory Seller.fromJson(Map<String, dynamic> json) {
     return Seller(
-      id: json['id'] as String,
-      name: json['name'] as String,
+      id: (json['id'] as String?) ?? '',
+      name: (json['name'] as String?) ?? '',
     );
   }
 }
@@ -177,8 +177,8 @@ class Tag {
 
   factory Tag.fromJson(Map<String, dynamic> json) {
     return Tag(
-      id: json['id'] as String,
-      name: json['name'] as String,
+      id: (json['id'] as String?) ?? '',
+      name: (json['name'] as String?) ?? '',
     );
   }
 }
@@ -194,8 +194,8 @@ class OfferItem {
 
   factory OfferItem.fromJson(Map<String, dynamic> json) {
     return OfferItem(
-      id: json['id'] as String,
-      namespace: json['namespace'] as String,
+      id: (json['id'] as String?) ?? '',
+      namespace: (json['namespace'] as String?) ?? '',
     );
   }
 }
@@ -211,8 +211,8 @@ class CustomAttribute {
 
   factory CustomAttribute.fromJson(Map<String, dynamic> json) {
     return CustomAttribute(
-      type: json['type'] as String,
-      value: json['value'] as String,
+      type: (json['type'] as String?) ?? '',
+      value: (json['value'] as String?) ?? '',
     );
   }
 }
@@ -247,9 +247,9 @@ class TotalPrice {
 
   factory TotalPrice.fromJson(Map<String, dynamic> json) {
     return TotalPrice(
-      originalPrice: json['originalPrice'] as int,
-      discountPrice: json['discountPrice'] as int,
-      currencyCode: json['currencyCode'] as String,
+      originalPrice: (json['originalPrice'] as int?) ?? 0,
+      discountPrice: (json['discountPrice'] as int?) ?? 0,
+      currencyCode: (json['currencyCode'] as String?) ?? 'USD',
     );
   }
 
