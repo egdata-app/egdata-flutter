@@ -1,32 +1,37 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import '../models/game_metadata.dart';
+import '../models/game_metadata.dart' as metadata;
+import 'api_service.dart';
 
 class MetadataService {
-  static const String _baseUrl = 'https://api.egdata.app';
-  final Map<String, GameMetadata> _cache = {};
+  final ApiService _api;
+  final Map<String, metadata.GameMetadata> _cache = {};
 
-  Future<GameMetadata?> fetchMetadata(String catalogItemId) async {
+  MetadataService({ApiService? api}) : _api = api ?? ApiService();
+
+  Future<metadata.GameMetadata?> fetchMetadata(String catalogItemId) async {
     if (_cache.containsKey(catalogItemId)) {
       return _cache[catalogItemId];
     }
 
     try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/items/$catalogItemId'),
+      final item = await _api.getItem(catalogItemId);
+
+      final result = metadata.GameMetadata(
+        id: item.id,
+        title: item.title ?? '',
+        description: item.description,
+        developer: item.developer,
+        publisher: item.publisher,
+        keyImages: item.keyImages
+            .map((img) => metadata.KeyImage(type: img.type, url: img.url))
+            .toList(),
       );
 
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body) as Map<String, dynamic>;
-        final metadata = GameMetadata.fromJson(json);
-        _cache[catalogItemId] = metadata;
-        return metadata;
-      }
+      _cache[catalogItemId] = result;
+      return result;
     } catch (e) {
       // Failed to fetch metadata
+      return null;
     }
-
-    return null;
   }
 
   void clearCache() {

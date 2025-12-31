@@ -1,9 +1,6 @@
-import 'dart:convert';
-
-import 'package:http/http.dart' as http;
-
 import '../database/database_service.dart';
 import '../models/settings.dart';
+import 'api_service.dart';
 import 'notification_service.dart';
 
 class SyncResult {
@@ -30,19 +27,17 @@ class SyncResult {
 class SyncService {
   final DatabaseService _db;
   final NotificationService _notification;
-  final http.Client _client;
-
-  static const _baseUrl = 'https://api.egdata.app';
+  final ApiService _api;
 
   bool _isSyncing = false;
 
   SyncService({
     required DatabaseService db,
     required NotificationService notification,
-    http.Client? client,
+    ApiService? api,
   })  : _db = db,
         _notification = notification,
-        _client = client ?? http.Client();
+        _api = api ?? ApiService();
 
   bool get isSyncing => _isSyncing;
 
@@ -91,40 +86,31 @@ class SyncService {
   }
 
   Future<List<FreeGameEntry>> _syncFreeGames(bool notify) async {
-    final response = await _client.get(Uri.parse('$_baseUrl/free-games'));
-
-    if (response.statusCode != 200) {
-      throw Exception('Failed to fetch free games: ${response.statusCode}');
-    }
-
-    final List<dynamic> games = jsonDecode(response.body);
+    final games = await _api.getFreeGames();
     final newGames = <FreeGameEntry>[];
 
     // Group games by title to merge platform variants
-    final gamesByTitle = <String, List<Map<String, dynamic>>>{};
+    final gamesByTitle = <String, List<FreeGame>>{};
     for (final game in games) {
-      final title = game['title'] as String;
-      gamesByTitle.putIfAbsent(title, () => []).add(game as Map<String, dynamic>);
+      gamesByTitle.putIfAbsent(game.title, () => []).add(game);
     }
 
     for (final entry in gamesByTitle.entries) {
       final variants = entry.value;
       final firstVariant = variants.first;
-      final offerId = firstVariant['id'] as String;
 
       // Check if this free game already exists in the database
-      final existing = await _db.getFreeGameByOfferId(offerId);
+      final existing = await _db.getFreeGameByOfferId(firstVariant.id);
 
       if (existing == null) {
         // New free game detected!
-        final newEntry = FreeGameEntry.fromApiJson(firstVariant);
+        final newEntry = _freeGameEntryFromApi(firstVariant);
 
         // Merge platforms from all variants
         final platforms = <String>{};
         for (final variant in variants) {
-          final giveaway = variant['giveaway'] as Map<String, dynamic>?;
-          final platform = giveaway?['platform'] as String?;
-          platforms.add(platform ?? 'epic');
+          final platform = variant.giveaway?.title ?? 'epic';
+          platforms.add(platform);
         }
         newEntry.platforms = platforms.toList();
 
@@ -151,65 +137,77 @@ class SyncService {
     return newGames;
   }
 
+  FreeGameEntry _freeGameEntryFromApi(FreeGame game) {
+    String? imageUrl;
+    final preferredTypes = ['OfferImageWide', 'DieselStoreFrontWide', 'DieselGameBoxTall'];
+    for (final type in preferredTypes) {
+      for (final img in game.keyImages) {
+        if (img.type == type) {
+          imageUrl = img.url;
+          break;
+        }
+      }
+      if (imageUrl != null) break;
+    }
+    imageUrl ??= game.keyImages.isNotEmpty ? game.keyImages.first.url : null;
+
+    return FreeGameEntry()
+      ..offerId = game.id
+      ..title = game.title
+      ..namespace = game.namespace
+      ..thumbnailUrl = imageUrl
+      ..startDate = game.giveaway?.startDate
+      ..endDate = game.giveaway?.endDate
+      ..platforms = []
+      ..syncedAt = DateTime.now()
+      ..notifiedNewGame = false;
+  }
+
   Future<List<FollowedGameEntry>> _syncFollowedGamePrices() async {
     final followedGames = await _db.getAllFollowedGames();
     final gamesOnSale = <FollowedGameEntry>[];
 
     for (final game in followedGames) {
       try {
-        final response = await _client.get(
-          Uri.parse('$_baseUrl/offers/${game.offerId}'),
-        );
+        final offer = await _api.getOffer(game.offerId);
+        final totalPrice = offer.price?.totalPrice;
 
-        if (response.statusCode != 200) continue;
+        if (totalPrice != null) {
+          final originalPrice = totalPrice.originalPrice.toDouble();
+          final discountPrice = totalPrice.discountPrice.toDouble();
+          final currencyCode = totalPrice.currencyCode;
+          final discountPercent = totalPrice.discountPercent;
 
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final price = data['price'] as Map<String, dynamic>?;
+          final wasOnSale = game.isOnSale;
+          final previousDiscountPercent = game.discountPercent;
 
-        if (price != null) {
-          final totalPrice = price['totalPrice'] as Map<String, dynamic>?;
-          if (totalPrice != null) {
-            final originalPrice = (totalPrice['originalPrice'] as num?)?.toDouble();
-            final discountPrice = (totalPrice['discountPrice'] as num?)?.toDouble();
-            final currencyCode = totalPrice['currencyCode'] as String?;
+          // Update pricing info
+          game.originalPrice = originalPrice;
+          game.currentPrice = discountPrice;
+          game.discountPercent = discountPercent;
+          game.priceCurrency = currencyCode;
 
-            // Calculate discount percentage
-            int? discountPercent;
-            if (originalPrice != null && discountPrice != null && originalPrice > 0) {
-              discountPercent = ((1 - (discountPrice / originalPrice)) * 100).round();
-            }
+          // Check if this is a new sale (wasn't on sale before, or discount increased)
+          final isNewSale = discountPercent != null &&
+              discountPercent > 0 &&
+              (!wasOnSale || (previousDiscountPercent != null && discountPercent > previousDiscountPercent)) &&
+              !game.notifiedSale;
 
-            final wasOnSale = game.isOnSale;
-            final previousDiscountPercent = game.discountPercent;
-
-            // Update pricing info
-            game.originalPrice = originalPrice;
-            game.currentPrice = discountPrice;
-            game.discountPercent = discountPercent;
-            game.priceCurrency = currencyCode;
-
-            // Check if this is a new sale (wasn't on sale before, or discount increased)
-            final isNewSale = discountPercent != null &&
-                discountPercent > 0 &&
-                (!wasOnSale || (previousDiscountPercent != null && discountPercent > previousDiscountPercent)) &&
-                !game.notifiedSale;
-
-            if (isNewSale) {
-              await _notification.showNotification(
-                title: 'Game on Sale!',
-                body: '${game.title} is now ${game.formattedDiscount} off!',
-              );
-              game.notifiedSale = true;
-              gamesOnSale.add(game);
-            }
-
-            // Reset notifiedSale if game is no longer on sale
-            if (discountPercent == null || discountPercent == 0) {
-              game.notifiedSale = false;
-            }
-
-            await _db.saveFollowedGame(game);
+          if (isNewSale) {
+            await _notification.showNotification(
+              title: 'Game on Sale!',
+              body: '${game.title} is now ${game.formattedDiscount} off!',
+            );
+            game.notifiedSale = true;
+            gamesOnSale.add(game);
           }
+
+          // Reset notifiedSale if game is no longer on sale
+          if (discountPercent == null || discountPercent == 0) {
+            game.notifiedSale = false;
+          }
+
+          await _db.saveFollowedGame(game);
         }
       } catch (e) {
         // Skip this game on error, continue with others
@@ -229,44 +227,38 @@ class SyncService {
 
     for (final game in gamesToCheck) {
       try {
-        final response = await _client.get(
-          Uri.parse('$_baseUrl/offers/${game.offerId}/changelog?limit=5'),
-        );
+        final changelog = await _api.getOfferChangelog(game.offerId, limit: 5);
 
-        if (response.statusCode != 200) continue;
-
-        final List<dynamic> changelog = jsonDecode(response.body);
-
-        for (final change in changelog) {
-          final changeMap = change as Map<String, dynamic>;
-          final changeId = changeMap['_id'] as String? ??
-              changeMap['id'] as String? ??
-              DateTime.now().toIso8601String();
+        for (final change in changelog.elements) {
+          final changeId = change.id;
 
           // Check if we've already processed this changelog entry
           final exists = await _db.changelogExists(game.offerId, changeId);
           if (exists) continue;
 
-          // Parse timestamp
-          final timestamp = changeMap['timestamp'] != null
-              ? DateTime.tryParse(changeMap['timestamp'] as String)
-              : null;
-
           // Only include changes from the last 30 days
-          if (timestamp != null) {
-            final daysSinceChange = DateTime.now().difference(timestamp).inDays;
-            if (daysSinceChange > 30) continue;
-          }
+          final daysSinceChange = DateTime.now().difference(change.timestamp).inDays;
+          if (daysSinceChange > 30) continue;
+
+          // Get the primary change type from metadata
+          final changeType = change.metadata.changes.isNotEmpty
+              ? change.metadata.changes.first.changeType
+              : 'update';
 
           // New changelog entry detected
-          final entry = ChangelogEntry.fromApiJson(game.offerId, changeMap);
+          final entry = ChangelogEntry()
+            ..offerId = game.offerId
+            ..changeId = changeId
+            ..timestamp = change.timestamp
+            ..changeType = changeType
+            ..notified = false;
+
           await _db.saveChangelog(entry);
 
           // Show notification
-          final changeType = entry.changeType ?? 'updated';
           await _notification.showNotification(
             title: 'Game Updated',
-            body: '${game.title} has been $changeType',
+            body: '${game.title} has been ${changeType}d',
           );
 
           entry.notified = true;
@@ -277,10 +269,8 @@ class SyncService {
 
         // Update last changelog check time
         game.lastChangelogCheck = DateTime.now();
-        if (changelog.isNotEmpty) {
-          final latestChange = changelog.first as Map<String, dynamic>;
-          game.lastChangelogId = latestChange['_id'] as String? ??
-              latestChange['id'] as String?;
+        if (changelog.elements.isNotEmpty) {
+          game.lastChangelogId = changelog.elements.first.id;
         }
         await _db.saveFollowedGame(game);
       } catch (e) {
