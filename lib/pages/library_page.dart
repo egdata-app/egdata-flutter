@@ -144,10 +144,10 @@ class _LibraryPageState extends State<LibraryPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.12),
+              color: AppColors.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: AppColors.primary.withOpacity(0.25),
+                color: AppColors.primary.withValues(alpha: 0.25),
               ),
             ),
             child: Row(
@@ -277,11 +277,11 @@ class _LibraryPageState extends State<LibraryPage> {
             height: 46,
             decoration: BoxDecoration(
               color: isActive
-                  ? AppColors.primary.withOpacity(0.12)
+                  ? AppColors.primary.withValues(alpha: 0.12)
                   : AppColors.surface,
               borderRadius: BorderRadius.circular(AppColors.radiusSmall),
               border: Border.all(
-                color: isActive ? AppColors.primary.withOpacity(0.3) : AppColors.border,
+                color: isActive ? AppColors.primary.withValues(alpha: 0.3) : AppColors.border,
               ),
             ),
             child: Icon(

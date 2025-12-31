@@ -4,7 +4,6 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   isar_flutter_libs
-  local_notifier
   screen_retriever_linux
   tray_manager
   url_launcher_linux

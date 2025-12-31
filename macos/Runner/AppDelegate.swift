@@ -1,8 +1,9 @@
 import Cocoa
 import FlutterMacOS
+import UserNotifications
 
 @main
-class AppDelegate: FlutterAppDelegate {
+class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
   override func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
     return true
   }
@@ -15,6 +16,9 @@ class AppDelegate: FlutterAppDelegate {
 
   override func applicationDidFinishLaunching(_ notification: Notification) {
     super.applicationDidFinishLaunching(notification)
+
+    // Set up notification center delegate
+    UNUserNotificationCenter.current().delegate = self
 
     // Check if another instance is already running
     guard let bundleIdentifier = Bundle.main.bundleIdentifier else { return }
@@ -37,5 +41,18 @@ class AppDelegate: FlutterAppDelegate {
       }
     }
     return true
+  }
+
+  // MARK: - UNUserNotificationCenterDelegate
+
+  func userNotificationCenter(_ center: UNUserNotificationCenter,
+                              willPresent notification: UNNotification,
+                              withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+    // Show notification even when app is in foreground
+    if #available(macOS 11.0, *) {
+      completionHandler([.banner, .sound])
+    } else {
+      completionHandler([.alert, .sound])
+    }
   }
 }

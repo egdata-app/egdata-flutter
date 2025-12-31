@@ -44,19 +44,19 @@ class _FollowButtonState extends State<FollowButton> {
             decoration: BoxDecoration(
               color: widget.isFollowing
                   ? (_isHovered
-                      ? AppColors.error.withOpacity(0.15)
-                      : AppColors.accentPink.withOpacity(0.12))
+                      ? AppColors.error.withValues(alpha: 0.15)
+                      : AppColors.accentPink.withValues(alpha: 0.12))
                   : (_isHovered
-                      ? AppColors.primary.withOpacity(0.12)
+                      ? AppColors.primary.withValues(alpha: 0.12)
                       : AppColors.surfaceLight),
               borderRadius: BorderRadius.circular(AppColors.radiusSmall),
               border: Border.all(
                 color: widget.isFollowing
                     ? (_isHovered
-                        ? AppColors.error.withOpacity(0.4)
-                        : AppColors.accentPink.withOpacity(0.25))
+                        ? AppColors.error.withValues(alpha: 0.4)
+                        : AppColors.accentPink.withValues(alpha: 0.25))
                     : (_isHovered
-                        ? AppColors.primary.withOpacity(0.4)
+                        ? AppColors.primary.withValues(alpha: 0.4)
                         : AppColors.borderLight),
               ),
             ),
@@ -88,8 +88,8 @@ class _FollowButtonState extends State<FollowButton> {
           decoration: BoxDecoration(
             color: widget.isFollowing
                 ? (_isHovered
-                    ? AppColors.error.withOpacity(0.15)
-                    : AppColors.accentPink.withOpacity(0.12))
+                    ? AppColors.error.withValues(alpha: 0.15)
+                    : AppColors.accentPink.withValues(alpha: 0.12))
                 : (_isHovered
                     ? AppColors.primary
                     : Colors.transparent),
@@ -97,8 +97,8 @@ class _FollowButtonState extends State<FollowButton> {
             border: Border.all(
               color: widget.isFollowing
                   ? (_isHovered
-                      ? AppColors.error.withOpacity(0.4)
-                      : AppColors.accentPink.withOpacity(0.25))
+                      ? AppColors.error.withValues(alpha: 0.4)
+                      : AppColors.accentPink.withValues(alpha: 0.25))
                   : (_isHovered
                       ? AppColors.primary
                       : AppColors.borderLight),

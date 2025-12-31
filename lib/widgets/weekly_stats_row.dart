@@ -65,7 +65,7 @@ class WeeklyStatsRow extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
+              color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(AppColors.radiusSmall),
             ),
             child: Icon(icon, size: 20, color: color),
@@ -119,7 +119,7 @@ class WeeklyStatsRow extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: AppColors.warning.withOpacity(0.12),
+              color: AppColors.warning.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(AppColors.radiusSmall),
             ),
             child: const Icon(Icons.star_rounded, size: 20, color: AppColors.warning),

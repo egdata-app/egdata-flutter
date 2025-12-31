@@ -65,8 +65,8 @@ class AppColors {
   static const Color surfaceHover = Color(0xFF1E1E1E);
 
   // Glassmorphism
-  static Color get surfaceGlass => Colors.white.withOpacity(0.03);
-  static Color get borderGlass => Colors.white.withOpacity(0.08);
+  static Color get surfaceGlass => Colors.white.withValues(alpha: 0.03);
+  static Color get borderGlass => Colors.white.withValues(alpha: 0.08);
 
   // Borders
   static const Color border = Color(0xFF1F1F1F);
@@ -280,7 +280,7 @@ class EGDataApp extends StatelessWidget {
             color: AppColors.textSecondary,
             fontWeight: FontWeight.w500,
           ),
-          selectedColor: AppColors.primary.withOpacity(0.15),
+          selectedColor: AppColors.primary.withValues(alpha: 0.15),
         ),
         scrollbarTheme: ScrollbarThemeData(
           thumbColor: WidgetStateProperty.all(AppColors.borderLight),
@@ -295,7 +295,7 @@ class EGDataApp extends StatelessWidget {
           }),
           trackColor: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.selected)) {
-              return AppColors.primary.withOpacity(0.3);
+              return AppColors.primary.withValues(alpha: 0.3);
             }
             return AppColors.border;
           }),

@@ -424,7 +424,7 @@ class _AppShellState extends State<AppShell> with WindowListener {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: const Icon(
@@ -511,7 +511,7 @@ class _AppShellState extends State<AppShell> with WindowListener {
                         Icon(
                           Icons.inbox_rounded,
                           size: 32,
-                          color: AppColors.textMuted.withOpacity(0.5),
+                          color: AppColors.textMuted.withValues(alpha: 0.5),
                         ),
                         const SizedBox(height: 8),
                         const Text(

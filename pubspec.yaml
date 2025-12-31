@@ -21,7 +21,7 @@ dependencies:
   launch_at_startup: ^0.5.1
   windows_single_instance: ^1.1.0
   table_calendar: ^3.1.2
-  local_notifier: ^0.1.6
+  flutter_local_notifications: ^19.0.0
   url_launcher: ^6.3.2
   isar: ^3.1.0+1
   isar_flutter_libs: ^3.1.0+1
