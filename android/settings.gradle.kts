@@ -19,8 +19,32 @@ pluginManagement {
 
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-    id("com.android.application") version "8.11.1" apply false
-    id("org.jetbrains.kotlin.android") version "2.2.20" apply false
+    id("com.android.application") version "8.9.1" apply false
+    id("org.jetbrains.kotlin.android") version "2.1.0" apply false
 }
 
 include(":app")
+
+// Fix for isar_flutter_libs missing namespace and compileSdk (required by AGP 8+)
+gradle.beforeProject {
+    if (name == "isar_flutter_libs") {
+        buildFile.parentFile.resolve("build.gradle").also { buildGradle ->
+            if (buildGradle.exists()) {
+                var content = buildGradle.readText()
+                // Add namespace if missing
+                if (!content.contains("namespace")) {
+                    content = content.replace(
+                        "android {",
+                        "android {\n    namespace 'dev.isar.isar_flutter_libs'"
+                    )
+                }
+                // Update compileSdkVersion to 36
+                content = content.replace(
+                    Regex("compileSdkVersion\\s+\\d+"),
+                    "compileSdkVersion 36"
+                )
+                buildGradle.writeText(content)
+            }
+        }
+    }
+}

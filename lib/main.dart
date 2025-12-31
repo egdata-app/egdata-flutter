@@ -1,15 +1,34 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'app_shell.dart';
+import 'utils/platform_utils.dart';
+
+// Desktop-only imports (conditionally used)
 import 'package:window_manager/window_manager.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:windows_single_instance/windows_single_instance.dart';
-import 'app_shell.dart';
+import 'package:updat/updat_window_manager.dart';
+import 'package:updat/theme/chips/flat.dart';
+import 'services/update_service.dart';
+
+// App version - keep in sync with pubspec.yaml
+const String appVersion = '1.0.0';
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Desktop-only initialization
+  if (PlatformUtils.isDesktop) {
+    await _initDesktop(args);
+  }
+
+  runApp(const EGDataApp());
+}
+
+/// Initialize desktop-specific features (window manager, single instance, etc.)
+Future<void> _initDesktop(List<String> args) async {
   // Ensure only one instance of the app runs on Windows
-  if (Platform.isWindows) {
+  if (PlatformUtils.isWindows) {
     await WindowsSingleInstance.ensureSingleInstance(
       args,
       'egdata_client_single_instance',
@@ -22,32 +41,30 @@ void main(List<String> args) async {
   }
 
   // Initialize window manager for desktop platforms
-  if (Platform.isWindows || Platform.isMacOS) {
-    await windowManager.ensureInitialized();
+  await windowManager.ensureInitialized();
 
-    const windowOptions = WindowOptions(
-      size: Size(1280, 800),
-      minimumSize: Size(900, 650),
-      center: true,
-      backgroundColor: Colors.transparent,
-      skipTaskbar: false,
-      titleBarStyle: TitleBarStyle.hidden,
-      title: 'EGData Client',
-    );
+  const windowOptions = WindowOptions(
+    size: Size(1280, 800),
+    minimumSize: Size(900, 650),
+    center: true,
+    backgroundColor: Colors.transparent,
+    skipTaskbar: false,
+    titleBarStyle: TitleBarStyle.hidden,
+    title: 'EGData Client',
+  );
 
-    await windowManager.waitUntilReadyToShow(windowOptions, () async {
-      await windowManager.show();
-      await windowManager.focus();
-    });
+  await windowManager.waitUntilReadyToShow(windowOptions, () async {
+    await windowManager.show();
+    await windowManager.focus();
+  });
 
-    // Initialize launch at startup
+  // Initialize launch at startup (Windows only for now)
+  if (PlatformUtils.isWindows) {
     launchAtStartup.setup(
       appName: 'EGData Client',
       appPath: Platform.resolvedExecutable,
     );
   }
-
-  runApp(const EGDataApp());
 }
 
 // Unreal Engine inspired color palette
@@ -106,7 +123,7 @@ class AppColors {
         border: Border.all(color: borderGlass),
       );
 
-  // Radial gradient background decoration
+  // Radial gradient background decoration (desktop)
   static BoxDecoration get radialGradientBackground => const BoxDecoration(
     gradient: RadialGradient(
       center: Alignment(-0.5, -0.8),
@@ -120,13 +137,37 @@ class AppColors {
     ),
   );
 
-  // Secondary radial gradient for accent glow
+  // Secondary radial gradient for accent glow (desktop)
   static BoxDecoration get accentGlowBackground => BoxDecoration(
     gradient: RadialGradient(
       center: const Alignment(0.8, 0.6),
       radius: 1.2,
       colors: [primary.withValues(alpha: 0.03), Colors.transparent],
       stops: const [0.0, 0.6],
+    ),
+  );
+
+  // Mobile-optimized radial gradient (adjusted for portrait orientation)
+  static BoxDecoration get mobileRadialGradientBackground => const BoxDecoration(
+    gradient: RadialGradient(
+      center: Alignment(0.0, -0.3),
+      radius: 1.8,
+      colors: [
+        Color(0xFF1A1A2E), // Subtle dark blue-purple tint
+        Color(0xFF0F0F14), // Darker transition
+        Color(0xFF0A0A0A), // Pure black (background)
+      ],
+      stops: [0.0, 0.35, 0.7],
+    ),
+  );
+
+  // Mobile-optimized accent glow (positioned at top-right corner)
+  static BoxDecoration get mobileAccentGlowBackground => BoxDecoration(
+    gradient: RadialGradient(
+      center: const Alignment(0.6, -0.4),
+      radius: 1.0,
+      colors: [primary.withValues(alpha: 0.04), Colors.transparent],
+      stops: const [0.0, 0.5],
     ),
   );
 }
@@ -320,7 +361,23 @@ class EGDataApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const AppShell(),
+      home: PlatformUtils.isDesktop
+          ? UpdatWindowManager(
+              appName: 'EGData Client',
+              currentVersion: appVersion,
+              getLatestVersion: () async {
+                return await UpdateService.getLatestVersion() ?? appVersion;
+              },
+              getBinaryUrl: (version) async {
+                return UpdateService.getBinaryUrl(version ?? appVersion);
+              },
+              getChangelog: (_, version) async {
+                return await UpdateService.getChangelog(version) ?? '';
+              },
+              updateChipBuilder: flatChip,
+              child: const AppShell(),
+            )
+          : const AppShell(),
     );
   }
 }

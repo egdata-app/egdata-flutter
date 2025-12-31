@@ -16,7 +16,8 @@
       "Bash(/opt/homebrew/bin/flutter analyze:*)",
       "Bash(git -C /Users/nacho/Documents/code/egdata-flutter diff lib/app_shell.dart lib/pages/settings_page.dart)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "WebFetch(domain:api.flutter.dev)"
     ]
   }
 }
