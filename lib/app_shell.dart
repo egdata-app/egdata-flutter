@@ -16,6 +16,7 @@ import 'services/sync_service.dart';
 import 'services/upload_service.dart';
 import 'services/settings_service.dart';
 import 'services/tray_service.dart';
+import 'services/update_service.dart';
 import 'widgets/app_sidebar.dart';
 import 'widgets/custom_title_bar.dart';
 import 'pages/dashboard_page.dart';
@@ -56,6 +57,7 @@ class _AppShellState extends State<AppShell> {
   Timer? _syncTimer;
   final List<String> _logs = [];
   bool _showConsole = false;
+  String? _latestVersion;
 
   @override
   void initState() {
@@ -107,6 +109,19 @@ class _AppShellState extends State<AppShell> {
           '${result.newChangelogs.length} changelog updates');
     } else {
       _addLog('Startup sync complete: no changes detected');
+    }
+
+    // Check for app updates
+    _checkForUpdates();
+  }
+
+  Future<void> _checkForUpdates() async {
+    final latestVersion = await UpdateService.getLatestVersion();
+    if (latestVersion != null && latestVersion != appVersion) {
+      setState(() {
+        _latestVersion = latestVersion;
+      });
+      _addLog('Update available: v$latestVersion');
     }
   }
 
@@ -358,6 +373,7 @@ class _AppShellState extends State<AppShell> {
                           _currentPage = page;
                         });
                       },
+                      latestVersion: _latestVersion,
                     ),
                     Expanded(child: _buildCurrentPage()),
                   ],
