@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../main.dart';
+import '../main.dart'; // For AppColors
 
 enum AppPage {
   dashboard,
@@ -19,11 +19,13 @@ class AppSidebar extends StatefulWidget {
     required this.currentPage,
     required this.onPageSelected,
     this.latestVersion,
-    this.currentVersion = appVersion,
+    this.currentVersion = '',
   });
 
   bool get hasUpdate =>
-      latestVersion != null && latestVersion != currentVersion;
+      latestVersion != null &&
+      currentVersion.isNotEmpty &&
+      latestVersion != currentVersion;
 
   @override
   State<AppSidebar> createState() => _AppSidebarState();

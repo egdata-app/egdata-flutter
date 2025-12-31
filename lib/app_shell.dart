@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'main.dart';
 import 'database/database_service.dart';
 import 'models/game_info.dart';
@@ -58,6 +59,7 @@ class _AppShellState extends State<AppShell> {
   final List<String> _logs = [];
   bool _showConsole = false;
   String? _latestVersion;
+  String _currentVersion = '';
 
   @override
   void initState() {
@@ -75,6 +77,10 @@ class _AppShellState extends State<AppShell> {
   }
 
   Future<void> _init() async {
+    // Get app version from package info
+    final packageInfo = await PackageInfo.fromPlatform();
+    _currentVersion = packageInfo.version;
+
     // Initialize database first
     _db = await DatabaseService.getInstance();
     await _db!.migrateFromSharedPreferences();
@@ -117,11 +123,11 @@ class _AppShellState extends State<AppShell> {
 
   Future<void> _checkForUpdates() async {
     final latestVersion = await UpdateService.getLatestVersion();
-    if (latestVersion != null && latestVersion != appVersion) {
+    if (latestVersion != null && latestVersion != _currentVersion) {
       setState(() {
         _latestVersion = latestVersion;
       });
-      _addLog('Update available: v$latestVersion');
+      _addLog('Update available: v$latestVersion (current: v$_currentVersion)');
     }
   }
 
@@ -374,6 +380,7 @@ class _AppShellState extends State<AppShell> {
                         });
                       },
                       latestVersion: _latestVersion,
+                      currentVersion: _currentVersion,
                     ),
                     Expanded(child: _buildCurrentPage()),
                   ],

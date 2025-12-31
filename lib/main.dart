@@ -5,9 +5,6 @@ import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:windows_single_instance/windows_single_instance.dart';
 import 'app_shell.dart';
 
-// App version - keep in sync with pubspec.yaml
-const String appVersion = '1.0.0';
-
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
