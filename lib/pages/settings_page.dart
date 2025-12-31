@@ -2,6 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../main.dart';
 import '../models/settings.dart';
+import '../services/api_service.dart';
+import '../utils/country_utils.dart';
+import '../utils/platform_utils.dart';
 
 class SettingsPage extends StatefulWidget {
   final AppSettings settings;
@@ -21,11 +24,39 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   late AppSettings _settings;
+  final ApiService _apiService = ApiService();
+  List<String> _countries = [];
+  bool _loadingCountries = true;
 
   @override
   void initState() {
     super.initState();
     _settings = widget.settings;
+    _loadCountries();
+  }
+
+  Future<void> _loadCountries() async {
+    try {
+      final countries = await _apiService.getCountries();
+      if (mounted) {
+        setState(() {
+          _countries = countries;
+          _loadingCountries = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loadingCountries = false;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _apiService.dispose();
+    super.dispose();
   }
 
   void _updateSettings(AppSettings newSettings) {
@@ -69,60 +100,75 @@ class _SettingsPageState extends State<SettingsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildSection(
-                    title: 'Sync',
-                    icon: Icons.sync_rounded,
+                    title: 'Preferences',
+                    icon: Icons.tune_rounded,
                     color: AppColors.primary,
                     children: [
                       _buildSettingTile(
-                        title: 'Auto Sync',
-                        subtitle: 'Automatically upload manifests at regular intervals',
-                        trailing: Switch(
-                          value: _settings.autoSync,
-                          onChanged: (value) {
-                            _updateSettings(_settings.copyWith(autoSync: value));
-                          },
-                        ),
-                      ),
-                      _buildDivider(),
-                      _buildSettingTile(
-                        title: 'Sync Interval',
-                        subtitle: 'How often to check for new manifests',
-                        trailing: _buildIntervalDropdown(),
-                        enabled: _settings.autoSync,
+                        title: 'Country',
+                        subtitle: 'Used for pricing and regional content',
+                        trailing: _buildCountrySelector(),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
-                  _buildSection(
-                    title: 'Startup',
-                    icon: Icons.power_settings_new_rounded,
-                    color: AppColors.success,
-                    children: [
-                      if (Platform.isWindows) ...[
+                  if (!PlatformUtils.isMobile) ...[
+                    const SizedBox(height: 24),
+                    _buildSection(
+                      title: 'Sync',
+                      icon: Icons.sync_rounded,
+                      color: AppColors.accent,
+                      children: [
                         _buildSettingTile(
-                          title: 'Launch at Startup',
-                          subtitle: 'Start EGData Client when you log in',
+                          title: 'Auto Sync',
+                          subtitle: 'Automatically upload manifests at regular intervals',
                           trailing: Switch(
-                            value: _settings.launchAtStartup,
+                            value: _settings.autoSync,
                             onChanged: (value) {
-                              _updateSettings(_settings.copyWith(launchAtStartup: value));
+                              _updateSettings(_settings.copyWith(autoSync: value));
                             },
                           ),
                         ),
                         _buildDivider(),
-                      ],
-                      _buildSettingTile(
-                        title: 'Minimize to Tray',
-                        subtitle: 'Keep running in system tray when window is closed',
-                        trailing: Switch(
-                          value: _settings.minimizeToTray,
-                          onChanged: (value) {
-                            _updateSettings(_settings.copyWith(minimizeToTray: value));
-                          },
+                        _buildSettingTile(
+                          title: 'Sync Interval',
+                          subtitle: 'How often to check for new manifests',
+                          trailing: _buildIntervalDropdown(),
+                          enabled: _settings.autoSync,
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    _buildSection(
+                      title: 'Startup',
+                      icon: Icons.power_settings_new_rounded,
+                      color: AppColors.success,
+                      children: [
+                        if (Platform.isWindows) ...[
+                          _buildSettingTile(
+                            title: 'Launch at Startup',
+                            subtitle: 'Start EGData Client when you log in',
+                            trailing: Switch(
+                              value: _settings.launchAtStartup,
+                              onChanged: (value) {
+                                _updateSettings(_settings.copyWith(launchAtStartup: value));
+                              },
+                            ),
+                          ),
+                          _buildDivider(),
+                        ],
+                        _buildSettingTile(
+                          title: 'Minimize to Tray',
+                          subtitle: 'Keep running in system tray when window is closed',
+                          trailing: Switch(
+                            value: _settings.minimizeToTray,
+                            onChanged: (value) {
+                              _updateSettings(_settings.copyWith(minimizeToTray: value));
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 24),
                   _buildSection(
                     title: 'Notifications',
@@ -475,6 +521,281 @@ class _SettingsPageState extends State<SettingsPage> {
             DropdownMenuItem(value: 1440, child: Text('24 hours')),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCountrySelector() {
+    if (_loadingCountries) {
+      return const SizedBox(
+        width: 24,
+        height: 24,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: AppColors.textSecondary,
+        ),
+      );
+    }
+
+    final currentCountry = _countries.contains(_settings.country)
+        ? _settings.country
+        : (_countries.isNotEmpty ? _countries.first : 'US');
+
+    final countryData = CountryUtils.getCountry(currentCountry);
+    final displayName = countryData?.name ?? currentCountry;
+    final flag = countryData?.flag ?? '';
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => _showCountryPicker(),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceLight,
+            borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+            border: Border.all(color: AppColors.borderLight),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (flag.isNotEmpty) ...[
+                Text(flag, style: const TextStyle(fontSize: 16)),
+                const SizedBox(width: 8),
+              ],
+              Text(
+                displayName,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.expand_more_rounded,
+                size: 18,
+                color: AppColors.textSecondary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showCountryPicker() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _CountryPickerSheet(
+        countries: _countries,
+        selectedCountry: _settings.country,
+        onSelect: (code) {
+          _updateSettings(_settings.copyWith(country: code));
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+}
+
+class _CountryPickerSheet extends StatefulWidget {
+  final List<String> countries;
+  final String selectedCountry;
+  final ValueChanged<String> onSelect;
+
+  const _CountryPickerSheet({
+    required this.countries,
+    required this.selectedCountry,
+    required this.onSelect,
+  });
+
+  @override
+  State<_CountryPickerSheet> createState() => _CountryPickerSheetState();
+}
+
+class _CountryPickerSheetState extends State<_CountryPickerSheet> {
+  final TextEditingController _searchController = TextEditingController();
+  List<CountryData> _filteredCountries = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _filteredCountries = CountryUtils.getCountriesForCodes(widget.countries);
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      if (_searchController.text.isEmpty) {
+        _filteredCountries = CountryUtils.getCountriesForCodes(widget.countries);
+      } else {
+        _filteredCountries = CountryUtils.searchCountries(
+          widget.countries,
+          _searchController.text,
+        );
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
+
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.7,
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          // Handle bar
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.borderLight,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                const Text(
+                  'Select Country',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Search field
+                TextField(
+                  controller: _searchController,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textPrimary,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Search countries...',
+                    hintStyle: TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 14,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.search_rounded,
+                      color: AppColors.textSecondary,
+                      size: 20,
+                    ),
+                    filled: true,
+                    fillColor: AppColors.surfaceLight,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+                      borderSide: BorderSide(color: AppColors.borderLight),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+                      borderSide: BorderSide(color: AppColors.borderLight),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+                      borderSide: const BorderSide(color: AppColors.primary),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Country list
+          Expanded(
+            child: ListView.builder(
+              padding: EdgeInsets.only(bottom: bottomPadding + 20),
+              itemCount: _filteredCountries.length,
+              itemBuilder: (context, index) {
+                final country = _filteredCountries[index];
+                final isSelected = country.code == widget.selectedCountry;
+
+                return InkWell(
+                  onTap: () => widget.onSelect(country.code),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppColors.primary.withValues(alpha: 0.1)
+                          : Colors.transparent,
+                      border: Border(
+                        bottom: BorderSide(
+                          color: AppColors.border.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(
+                          country.flag,
+                          style: const TextStyle(fontSize: 24),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                country.name,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.w500,
+                                  color: isSelected
+                                      ? AppColors.primary
+                                      : AppColors.textPrimary,
+                                ),
+                              ),
+                              Text(
+                                country.code,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (isSelected)
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            color: AppColors.primary,
+                            size: 22,
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

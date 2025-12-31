@@ -37,6 +37,30 @@ class ApiService {
     );
   }
 
+  /// Generic POST request that returns decoded JSON
+  Future<dynamic> _post(String endpoint, Map<String, dynamic> body,
+      {Map<String, String>? queryParams}) async {
+    var uri = Uri.parse('$baseUrl$endpoint');
+    if (queryParams != null && queryParams.isNotEmpty) {
+      uri = uri.replace(queryParameters: queryParams);
+    }
+
+    final response = await _client.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    }
+
+    throw ApiException(
+      'POST $endpoint failed',
+      response.statusCode,
+    );
+  }
+
   /// Fetches all currently free games
   Future<List<FreeGame>> getFreeGames() async {
     final data = await _get('/free-games') as List<dynamic>;
@@ -61,6 +85,26 @@ class ApiService {
   Future<Item> getItem(String catalogItemId) async {
     final data = await _get('/items/$catalogItemId') as Map<String, dynamic>;
     return Item.fromJson(data);
+  }
+
+  /// Searches for offers with various filters
+  ///
+  /// [request] - Search parameters including title, filters, pagination, etc.
+  /// [country] - Country code for price localization (defaults to "US")
+  Future<SearchResponse> search(SearchRequest request,
+      {String country = 'US'}) async {
+    final data = await _post(
+      '/search/v2/search',
+      request.toJson(),
+      queryParams: {'country': country},
+    ) as Map<String, dynamic>;
+    return SearchResponse.fromJson(data);
+  }
+
+  /// Fetches list of available country codes
+  Future<List<String>> getCountries() async {
+    final data = await _get('/countries') as List<dynamic>;
+    return data.cast<String>();
   }
 
   /// Disposes the HTTP client

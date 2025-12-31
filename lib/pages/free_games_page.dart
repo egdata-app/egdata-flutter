@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../main.dart';
 import '../database/database_service.dart';
-import '../database/collections/free_game_entry.dart';
 import '../models/settings.dart';
 import '../services/follow_service.dart';
 import '../services/sync_service.dart';
@@ -183,20 +182,17 @@ class _FreeGamesPageState extends State<FreeGamesPage> {
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final game = _activeGames[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: FreeGameCard(
-                          game: game,
-                          followService: widget.followService,
-                          isActive: true,
-                        ),
-                      );
-                    },
-                    childCount: _activeGames.length,
-                  ),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final game = _activeGames[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: FreeGameCard(
+                        game: game,
+                        followService: widget.followService,
+                        isActive: true,
+                      ),
+                    );
+                  }, childCount: _activeGames.length),
                 ),
               ),
             ],
@@ -251,20 +247,17 @@ class _FreeGamesPageState extends State<FreeGamesPage> {
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final game = _upcomingGames[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: FreeGameCard(
-                          game: game,
-                          followService: widget.followService,
-                          isActive: false,
-                        ),
-                      );
-                    },
-                    childCount: _upcomingGames.length,
-                  ),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final game = _upcomingGames[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: FreeGameCard(
+                        game: game,
+                        followService: widget.followService,
+                        isActive: false,
+                      ),
+                    );
+                  }, childCount: _upcomingGames.length),
                 ),
               ),
             ],
@@ -304,9 +297,7 @@ class _FreeGamesPageState extends State<FreeGamesPage> {
               ),
 
             // Bottom padding
-            const SliverToBoxAdapter(
-              child: SizedBox(height: 20),
-            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 20)),
           ],
         ],
       ),

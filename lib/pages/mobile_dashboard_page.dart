@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../database/database_service.dart';
-import '../database/collections/free_game_entry.dart';
-import '../database/collections/followed_game_entry.dart';
 import '../models/followed_game.dart';
 import '../services/follow_service.dart';
 import '../services/sync_service.dart';
@@ -207,10 +205,14 @@ class _MobileDashboardPageState extends State<MobileDashboardPage> {
                 AppColors.warning,
               ),
               const SizedBox(height: 12),
-              ..._gamesOnSale.take(5).map((game) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _buildSaleCard(game),
-                  )),
+              ..._gamesOnSale
+                  .take(5)
+                  .map(
+                    (game) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _buildSaleCard(game),
+                    ),
+                  ),
               const SizedBox(height: 16),
             ],
 
@@ -374,8 +376,10 @@ class _MobileDashboardPageState extends State<MobileDashboardPage> {
                   ),
                   const SizedBox(height: 4),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.success.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(6),

@@ -7,6 +7,7 @@ class AppSettings {
   final bool notifyReleases;
   final bool notifySales;
   final bool notifyFollowedUpdates;
+  final String country;
 
   AppSettings({
     this.autoSync = false,
@@ -17,6 +18,7 @@ class AppSettings {
     this.notifyReleases = false,
     this.notifySales = false,
     this.notifyFollowedUpdates = true,
+    this.country = 'US',
   });
 
   AppSettings copyWith({
@@ -28,6 +30,7 @@ class AppSettings {
     bool? notifyReleases,
     bool? notifySales,
     bool? notifyFollowedUpdates,
+    String? country,
   }) {
     return AppSettings(
       autoSync: autoSync ?? this.autoSync,
@@ -38,6 +41,7 @@ class AppSettings {
       notifyReleases: notifyReleases ?? this.notifyReleases,
       notifySales: notifySales ?? this.notifySales,
       notifyFollowedUpdates: notifyFollowedUpdates ?? this.notifyFollowedUpdates,
+      country: country ?? this.country,
     );
   }
 
@@ -51,6 +55,7 @@ class AppSettings {
       'notifyReleases': notifyReleases,
       'notifySales': notifySales,
       'notifyFollowedUpdates': notifyFollowedUpdates,
+      'country': country,
     };
   }
 
@@ -64,6 +69,7 @@ class AppSettings {
       notifyReleases: json['notifyReleases'] ?? false,
       notifySales: json['notifySales'] ?? false,
       notifyFollowedUpdates: json['notifyFollowedUpdates'] ?? true,
+      country: json['country'] ?? 'US',
     );
   }
 }
