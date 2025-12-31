@@ -193,6 +193,18 @@ class ApiService {
     return data.cast<String>();
   }
 
+  /// Fetches homepage statistics
+  Future<HomepageStats> getHomepageStats({String country = 'US'}) async {
+    final data = await _get('/stats/homepage?country=$country') as Map<String, dynamic>;
+    return HomepageStats.fromJson(data);
+  }
+
+  /// Fetches free games statistics
+  Future<FreeGamesStats> getFreeGamesStats({String country = 'US'}) async {
+    final data = await _get('/free-games/stats?country=$country') as Map<String, dynamic>;
+    return FreeGamesStats.fromJson(data);
+  }
+
   // ============================================
   // Push Notification Endpoints
   // ============================================

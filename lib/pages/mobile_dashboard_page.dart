@@ -2,46 +2,63 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../main.dart';
 import '../database/database_service.dart';
-import '../models/followed_game.dart';
+import '../models/settings.dart';
 import '../services/api_service.dart';
 import '../services/follow_service.dart';
 import '../services/sync_service.dart';
+import '../widgets/progressive_image.dart';
 import 'mobile_offer_detail_page.dart';
 
 class MobileDashboardPage extends StatefulWidget {
   final FollowService followService;
   final SyncService syncService;
   final DatabaseService db;
+  final AppSettings settings;
 
   const MobileDashboardPage({
     super.key,
     required this.followService,
     required this.syncService,
     required this.db,
+    required this.settings,
   });
 
   @override
   State<MobileDashboardPage> createState() => _MobileDashboardPageState();
 }
 
-class _MobileDashboardPageState extends State<MobileDashboardPage> {
+class _MobileDashboardPageState extends State<MobileDashboardPage>
+    with AutomaticKeepAliveClientMixin {
   final ApiService _apiService = ApiService();
+
+  @override
+  bool get wantKeepAlive => true;
   List<FreeGame> _activeFreeGames = [];
-  List<FollowedGame> _followedGames = [];
-  List<FollowedGameEntry> _gamesOnSale = []; // Use DB entry for price info
+  List<FollowedGameEntry> _gamesOnSale = [];
+  HomepageStats? _homepageStats;
+  FreeGamesStats? _freeGamesStats;
   bool _isLoading = true;
   StreamSubscription? _followedSub;
+  String? _lastCountry;
 
   @override
   void initState() {
     super.initState();
+    _lastCountry = widget.settings.country;
     _loadData();
-    _followedSub = widget.followService.followedGamesStream.listen((games) {
-      setState(() {
-        _followedGames = games;
-      });
+    _followedSub = widget.followService.followedGamesStream.listen((_) {
       _loadGamesOnSale();
     });
+  }
+
+  @override
+  void didUpdateWidget(MobileDashboardPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reload data if country changed
+    if (widget.settings.country != _lastCountry) {
+      _lastCountry = widget.settings.country;
+      _loadData();
+    }
   }
 
   Future<void> _loadGamesOnSale() async {
@@ -59,8 +76,19 @@ class _MobileDashboardPageState extends State<MobileDashboardPage> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
+    final country = widget.settings.country;
     try {
-      final allGames = await _apiService.getFreeGames();
+      // Fetch all data in parallel
+      final results = await Future.wait([
+        _apiService.getFreeGames(),
+        _apiService.getHomepageStats(country: country),
+        _apiService.getFreeGamesStats(country: country),
+      ]);
+
+      final allGames = results[0] as List<FreeGame>;
+      final homepageStats = results[1] as HomepageStats;
+      final freeGamesStats = results[2] as FreeGamesStats;
+
       await widget.followService.loadFollowedGames();
       await _loadGamesOnSale();
 
@@ -74,7 +102,8 @@ class _MobileDashboardPageState extends State<MobileDashboardPage> {
 
       setState(() {
         _activeFreeGames = activeGames;
-        _followedGames = widget.followService.followedGames;
+        _homepageStats = homepageStats;
+        _freeGamesStats = freeGamesStats;
         _isLoading = false;
       });
     } catch (e) {
@@ -98,6 +127,7 @@ class _MobileDashboardPageState extends State<MobileDashboardPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.primary),
@@ -157,37 +187,142 @@ class _MobileDashboardPageState extends State<MobileDashboardPage> {
 
             const SizedBox(height: 28),
 
-            // Stats row
+            // Stats row - Homepage stats
             Row(
               children: [
                 Expanded(
                   child: _buildStatCard(
+                    icon: Icons.storefront_rounded,
+                    label: 'Offers',
+                    value: _formatNumber(_homepageStats?.offers ?? 0),
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildStatCard(
                     icon: Icons.card_giftcard_rounded,
-                    label: 'Free Games',
-                    value: '${_activeFreeGames.length}',
+                    label: 'Giveaways',
+                    value: _formatNumber(_homepageStats?.giveaways ?? 0),
                     color: AppColors.success,
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: _buildStatCard(
-                    icon: Icons.favorite_rounded,
-                    label: 'Following',
-                    value: '${_followedGames.length}',
-                    color: AppColors.accentPink,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatCard(
-                    icon: Icons.local_offer_rounded,
+                    icon: Icons.percent_rounded,
                     label: 'On Sale',
-                    value: '${_gamesOnSale.length}',
+                    value: _formatNumber(_homepageStats?.activeDiscounts ?? 0),
                     color: AppColors.warning,
                   ),
                 ),
               ],
             ),
+
+            const SizedBox(height: 12),
+
+            // Free games stats row
+            if (_freeGamesStats != null)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.success.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.redeem_rounded,
+                            color: AppColors.success,
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Free Games Program',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildMiniStat(
+                            'Total Giveaways',
+                            _formatNumber(_freeGamesStats!.totalGiveaways),
+                          ),
+                        ),
+                        Container(
+                          width: 1,
+                          height: 32,
+                          color: AppColors.border,
+                        ),
+                        Expanded(
+                          child: _buildMiniStat(
+                            'Total Offers',
+                            _formatNumber(_freeGamesStats!.totalOffers),
+                          ),
+                        ),
+                        Container(
+                          width: 1,
+                          height: 32,
+                          color: AppColors.border,
+                        ),
+                        Expanded(
+                          child: _buildMiniStat(
+                            'Publishers',
+                            _formatNumber(_freeGamesStats!.sellers),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.savings_rounded,
+                            color: AppColors.success,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Total value: ${_freeGamesStats!.totalValue.formattedOriginalPrice}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.success,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
             const SizedBox(height: 28),
 
@@ -276,6 +411,15 @@ class _MobileDashboardPageState extends State<MobileDashboardPage> {
     );
   }
 
+  String _formatNumber(int number) {
+    if (number >= 1000000) {
+      return '${(number / 1000000).toStringAsFixed(1)}M';
+    } else if (number >= 1000) {
+      return '${(number / 1000).toStringAsFixed(1)}K';
+    }
+    return number.toString();
+  }
+
   Widget _buildStatCard({
     required IconData icon,
     required String label,
@@ -319,6 +463,31 @@ class _MobileDashboardPageState extends State<MobileDashboardPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildMiniStat(String label, String value) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+            color: AppColors.textMuted,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
     );
   }
 
@@ -384,10 +553,11 @@ class _MobileDashboardPageState extends State<MobileDashboardPage> {
                   topRight: Radius.circular(13),
                 ),
                 child: thumbnailUrl != null
-                    ? Image.network(
-                        thumbnailUrl,
+                    ? ProgressiveImage(
+                        imageUrl: thumbnailUrl,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                        placeholderWidth: 20,
+                        finalWidth: 400,
                       )
                     : _buildPlaceholder(),
               ),
@@ -453,10 +623,11 @@ class _MobileDashboardPageState extends State<MobileDashboardPage> {
                 width: 56,
                 height: 56,
                 child: game.thumbnailUrl != null
-                    ? Image.network(
-                        game.thumbnailUrl!,
+                    ? ProgressiveImage(
+                        imageUrl: game.thumbnailUrl!,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                        placeholderWidth: 10,
+                        finalWidth: 120,
                       )
                     : _buildPlaceholder(),
               ),

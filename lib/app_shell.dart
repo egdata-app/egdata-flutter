@@ -41,6 +41,15 @@ class _AppShellState extends State<AppShell> {
   // Navigation
   AppPage _currentPage = AppPage.dashboard;
 
+  // Mobile navigation with PageView for animations and state preservation
+  late final PageController _mobilePageController;
+  static const List<AppPage> _mobilePages = [
+    AppPage.dashboard,
+    AppPage.browse,
+    AppPage.freeGames,
+    AppPage.settings,
+  ];
+
   // Universal services
   final SettingsService _settingsService = SettingsService();
   final NotificationService _notificationService = NotificationService();
@@ -73,12 +82,14 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
+    _mobilePageController = PageController();
     _init();
   }
 
   @override
   void dispose() {
     _syncTimer?.cancel();
+    _mobilePageController.dispose();
     _followService?.dispose();
     _playtimeService?.dispose();
     _pushService?.dispose();
@@ -459,15 +470,49 @@ class _AppShellState extends State<AppShell> {
           Container(decoration: AppColors.mobileRadialGradientBackground),
           // Mobile-optimized accent glow overlay
           Container(decoration: AppColors.mobileAccentGlowBackground),
-          // Main content with safe area
+          // Main content with safe area - PageView for animations & state preservation
           SafeArea(
-            child: _buildCurrentPage(),
+            child: PageView(
+              controller: _mobilePageController,
+              physics: const NeverScrollableScrollPhysics(), // Disable swipe
+              children: [
+                MobileDashboardPage(
+                  followService: _followService!,
+                  syncService: _syncService!,
+                  db: _db!,
+                  settings: _settings,
+                ),
+                MobileBrowsePage(
+                  settings: _settings,
+                  followService: _followService!,
+                ),
+                FreeGamesPage(
+                  followService: _followService!,
+                  syncService: _syncService!,
+                  db: _db!,
+                ),
+                SettingsPage(
+                  settings: _settings,
+                  onSettingsChanged: _onSettingsChanged,
+                  onClearProcessCache: () => _db!.clearProcessCache(),
+                  pushService: _pushService,
+                ),
+              ],
+            ),
           ),
         ],
       ),
       bottomNavigationBar: MobileBottomNav(
         currentPage: _currentPage,
         onPageSelected: (page) {
+          final targetIndex = _mobilePages.indexOf(page);
+          if (targetIndex != -1) {
+            _mobilePageController.animateToPage(
+              targetIndex,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutCubic,
+            );
+          }
           setState(() {
             _currentPage = page;
           });
@@ -485,6 +530,7 @@ class _AppShellState extends State<AppShell> {
             followService: _followService!,
             syncService: _syncService!,
             db: _db!,
+            settings: _settings,
           );
         }
         return DashboardPage(

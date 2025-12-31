@@ -5,6 +5,7 @@ import '../database/collections/free_game_entry.dart';
 import '../models/followed_game.dart';
 import '../services/follow_service.dart';
 import 'follow_button.dart';
+import 'progressive_image.dart';
 
 class FreeGameCard extends StatefulWidget {
   final FreeGameEntry game;
@@ -127,10 +128,11 @@ class _FreeGameCardState extends State<FreeGameCard> {
                 width: 120,
                 height: 100,
                 child: widget.game.thumbnailUrl != null
-                    ? Image.network(
-                        widget.game.thumbnailUrl!,
+                    ? ProgressiveImage(
+                        imageUrl: widget.game.thumbnailUrl!,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                        placeholderWidth: 20,
+                        finalWidth: 240,
                       )
                     : _buildPlaceholder(),
               ),

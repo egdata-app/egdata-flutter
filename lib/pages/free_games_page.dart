@@ -23,7 +23,11 @@ class FreeGamesPage extends StatefulWidget {
   State<FreeGamesPage> createState() => _FreeGamesPageState();
 }
 
-class _FreeGamesPageState extends State<FreeGamesPage> {
+class _FreeGamesPageState extends State<FreeGamesPage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   List<FreeGameEntry> _activeGames = [];
   List<FreeGameEntry> _upcomingGames = [];
   bool _isLoading = true;
@@ -78,6 +82,7 @@ class _FreeGamesPageState extends State<FreeGamesPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     return RefreshIndicator(
       onRefresh: _onRefresh,
       color: AppColors.primary,
