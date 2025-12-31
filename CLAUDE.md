@@ -42,6 +42,12 @@ dart format .
 - **lib/main.dart** - App entry with dark theme configuration, `AppColors` constants (Unreal Engine-inspired dark theme with cyan accents)
 - **lib/app_shell.dart** - Main scaffold with glassmorphic sidebar, manages shared state and services
 
+### Custom Title Bar (Windows)
+The app uses a custom Flutter title bar instead of the native Windows title bar to enable proper minimize-to-tray behavior. Located in `lib/widgets/custom_title_bar.dart`:
+- Draggable area with double-tap to maximize
+- Custom minimize, maximize, and close buttons
+- Close button minimizes to tray instead of quitting (based on settings)
+
 ### Navigation (Sidebar)
 - **Dashboard** - Personal stats: weekly playtime, games installed, manifests uploaded, most played game, weekly activity chart, recently played list
 - **Library** - Local installed games, manifest upload controls, follow games for notifications
@@ -66,9 +72,16 @@ dart format .
 - **sync_service.dart** - Background sync for free games, followed game prices, and changelogs
 - **notification_service.dart** - Desktop notifications (free games, sales, game updates)
 - **tray_service.dart** - System tray integration with minimize-to-tray support
+- **update_service.dart** - Checks GitHub releases for app updates, provides download URLs
 
 ### Database (`lib/database/`)
 - **database_service.dart** - Isar database for persistent storage (followed games, free games, changelogs, playtime sessions, process cache)
+
+### Widgets (`lib/widgets/`)
+- **app_sidebar.dart** - Navigation sidebar with update available button
+- **custom_title_bar.dart** - Custom window title bar for Windows (replaces native title bar)
+- **follow_button.dart** - Button to follow/unfollow games for notifications
+- **weekly_stats_row.dart** - Weekly activity chart component
 
 ### Key Dependencies
 - `http` - API requests

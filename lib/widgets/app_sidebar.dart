@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../main.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../main.dart'; // For AppColors
 
 enum AppPage {
   dashboard,
@@ -12,12 +13,21 @@ enum AppPage {
 class AppSidebar extends StatefulWidget {
   final AppPage currentPage;
   final ValueChanged<AppPage> onPageSelected;
+  final String? latestVersion;
+  final String currentVersion;
 
   const AppSidebar({
     super.key,
     required this.currentPage,
     required this.onPageSelected,
+    this.latestVersion,
+    this.currentVersion = '',
   });
+
+  bool get hasUpdate =>
+      latestVersion != null &&
+      currentVersion.isNotEmpty &&
+      latestVersion != currentVersion;
 
   @override
   State<AppSidebar> createState() => _AppSidebarState();
@@ -57,6 +67,10 @@ class _AppSidebarState extends State<AppSidebar> {
                     page: AppPage.library,
                   ),
                   const Spacer(),
+                  if (widget.hasUpdate) ...[
+                    _buildUpdateButton(),
+                    const SizedBox(height: 12),
+                  ],
                   Container(
                     height: 1,
                     color: AppColors.border,
@@ -183,6 +197,85 @@ class _AppSidebarState extends State<AppSidebar> {
                           ? AppColors.textPrimary
                           : AppColors.textSecondary,
                 ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUpdateButton() {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () async {
+          final url = Uri.parse(
+            'https://github.com/egdata-app/egdata-flutter/releases/latest',
+          );
+          if (await canLaunchUrl(url)) {
+            await launchUrl(url);
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.success.withValues(alpha: 0.15),
+                AppColors.success.withValues(alpha: 0.08),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+            border: Border.all(
+              color: AppColors.success.withValues(alpha: 0.3),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(
+                  Icons.system_update_rounded,
+                  size: 16,
+                  color: AppColors.success,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Update Available',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.success,
+                      ),
+                    ),
+                    Text(
+                      'v${widget.latestVersion}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.success.withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.open_in_new_rounded,
+                size: 14,
+                color: AppColors.success.withValues(alpha: 0.7),
               ),
             ],
           ),

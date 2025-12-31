@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'main.dart';
 import 'utils/platform_utils.dart';
 import 'database/database_service.dart';
@@ -16,8 +17,10 @@ import 'services/sync_service.dart';
 import 'services/upload_service.dart';
 import 'services/settings_service.dart';
 import 'services/tray_service.dart';
+import 'services/update_service.dart';
 import 'widgets/app_sidebar.dart';
 import 'widgets/mobile_bottom_nav.dart';
+import 'widgets/custom_title_bar.dart';
 import 'pages/dashboard_page.dart';
 import 'pages/library_page.dart';
 import 'pages/settings_page.dart';
@@ -32,7 +35,7 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> with WindowListener {
+class _AppShellState extends State<AppShell> {
   // Navigation
   AppPage _currentPage = AppPage.dashboard;
 
@@ -60,8 +63,9 @@ class _AppShellState extends State<AppShell> with WindowListener {
   AppSettings _settings = AppSettings();
   Timer? _syncTimer;
   final List<String> _logs = [];
-  bool _forceQuit = false;
   bool _showConsole = false;
+  String? _latestVersion;
+  String _currentVersion = '';
 
   @override
   void initState() {
@@ -75,15 +79,14 @@ class _AppShellState extends State<AppShell> with WindowListener {
     _followService?.dispose();
     _playtimeService?.dispose();
     _notificationService.dispose();
-    if (PlatformUtils.isDesktop) {
-      windowManager.removeListener(this);
-      // Only destroy tray when actually quitting, not on widget dispose
-      // Tray destruction is handled by _quitApp() and onWindowClose()
-    }
     super.dispose();
   }
 
   Future<void> _init() async {
+    // Get app version from package info
+    final packageInfo = await PackageInfo.fromPlatform();
+    _currentVersion = packageInfo.version;
+
     // Initialize database first
     _db = await DatabaseService.getInstance();
     await _db!.migrateFromSharedPreferences();
@@ -136,6 +139,19 @@ class _AppShellState extends State<AppShell> with WindowListener {
     } else {
       _addLog('Startup sync complete: no changes detected');
     }
+
+    // Check for app updates
+    _checkForUpdates();
+  }
+
+  Future<void> _checkForUpdates() async {
+    final latestVersion = await UpdateService.getLatestVersion();
+    if (latestVersion != null && latestVersion != _currentVersion) {
+      setState(() {
+        _latestVersion = latestVersion;
+      });
+      _addLog('Update available: v$latestVersion (current: v$_currentVersion)');
+    }
   }
 
   Future<void> _initNotifications() async {
@@ -144,9 +160,6 @@ class _AppShellState extends State<AppShell> with WindowListener {
 
   Future<void> _initTray() async {
     if (!PlatformUtils.isDesktop || _trayService == null) return;
-
-    windowManager.addListener(this);
-    await windowManager.setPreventClose(true);
 
     await _trayService!.init();
     _trayService!.onShowWindow = _showWindow;
@@ -168,25 +181,31 @@ class _AppShellState extends State<AppShell> with WindowListener {
 
   Future<void> _showWindow() async {
     if (!PlatformUtils.isDesktop) return;
+    if (Platform.isWindows) {
+      await windowManager.setSkipTaskbar(false);
+    }
     await windowManager.show();
     await windowManager.focus();
   }
 
   Future<void> _quitApp() async {
     if (!PlatformUtils.isDesktop) return;
-    _forceQuit = true;
     await _trayService?.destroy();
     await windowManager.destroy();
   }
 
-  @override
-  void onWindowClose() async {
+  Future<void> _handleClose() async {
     if (!PlatformUtils.isDesktop) return;
-    if (_settings.minimizeToTray && !_forceQuit) {
-      await windowManager.hide();
+    if (_settings.minimizeToTray) {
+      // Minimize to tray instead of closing
+      if (Platform.isWindows) {
+        await windowManager.setSkipTaskbar(true);
+        await windowManager.minimize();
+      } else {
+        await windowManager.hide();
+      }
     } else {
-      await _trayService?.destroy();
-      await windowManager.destroy();
+      await _quitApp();
     }
   }
 
@@ -389,6 +408,9 @@ class _AppShellState extends State<AppShell> with WindowListener {
           // Main content
           Column(
             children: [
+              // Custom title bar for Windows/macOS
+              if (Platform.isWindows || Platform.isMacOS)
+                CustomTitleBar(onClose: _handleClose),
               Expanded(
                 child: Row(
                   children: [
@@ -399,6 +421,8 @@ class _AppShellState extends State<AppShell> with WindowListener {
                           _currentPage = page;
                         });
                       },
+                      latestVersion: _latestVersion,
+                      currentVersion: _currentVersion,
                     ),
                     Expanded(child: _buildCurrentPage()),
                   ],
