@@ -233,20 +233,23 @@ class _SettingsPageState extends State<SettingsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSection(
-                    title: 'Preferences',
-                    icon: Icons.tune_rounded,
-                    color: AppColors.primary,
-                    children: [
-                      _buildSettingTile(
-                        title: 'Country',
-                        subtitle: 'Used for pricing and regional content',
-                        trailing: _buildCountrySelector(),
-                      ),
-                    ],
-                  ),
-                  if (!PlatformUtils.isMobile) ...[
+                  // Country selection only on mobile (desktop doesn't need it)
+                  if (PlatformUtils.isMobile) ...[
+                    _buildSection(
+                      title: 'Preferences',
+                      icon: Icons.tune_rounded,
+                      color: AppColors.primary,
+                      children: [
+                        _buildSettingTile(
+                          title: 'Country',
+                          subtitle: 'Used for pricing and regional content',
+                          trailing: _buildCountrySelector(),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 24),
+                  ],
+                  if (!PlatformUtils.isMobile) ...[
                     _buildSection(
                       title: 'Sync',
                       icon: Icons.sync_rounded,
