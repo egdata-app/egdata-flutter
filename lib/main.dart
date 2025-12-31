@@ -123,7 +123,7 @@ class AppColors {
         border: Border.all(color: borderGlass),
       );
 
-  // Radial gradient background decoration
+  // Radial gradient background decoration (desktop)
   static BoxDecoration get radialGradientBackground => const BoxDecoration(
     gradient: RadialGradient(
       center: Alignment(-0.5, -0.8),
@@ -137,13 +137,37 @@ class AppColors {
     ),
   );
 
-  // Secondary radial gradient for accent glow
+  // Secondary radial gradient for accent glow (desktop)
   static BoxDecoration get accentGlowBackground => BoxDecoration(
     gradient: RadialGradient(
       center: const Alignment(0.8, 0.6),
       radius: 1.2,
       colors: [primary.withValues(alpha: 0.03), Colors.transparent],
       stops: const [0.0, 0.6],
+    ),
+  );
+
+  // Mobile-optimized radial gradient (adjusted for portrait orientation)
+  static BoxDecoration get mobileRadialGradientBackground => const BoxDecoration(
+    gradient: RadialGradient(
+      center: Alignment(0.0, -0.3),
+      radius: 1.8,
+      colors: [
+        Color(0xFF1A1A2E), // Subtle dark blue-purple tint
+        Color(0xFF0F0F14), // Darker transition
+        Color(0xFF0A0A0A), // Pure black (background)
+      ],
+      stops: [0.0, 0.35, 0.7],
+    ),
+  );
+
+  // Mobile-optimized accent glow (positioned at top-right corner)
+  static BoxDecoration get mobileAccentGlowBackground => BoxDecoration(
+    gradient: RadialGradient(
+      center: const Alignment(0.6, -0.4),
+      radius: 1.0,
+      colors: [primary.withValues(alpha: 0.04), Colors.transparent],
+      stops: const [0.0, 0.5],
     ),
   );
 }

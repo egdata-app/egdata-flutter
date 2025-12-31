@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
@@ -442,10 +443,10 @@ class _AppShellState extends State<AppShell> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Radial gradient background
-          Container(decoration: AppColors.radialGradientBackground),
-          // Accent glow overlay
-          Container(decoration: AppColors.accentGlowBackground),
+          // Mobile-optimized radial gradient background
+          Container(decoration: AppColors.mobileRadialGradientBackground),
+          // Mobile-optimized accent glow overlay
+          Container(decoration: AppColors.mobileAccentGlowBackground),
           // Main content with safe area
           SafeArea(
             child: _buildCurrentPage(),
