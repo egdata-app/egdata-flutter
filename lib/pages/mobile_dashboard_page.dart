@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../database/database_service.dart';
 import '../models/followed_game.dart';
+import '../services/api_service.dart';
 import '../services/follow_service.dart';
 import '../services/sync_service.dart';
 
@@ -24,7 +25,8 @@ class MobileDashboardPage extends StatefulWidget {
 }
 
 class _MobileDashboardPageState extends State<MobileDashboardPage> {
-  List<FreeGameEntry> _activeFreeGames = [];
+  final ApiService _apiService = ApiService();
+  List<FreeGame> _activeFreeGames = [];
   List<FollowedGame> _followedGames = [];
   List<FollowedGameEntry> _gamesOnSale = []; // Use DB entry for price info
   bool _isLoading = true;
@@ -58,12 +60,20 @@ class _MobileDashboardPageState extends State<MobileDashboardPage> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final allGames = await widget.db.getAllFreeGames();
+      final allGames = await _apiService.getFreeGames();
       await widget.followService.loadFollowedGames();
       await _loadGamesOnSale();
 
+      // Filter for active free games (currently within giveaway period)
+      final now = DateTime.now();
+      final activeGames = allGames.where((g) {
+        if (g.giveaway == null) return false;
+        return now.isAfter(g.giveaway!.startDate) &&
+            now.isBefore(g.giveaway!.endDate);
+      }).toList();
+
       setState(() {
-        _activeFreeGames = allGames.where((g) => g.isActive).toList();
+        _activeFreeGames = activeGames;
         _followedGames = widget.followService.followedGames;
         _isLoading = false;
       });
@@ -331,9 +341,25 @@ class _MobileDashboardPageState extends State<MobileDashboardPage> {
     );
   }
 
-  Widget _buildFreeGameCard(FreeGameEntry game) {
+  String? _getThumbnailUrl(FreeGame game) {
+    if (game.keyImages.isEmpty) return null;
+
+    // Prefer Thumbnail, then DieselGameBoxTall, then any image
+    final thumbnail =
+        game.keyImages.where((img) => img.type == 'Thumbnail').firstOrNull;
+    if (thumbnail != null) return thumbnail.url;
+
+    final boxTall =
+        game.keyImages.where((img) => img.type == 'DieselGameBoxTall').firstOrNull;
+    if (boxTall != null) return boxTall.url;
+
+    return game.keyImages.first.url;
+  }
+
+  Widget _buildFreeGameCard(FreeGame game) {
+    final thumbnailUrl = _getThumbnailUrl(game);
     return GestureDetector(
-      onTap: () => _openGame(game.offerId),
+      onTap: () => _openGame(game.id),
       child: Container(
         width: 200,
         decoration: BoxDecoration(
@@ -350,9 +376,9 @@ class _MobileDashboardPageState extends State<MobileDashboardPage> {
                   topLeft: Radius.circular(13),
                   topRight: Radius.circular(13),
                 ),
-                child: game.thumbnailUrl != null
+                child: thumbnailUrl != null
                     ? Image.network(
-                        game.thumbnailUrl!,
+                        thumbnailUrl,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => _buildPlaceholder(),
                       )
