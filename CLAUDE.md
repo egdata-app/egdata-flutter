@@ -24,6 +24,7 @@ flutter run -d windows
 
 # Build release
 flutter build windows
+flutter build macos
 
 # Analyze code (lint)
 flutter analyze
@@ -75,7 +76,7 @@ dart format .
 - `url_launcher` - Open URLs in browser
 - `window_manager` - Window controls
 - `tray_manager` - System tray
-- `local_notifier` - Desktop notifications
+- `flutter_local_notifications` - Desktop notifications (uses UserNotifications framework on macOS)
 - `launch_at_startup` - Auto-start on login
 
 ## EGData API
