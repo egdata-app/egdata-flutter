@@ -8,9 +8,6 @@ import 'utils/platform_utils.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:windows_single_instance/windows_single_instance.dart';
-import 'package:updat/updat_window_manager.dart';
-import 'package:updat/theme/chips/flat.dart';
-import 'services/update_service.dart';
 
 // App version - keep in sync with pubspec.yaml
 const String appVersion = '1.0.0';
@@ -374,23 +371,7 @@ class EGDataApp extends StatelessWidget {
           ),
         ),
       ),
-      home: PlatformUtils.isDesktop
-          ? UpdatWindowManager(
-              appName: 'EGData Client',
-              currentVersion: appVersion,
-              getLatestVersion: () async {
-                return await UpdateService.getLatestVersion() ?? appVersion;
-              },
-              getBinaryUrl: (version) async {
-                return UpdateService.getBinaryUrl(version ?? appVersion);
-              },
-              getChangelog: (_, version) async {
-                return await UpdateService.getChangelog(version) ?? '';
-              },
-              updateChipBuilder: flatChip,
-              child: const AppShell(),
-            )
-          : const AppShell(),
+      home: const AppShell(),
     );
   }
 }
