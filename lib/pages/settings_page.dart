@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../main.dart';
 import '../models/settings.dart';
 import '../services/api_service.dart';
+import '../services/push_service.dart';
 import '../utils/country_utils.dart';
 import '../utils/platform_utils.dart';
 
@@ -10,12 +11,14 @@ class SettingsPage extends StatefulWidget {
   final AppSettings settings;
   final ValueChanged<AppSettings> onSettingsChanged;
   final Future<void> Function()? onClearProcessCache;
+  final PushService? pushService;
 
   const SettingsPage({
     super.key,
     required this.settings,
     required this.onSettingsChanged,
     this.onClearProcessCache,
+    this.pushService,
   });
 
   @override
@@ -28,11 +31,18 @@ class _SettingsPageState extends State<SettingsPage> {
   List<String> _countries = [];
   bool _loadingCountries = true;
 
+  // Push notification state
+  bool _isSubscribing = false;
+  bool _isUnsubscribing = false;
+  PushSubscriptionState? _pushState;
+  String? _pushError;
+
   @override
   void initState() {
     super.initState();
     _settings = widget.settings;
     _loadCountries();
+    _loadPushState();
   }
 
   Future<void> _loadCountries() async {
@@ -50,6 +60,16 @@ class _SettingsPageState extends State<SettingsPage> {
           _loadingCountries = false;
         });
       }
+    }
+  }
+
+  Future<void> _loadPushState() async {
+    if (widget.pushService == null) return;
+    final state = await widget.pushService!.getSubscriptionState();
+    if (mounted) {
+      setState(() {
+        _pushState = state;
+      });
     }
   }
 
@@ -76,6 +96,120 @@ class _SettingsPageState extends State<SettingsPage> {
         SnackBar(
           content: const Text('Process cache cleared'),
           backgroundColor: AppColors.success,
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _subscribeToPush() async {
+    if (widget.pushService == null) return;
+
+    setState(() {
+      _isSubscribing = true;
+      _pushError = null;
+    });
+
+    // Subscribe with free-games topic by default if notifyFreeGames is enabled
+    final topics = <String>[];
+    if (_settings.notifyFreeGames) {
+      topics.add(PushTopics.freeGames);
+    }
+
+    final result = await widget.pushService!.subscribe(topics: topics);
+
+    if (mounted) {
+      setState(() {
+        _isSubscribing = false;
+        if (result.success) {
+          _pushError = null;
+          _updateSettings(_settings.copyWith(pushNotificationsEnabled: true));
+        } else {
+          _pushError = result.error;
+        }
+      });
+
+      if (result.success) {
+        await _loadPushState();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Subscribed to push notifications'),
+              backgroundColor: AppColors.success,
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+              ),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _unsubscribeFromPush() async {
+    if (widget.pushService == null) return;
+
+    setState(() {
+      _isUnsubscribing = true;
+      _pushError = null;
+    });
+
+    final result = await widget.pushService!.unsubscribe();
+
+    if (mounted) {
+      setState(() {
+        _isUnsubscribing = false;
+        if (result.success) {
+          _pushError = null;
+          _pushState = PushSubscriptionState(
+            isSubscribed: false,
+            topics: [],
+          );
+          _updateSettings(_settings.copyWith(pushNotificationsEnabled: false));
+        } else {
+          _pushError = result.error;
+        }
+      });
+
+      if (result.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Unsubscribed from push notifications'),
+            backgroundColor: AppColors.success,
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _toggleTopic(String topic, bool subscribe) async {
+    if (widget.pushService == null) return;
+
+    PushSubscriptionResult result;
+    if (subscribe) {
+      result = await widget.pushService!.subscribeToTopics(topics: [topic]);
+    } else {
+      result = await widget.pushService!.unsubscribeFromTopics(topics: [topic]);
+    }
+
+    if (mounted && result.success) {
+      await _loadPushState();
+    } else if (mounted && !result.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.error ?? 'Failed to update topic'),
+          backgroundColor: AppColors.error,
           duration: const Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -169,57 +303,65 @@ class _SettingsPageState extends State<SettingsPage> {
                       ],
                     ),
                   ],
-                  const SizedBox(height: 24),
-                  _buildSection(
-                    title: 'Notifications',
-                    icon: Icons.notifications_rounded,
-                    color: AppColors.warning,
-                    children: [
-                      _buildSettingTile(
-                        title: 'Free Games',
-                        subtitle: 'Notify when free games become available',
-                        trailing: Switch(
-                          value: _settings.notifyFreeGames,
-                          onChanged: (value) {
-                            _updateSettings(_settings.copyWith(notifyFreeGames: value));
-                          },
+                  // Desktop: show local notification settings
+                  if (!PlatformUtils.isMobile) ...[
+                    const SizedBox(height: 24),
+                    _buildSection(
+                      title: 'Notifications',
+                      icon: Icons.notifications_rounded,
+                      color: AppColors.warning,
+                      children: [
+                        _buildSettingTile(
+                          title: 'Free Games',
+                          subtitle: 'Notify when free games become available',
+                          trailing: Switch(
+                            value: _settings.notifyFreeGames,
+                            onChanged: (value) {
+                              _updateSettings(_settings.copyWith(notifyFreeGames: value));
+                            },
+                          ),
                         ),
-                      ),
-                      _buildDivider(),
-                      _buildSettingTile(
-                        title: 'Releases',
-                        subtitle: 'Notify when upcoming games release',
-                        trailing: Switch(
-                          value: _settings.notifyReleases,
-                          onChanged: (value) {
-                            _updateSettings(_settings.copyWith(notifyReleases: value));
-                          },
+                        _buildDivider(),
+                        _buildSettingTile(
+                          title: 'Releases',
+                          subtitle: 'Notify when upcoming games release',
+                          trailing: Switch(
+                            value: _settings.notifyReleases,
+                            onChanged: (value) {
+                              _updateSettings(_settings.copyWith(notifyReleases: value));
+                            },
+                          ),
                         ),
-                      ),
-                      _buildDivider(),
-                      _buildSettingTile(
-                        title: 'Sales',
-                        subtitle: 'Notify when games go on sale',
-                        trailing: Switch(
-                          value: _settings.notifySales,
-                          onChanged: (value) {
-                            _updateSettings(_settings.copyWith(notifySales: value));
-                          },
+                        _buildDivider(),
+                        _buildSettingTile(
+                          title: 'Sales',
+                          subtitle: 'Notify when games go on sale',
+                          trailing: Switch(
+                            value: _settings.notifySales,
+                            onChanged: (value) {
+                              _updateSettings(_settings.copyWith(notifySales: value));
+                            },
+                          ),
                         ),
-                      ),
-                      _buildDivider(),
-                      _buildSettingTile(
-                        title: 'Followed Games',
-                        subtitle: 'Notify when followed games are updated',
-                        trailing: Switch(
-                          value: _settings.notifyFollowedUpdates,
-                          onChanged: (value) {
-                            _updateSettings(_settings.copyWith(notifyFollowedUpdates: value));
-                          },
+                        _buildDivider(),
+                        _buildSettingTile(
+                          title: 'Followed Games',
+                          subtitle: 'Notify when followed games are updated',
+                          trailing: Switch(
+                            value: _settings.notifyFollowedUpdates,
+                            onChanged: (value) {
+                              _updateSettings(_settings.copyWith(notifyFollowedUpdates: value));
+                            },
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
+                  // Mobile: show push notification settings
+                  if (PlatformUtils.isMobile && widget.pushService != null) ...[
+                    const SizedBox(height: 24),
+                    _buildPushNotificationsSection(),
+                  ],
                   const SizedBox(height: 24),
                   _buildSection(
                     title: 'Data',
@@ -373,6 +515,193 @@ class _SettingsPageState extends State<SettingsPage> {
     return Container(
       height: 1,
       color: AppColors.border,
+    );
+  }
+
+  Widget _buildPushNotificationsSection() {
+    final isSubscribed = _pushState?.isSubscribed ?? false;
+    final subscribedTopics = _pushState?.topics ?? [];
+    final isAvailable = widget.pushService?.isAvailable ?? false;
+
+    return _buildSection(
+      title: 'Notifications',
+      icon: Icons.notifications_rounded,
+      color: AppColors.primary,
+      children: [
+        // Show warning if Firebase is not configured
+        if (!isAvailable) ...[
+          Container(
+            padding: const EdgeInsets.all(18),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+                border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: AppColors.warning, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Firebase Not Configured',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Push notifications require Firebase setup. Contact the developer for configuration.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ] else ...[
+        // Subscribe/Unsubscribe button
+        Container(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isSubscribed ? 'Subscribed' : 'Subscribe to Push Notifications',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          isSubscribed
+                              ? 'Receiving notifications from EGData'
+                              : 'Get real-time notifications on your device',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  if (isSubscribed)
+                    ElevatedButton(
+                      onPressed: _isUnsubscribing ? null : _unsubscribeFromPush,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.error,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+                        ),
+                      ),
+                      child: _isUnsubscribing
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'Unsubscribe',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                    )
+                  else
+                    ElevatedButton(
+                      onPressed: _isSubscribing ? null : _subscribeToPush,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+                        ),
+                      ),
+                      child: _isSubscribing
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.black,
+                              ),
+                            )
+                          : const Text(
+                              'Subscribe',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                    ),
+                ],
+              ),
+              if (_pushError != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+                    border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline, color: AppColors.error, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _pushError!,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppColors.error,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        // Topic subscriptions (only shown when subscribed)
+        if (isSubscribed) ...[
+          _buildDivider(),
+          _buildSettingTile(
+            title: 'Free Games',
+            subtitle: 'Receive notifications for new free games',
+            trailing: Switch(
+              value: subscribedTopics.contains(PushTopics.freeGames),
+              onChanged: (value) {
+                _toggleTopic(PushTopics.freeGames, value);
+              },
+            ),
+          ),
+        ],
+        ], // end of else (isAvailable)
+      ],
     );
   }
 

@@ -14,6 +14,7 @@ import 'services/follow_service.dart';
 import 'services/manifest_scanner.dart';
 import 'services/notification_service.dart';
 import 'services/playtime_service.dart';
+import 'services/push_service.dart';
 import 'services/sync_service.dart';
 import 'services/upload_service.dart';
 import 'services/settings_service.dart';
@@ -54,6 +55,7 @@ class _AppShellState extends State<AppShell> {
   FollowService? _followService;
   SyncService? _syncService;
   PlaytimeService? _playtimeService; // Desktop only
+  PushService? _pushService; // Mobile only
 
   // Shared state
   List<GameInfo> _games = [];
@@ -79,6 +81,7 @@ class _AppShellState extends State<AppShell> {
     _syncTimer?.cancel();
     _followService?.dispose();
     _playtimeService?.dispose();
+    _pushService?.dispose();
     _notificationService.dispose();
     super.dispose();
   }
@@ -109,6 +112,15 @@ class _AppShellState extends State<AppShell> {
         getInstalledGames: () => _games,
       );
       _playtimeService!.startTracking();
+    }
+
+    // Initialize mobile-only services
+    if (PlatformUtils.isMobile) {
+      _pushService = PushService(
+        db: _db!,
+        notification: _notificationService,
+      );
+      await _pushService!.init();
     }
 
     await _loadSettings();
@@ -520,6 +532,7 @@ class _AppShellState extends State<AppShell> {
           settings: _settings,
           onSettingsChanged: _onSettingsChanged,
           onClearProcessCache: () => _db!.clearProcessCache(),
+          pushService: _pushService,
         );
     }
   }

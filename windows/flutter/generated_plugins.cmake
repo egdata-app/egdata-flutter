@@ -3,6 +3,7 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  firebase_core
   isar_flutter_libs
   screen_retriever_windows
   tray_manager

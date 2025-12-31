@@ -24,8 +24,16 @@ class ApiService {
   ApiService({http.Client? client}) : _client = client ?? http.Client();
 
   /// Generic GET request that returns decoded JSON
-  Future<dynamic> _get(String endpoint) async {
-    final response = await _client.get(Uri.parse('$baseUrl$endpoint'));
+  Future<dynamic> _get(String endpoint, {String? apiKey}) async {
+    final headers = <String, String>{};
+    if (apiKey != null) {
+      headers['X-API-Key'] = apiKey;
+    }
+
+    final response = await _client.get(
+      Uri.parse('$baseUrl$endpoint'),
+      headers: headers.isEmpty ? null : headers,
+    );
 
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
@@ -39,24 +47,56 @@ class ApiService {
 
   /// Generic POST request that returns decoded JSON
   Future<dynamic> _post(String endpoint, Map<String, dynamic> body,
-      {Map<String, String>? queryParams}) async {
+      {Map<String, String>? queryParams, String? apiKey}) async {
     var uri = Uri.parse('$baseUrl$endpoint');
     if (queryParams != null && queryParams.isNotEmpty) {
       uri = uri.replace(queryParameters: queryParams);
     }
 
+    final headers = {'Content-Type': 'application/json'};
+    if (apiKey != null) {
+      headers['X-API-Key'] = apiKey;
+    }
+
     final response = await _client.post(
       uri,
-      headers: {'Content-Type': 'application/json'},
+      headers: headers,
       body: jsonEncode(body),
     );
 
-    if (response.statusCode == 200) {
+    // Accept 200 OK and 201 Created
+    if (response.statusCode == 200 || response.statusCode == 201) {
       return jsonDecode(response.body);
     }
 
     throw ApiException(
-      'POST $endpoint failed',
+      'POST $endpoint failed: ${response.body}',
+      response.statusCode,
+    );
+  }
+
+  /// Generic DELETE request that returns decoded JSON
+  Future<dynamic> _delete(String endpoint, {String? apiKey}) async {
+    final headers = <String, String>{};
+    if (apiKey != null) {
+      headers['X-API-Key'] = apiKey;
+    }
+
+    final response = await _client.delete(
+      Uri.parse('$baseUrl$endpoint'),
+      headers: headers.isEmpty ? null : headers,
+    );
+
+    // Accept 200 OK and 204 No Content
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      if (response.body.isEmpty) {
+        return {'message': 'Success'};
+      }
+      return jsonDecode(response.body);
+    }
+
+    throw ApiException(
+      'DELETE $endpoint failed: ${response.body}',
       response.statusCode,
     );
   }
@@ -107,8 +147,181 @@ class ApiService {
     return data.cast<String>();
   }
 
+  // ============================================
+  // Push Notification Endpoints
+  // ============================================
+
+  /// Gets the VAPID public key for web push
+  Future<String> getVapidPublicKey() async {
+    final data = await _get('/push/vapid-public-key') as Map<String, dynamic>;
+    return data['publicKey'] as String;
+  }
+
+  /// Subscribes to push notifications
+  /// Returns subscription ID and message
+  Future<PushSubscribeResponse> subscribeToPush({
+    required String apiKey,
+    required String endpoint,
+    required String p256dh,
+    required String auth,
+  }) async {
+    final data = await _post(
+      '/push/subscribe',
+      {
+        'endpoint': endpoint,
+        'keys': {
+          'p256dh': p256dh,
+          'auth': auth,
+        },
+      },
+      apiKey: apiKey,
+    ) as Map<String, dynamic>;
+    return PushSubscribeResponse.fromJson(data);
+  }
+
+  /// Gets current subscription status
+  Future<PushSubscriptionStatus> getPushSubscriptionStatus({
+    required String apiKey,
+  }) async {
+    final data = await _get('/push/subscribe', apiKey: apiKey) as Map<String, dynamic>;
+    return PushSubscriptionStatus.fromJson(data);
+  }
+
+  /// Unsubscribes from push notifications
+  Future<void> unsubscribeFromPush({
+    required String apiKey,
+    required String subscriptionId,
+  }) async {
+    await _delete('/push/unsubscribe/$subscriptionId', apiKey: apiKey);
+  }
+
+  /// Subscribes to specific topics
+  Future<PushTopicResponse> subscribeToTopics({
+    required String apiKey,
+    required String subscriptionId,
+    required List<String> topics,
+  }) async {
+    final data = await _post(
+      '/push/topics/subscribe',
+      {
+        'subscriptionId': subscriptionId,
+        'topics': topics,
+      },
+      apiKey: apiKey,
+    ) as Map<String, dynamic>;
+    return PushTopicResponse.fromJson(data);
+  }
+
+  /// Unsubscribes from specific topics
+  Future<PushTopicResponse> unsubscribeFromTopics({
+    required String apiKey,
+    required String subscriptionId,
+    required List<String> topics,
+  }) async {
+    final data = await _post(
+      '/push/topics/unsubscribe',
+      {
+        'subscriptionId': subscriptionId,
+        'topics': topics,
+      },
+      apiKey: apiKey,
+    ) as Map<String, dynamic>;
+    return PushTopicResponse.fromJson(data);
+  }
+
+  /// Gets all subscriptions for the current user
+  Future<List<PushSubscriptionInfo>> getPushSubscriptions({
+    required String apiKey,
+  }) async {
+    final data = await _get('/push/subscriptions', apiKey: apiKey) as Map<String, dynamic>;
+    final subscriptions = data['subscriptions'] as List<dynamic>;
+    return subscriptions
+        .map((e) => PushSubscriptionInfo.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   /// Disposes the HTTP client
   void dispose() {
     _client.close();
+  }
+}
+
+// Push notification response models
+
+class PushSubscribeResponse {
+  final String id;
+  final String message;
+
+  PushSubscribeResponse({required this.id, required this.message});
+
+  factory PushSubscribeResponse.fromJson(Map<String, dynamic> json) {
+    return PushSubscribeResponse(
+      id: json['id'] as String,
+      message: json['message'] as String,
+    );
+  }
+}
+
+class PushSubscriptionStatus {
+  final bool isSubscribed;
+  final int subscriptionCount;
+  final List<PushSubscriptionInfo> subscriptions;
+
+  PushSubscriptionStatus({
+    required this.isSubscribed,
+    required this.subscriptionCount,
+    required this.subscriptions,
+  });
+
+  factory PushSubscriptionStatus.fromJson(Map<String, dynamic> json) {
+    final subscriptions = json['subscriptions'] as List<dynamic>? ?? [];
+    return PushSubscriptionStatus(
+      isSubscribed: json['isSubscribed'] as bool? ?? false,
+      subscriptionCount: json['subscriptionCount'] as int? ?? 0,
+      subscriptions: subscriptions
+          .map((e) => PushSubscriptionInfo.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+class PushSubscriptionInfo {
+  final String id;
+  final String endpoint;
+  final List<String> topics;
+  final DateTime createdAt;
+
+  PushSubscriptionInfo({
+    required this.id,
+    required this.endpoint,
+    required this.topics,
+    required this.createdAt,
+  });
+
+  factory PushSubscriptionInfo.fromJson(Map<String, dynamic> json) {
+    final topics = json['topics'] as List<dynamic>? ?? [];
+    return PushSubscriptionInfo(
+      id: json['id'] as String? ?? json['_id'] as String,
+      endpoint: json['endpoint'] as String,
+      topics: topics.cast<String>(),
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : DateTime.now(),
+    );
+  }
+}
+
+class PushTopicResponse {
+  final String message;
+  final List<String> topics;
+
+  PushTopicResponse({required this.message, required this.topics});
+
+  factory PushTopicResponse.fromJson(Map<String, dynamic> json) {
+    final topics = json['topics'] as List<dynamic>? ?? [];
+    return PushTopicResponse(
+      message: json['message'] as String,
+      topics: topics.cast<String>(),
+    );
   }
 }

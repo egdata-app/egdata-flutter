@@ -1,4 +1,4 @@
-package com.example.egdata_flutter
+package com.ignacioaldama.egdata
 
 import io.flutter.embedding.android.FlutterActivity
 

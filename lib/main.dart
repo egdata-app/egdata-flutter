@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'app_shell.dart';
 import 'utils/platform_utils.dart';
 
@@ -16,6 +17,18 @@ const String appVersion = '1.0.0';
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase for mobile platforms (required for push notifications)
+  // Firebase configuration files (google-services.json / GoogleService-Info.plist) are optional
+  if (PlatformUtils.isMobile) {
+    try {
+      await Firebase.initializeApp();
+    } catch (e) {
+      // Firebase not configured - push notifications will be disabled
+      debugPrint('Firebase initialization failed: $e');
+      debugPrint('Push notifications will be disabled. To enable them, add Firebase configuration files.');
+    }
+  }
 
   // Desktop-only initialization
   if (PlatformUtils.isDesktop) {

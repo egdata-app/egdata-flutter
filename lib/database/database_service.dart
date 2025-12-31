@@ -10,12 +10,14 @@ import 'collections/followed_game_entry.dart';
 import 'collections/changelog_entry.dart';
 import 'collections/playtime_session_entry.dart';
 import 'collections/game_process_cache_entry.dart';
+import 'collections/push_subscription_entry.dart';
 
 export 'collections/free_game_entry.dart';
 export 'collections/followed_game_entry.dart';
 export 'collections/changelog_entry.dart';
 export 'collections/playtime_session_entry.dart';
 export 'collections/game_process_cache_entry.dart';
+export 'collections/push_subscription_entry.dart';
 
 class DatabaseService {
   static DatabaseService? _instance;
@@ -43,6 +45,7 @@ class DatabaseService {
         ChangelogEntrySchema,
         PlaytimeSessionEntrySchema,
         GameProcessCacheEntrySchema,
+        PushSubscriptionEntrySchema,
       ],
       directory: dir.path,
       name: 'egdata',
@@ -320,6 +323,49 @@ class DatabaseService {
 
   Future<void> clearProcessCache() async {
     await _isar.writeTxn(() => _isar.gameProcessCacheEntrys.clear());
+  }
+
+  // Push Subscription operations
+  Future<PushSubscriptionEntry?> getPushSubscription() async {
+    return _isar.pushSubscriptionEntrys.where().findFirst();
+  }
+
+  Future<PushSubscriptionEntry?> getPushSubscriptionById(String subscriptionId) async {
+    return _isar.pushSubscriptionEntrys
+        .filter()
+        .subscriptionIdEqualTo(subscriptionId)
+        .findFirst();
+  }
+
+  Future<void> savePushSubscription(PushSubscriptionEntry entry) async {
+    await _isar.writeTxn(() => _isar.pushSubscriptionEntrys.put(entry));
+  }
+
+  Future<void> updatePushSubscriptionTopics(String subscriptionId, List<String> topics) async {
+    await _isar.writeTxn(() async {
+      final entry = await _isar.pushSubscriptionEntrys
+          .filter()
+          .subscriptionIdEqualTo(subscriptionId)
+          .findFirst();
+      if (entry != null) {
+        entry.topics = topics;
+        entry.updatedAt = DateTime.now();
+        await _isar.pushSubscriptionEntrys.put(entry);
+      }
+    });
+  }
+
+  Future<bool> deletePushSubscription(String subscriptionId) async {
+    return await _isar.writeTxn(() async {
+      return await _isar.pushSubscriptionEntrys
+          .filter()
+          .subscriptionIdEqualTo(subscriptionId)
+          .deleteFirst();
+    });
+  }
+
+  Future<void> clearAllPushSubscriptions() async {
+    await _isar.writeTxn(() => _isar.pushSubscriptionEntrys.clear());
   }
 
   Future<void> close() async {

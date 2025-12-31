@@ -8,6 +8,9 @@ class AppSettings {
   final bool notifySales;
   final bool notifyFollowedUpdates;
   final String country;
+  // Push notification settings - deviceId is auto-generated UUID for API auth
+  final String? deviceId;
+  final bool pushNotificationsEnabled;
 
   AppSettings({
     this.autoSync = false,
@@ -19,6 +22,8 @@ class AppSettings {
     this.notifySales = false,
     this.notifyFollowedUpdates = true,
     this.country = 'US',
+    this.deviceId,
+    this.pushNotificationsEnabled = false,
   });
 
   AppSettings copyWith({
@@ -31,6 +36,8 @@ class AppSettings {
     bool? notifySales,
     bool? notifyFollowedUpdates,
     String? country,
+    String? deviceId,
+    bool? pushNotificationsEnabled,
   }) {
     return AppSettings(
       autoSync: autoSync ?? this.autoSync,
@@ -42,6 +49,8 @@ class AppSettings {
       notifySales: notifySales ?? this.notifySales,
       notifyFollowedUpdates: notifyFollowedUpdates ?? this.notifyFollowedUpdates,
       country: country ?? this.country,
+      deviceId: deviceId ?? this.deviceId,
+      pushNotificationsEnabled: pushNotificationsEnabled ?? this.pushNotificationsEnabled,
     );
   }
 
@@ -56,6 +65,8 @@ class AppSettings {
       'notifySales': notifySales,
       'notifyFollowedUpdates': notifyFollowedUpdates,
       'country': country,
+      'deviceId': deviceId,
+      'pushNotificationsEnabled': pushNotificationsEnabled,
     };
   }
 
@@ -70,6 +81,8 @@ class AppSettings {
       notifySales: json['notifySales'] ?? false,
       notifyFollowedUpdates: json['notifyFollowedUpdates'] ?? true,
       country: json['country'] ?? 'US',
+      deviceId: json['deviceId'] as String?,
+      pushNotificationsEnabled: json['pushNotificationsEnabled'] ?? false,
     );
   }
 }

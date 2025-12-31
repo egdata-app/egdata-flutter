@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "837769829906",
+    "project_id": "egdata-53c53",
+    "storage_bucket": "egdata-53c53.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:837769829906:android:daa6c20fca1cba997f42cb",
+        "android_client_info": {
+          "package_name": "com.ignacioaldama.egdata"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA5yxrjUzhKbZPZQ9kuCXUln5LPupfsMRY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
