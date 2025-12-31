@@ -4,6 +4,8 @@ import '../main.dart';
 enum AppPage {
   dashboard,
   library,
+  browse,    // Mobile only: browse/search games
+  freeGames, // Mobile only: free games list
   settings,
 }
 

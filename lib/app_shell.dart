@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
 import 'main.dart';
+import 'utils/platform_utils.dart';
 import 'database/database_service.dart';
 import 'models/game_info.dart';
 import 'models/settings.dart';
@@ -17,9 +17,13 @@ import 'services/upload_service.dart';
 import 'services/settings_service.dart';
 import 'services/tray_service.dart';
 import 'widgets/app_sidebar.dart';
+import 'widgets/mobile_bottom_nav.dart';
 import 'pages/dashboard_page.dart';
 import 'pages/library_page.dart';
 import 'pages/settings_page.dart';
+import 'pages/free_games_page.dart';
+import 'pages/browse_page.dart';
+import 'pages/mobile_dashboard_page.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -32,18 +36,20 @@ class _AppShellState extends State<AppShell> with WindowListener {
   // Navigation
   AppPage _currentPage = AppPage.dashboard;
 
-  // Services
-  final ManifestScanner _scanner = ManifestScanner();
-  final UploadService _uploadService = UploadService();
+  // Universal services
   final SettingsService _settingsService = SettingsService();
-  final TrayService _trayService = TrayService();
   final NotificationService _notificationService = NotificationService();
+
+  // Desktop-only services (null on mobile)
+  ManifestScanner? _scanner;
+  UploadService? _uploadService;
+  TrayService? _trayService;
 
   // Database-dependent services (initialized in _init)
   DatabaseService? _db;
   FollowService? _followService;
   SyncService? _syncService;
-  PlaytimeService? _playtimeService;
+  PlaytimeService? _playtimeService; // Desktop only
 
   // Shared state
   List<GameInfo> _games = [];
@@ -69,7 +75,7 @@ class _AppShellState extends State<AppShell> with WindowListener {
     _followService?.dispose();
     _playtimeService?.dispose();
     _notificationService.dispose();
-    if (Platform.isWindows || Platform.isMacOS) {
+    if (PlatformUtils.isDesktop) {
       windowManager.removeListener(this);
       // Only destroy tray when actually quitting, not on widget dispose
       // Tray destruction is handled by _quitApp() and onWindowClose()
@@ -82,23 +88,40 @@ class _AppShellState extends State<AppShell> with WindowListener {
     _db = await DatabaseService.getInstance();
     await _db!.migrateFromSharedPreferences();
 
-    // Initialize database-dependent services
+    // Initialize universal services
     _followService = FollowService(db: _db!);
     _syncService = SyncService(
       db: _db!,
       notification: _notificationService,
     );
-    _playtimeService = PlaytimeService(
-      db: _db!,
-      getInstalledGames: () => _games,
-    );
-    _playtimeService!.startTracking();
+
+    // Initialize desktop-only services
+    if (PlatformUtils.isDesktop) {
+      _scanner = ManifestScanner();
+      _uploadService = UploadService();
+      _trayService = TrayService();
+      _playtimeService = PlaytimeService(
+        db: _db!,
+        getInstalledGames: () => _games,
+      );
+      _playtimeService!.startTracking();
+    }
 
     await _loadSettings();
-    await _scanGames();
+
+    // Desktop: scan local games
+    if (PlatformUtils.isDesktop) {
+      await _scanGames();
+    }
+
     await _followService!.loadFollowedGames();
     _setupAutoSync();
-    await _initTray();
+
+    // Desktop: initialize tray
+    if (PlatformUtils.isDesktop) {
+      await _initTray();
+    }
+
     await _initNotifications();
 
     // Perform startup sync
@@ -120,46 +143,49 @@ class _AppShellState extends State<AppShell> with WindowListener {
   }
 
   Future<void> _initTray() async {
-    if (Platform.isWindows || Platform.isMacOS) {
-      windowManager.addListener(this);
-      await windowManager.setPreventClose(true);
+    if (!PlatformUtils.isDesktop || _trayService == null) return;
 
-      await _trayService.init();
-      _trayService.onShowWindow = _showWindow;
-      _trayService.onQuit = _quitApp;
+    windowManager.addListener(this);
+    await windowManager.setPreventClose(true);
 
-      // launch_at_startup requires native setup on macOS (LaunchAtLogin Swift package)
-      // Only use on Windows until macOS native code is configured
-      if (Platform.isWindows) {
-        final isEnabled = await launchAtStartup.isEnabled();
-        if (isEnabled != _settings.launchAtStartup) {
-          if (_settings.launchAtStartup) {
-            await launchAtStartup.enable();
-          } else {
-            await launchAtStartup.disable();
-          }
+    await _trayService!.init();
+    _trayService!.onShowWindow = _showWindow;
+    _trayService!.onQuit = _quitApp;
+
+    // launch_at_startup requires native setup on macOS (LaunchAtLogin Swift package)
+    // Only use on Windows until macOS native code is configured
+    if (PlatformUtils.isWindows) {
+      final isEnabled = await launchAtStartup.isEnabled();
+      if (isEnabled != _settings.launchAtStartup) {
+        if (_settings.launchAtStartup) {
+          await launchAtStartup.enable();
+        } else {
+          await launchAtStartup.disable();
         }
       }
     }
   }
 
   Future<void> _showWindow() async {
+    if (!PlatformUtils.isDesktop) return;
     await windowManager.show();
     await windowManager.focus();
   }
 
   Future<void> _quitApp() async {
+    if (!PlatformUtils.isDesktop) return;
     _forceQuit = true;
-    await _trayService.destroy();
+    await _trayService?.destroy();
     await windowManager.destroy();
   }
 
   @override
   void onWindowClose() async {
+    if (!PlatformUtils.isDesktop) return;
     if (_settings.minimizeToTray && !_forceQuit) {
       await windowManager.hide();
     } else {
-      await _trayService.destroy();
+      await _trayService?.destroy();
       await windowManager.destroy();
     }
   }
@@ -196,20 +222,22 @@ class _AppShellState extends State<AppShell> with WindowListener {
       }
     }
 
-    // Scan local games and upload manifests
-    _addLog('Auto-sync: scanning for games...');
-    try {
-      final games = await _scanner.scanGames();
-      setState(() {
-        _games = games;
-      });
-      _addLog('Auto-sync: found ${games.length} games');
-    } catch (e) {
-      _addLog('Auto-sync: scan error - $e');
-      return;
-    }
-    if (_games.isNotEmpty) {
-      await _uploadAll();
+    // Desktop only: Scan local games and upload manifests
+    if (PlatformUtils.isDesktop && _scanner != null) {
+      _addLog('Auto-sync: scanning for games...');
+      try {
+        final games = await _scanner!.scanGames();
+        setState(() {
+          _games = games;
+        });
+        _addLog('Auto-sync: found ${games.length} games');
+      } catch (e) {
+        _addLog('Auto-sync: scan error - $e');
+        return;
+      }
+      if (_games.isNotEmpty) {
+        await _uploadAll();
+      }
     }
   }
 
@@ -224,11 +252,13 @@ class _AppShellState extends State<AppShell> with WindowListener {
   }
 
   Future<void> _scanGames() async {
+    if (!PlatformUtils.isDesktop || _scanner == null) return;
+
     setState(() {
       _isLoading = true;
     });
     try {
-      final games = await _scanner.scanGames();
+      final games = await _scanner!.scanGames();
       setState(() {
         _games = games;
         _isLoading = false;
@@ -243,6 +273,8 @@ class _AppShellState extends State<AppShell> with WindowListener {
   }
 
   Future<void> _uploadManifest(GameInfo game) async {
+    if (!PlatformUtils.isDesktop || _uploadService == null) return;
+
     setState(() {
       _uploadingGames.add(game.installationGuid);
       _uploadStatuses[game.installationGuid] = UploadStatus(
@@ -251,7 +283,7 @@ class _AppShellState extends State<AppShell> with WindowListener {
       );
     });
     _addLog('Uploading ${game.displayName}...');
-    final status = await _uploadService.uploadManifest(game);
+    final status = await _uploadService!.uploadManifest(game);
     setState(() {
       _uploadingGames.remove(game.installationGuid);
       _uploadStatuses[game.installationGuid] = status;
@@ -265,12 +297,14 @@ class _AppShellState extends State<AppShell> with WindowListener {
   }
 
   Future<void> _uploadAll() async {
+    if (!PlatformUtils.isDesktop || _uploadService == null) return;
     if (_isUploadingAll) return;
+
     setState(() {
       _isUploadingAll = true;
     });
     _addLog('Starting upload of all manifests...');
-    await _uploadService.uploadAllManifests(
+    await _uploadService!.uploadAllManifests(
       _games,
       onProgress: (gameName, status) async {
         setState(() {
@@ -300,7 +334,7 @@ class _AppShellState extends State<AppShell> with WindowListener {
     _setupAutoSync();
 
     // launch_at_startup only works on Windows until macOS native code is configured
-    if (Platform.isWindows) {
+    if (PlatformUtils.isWindows) {
       if (oldSettings.launchAtStartup != newSettings.launchAtStartup) {
         if (newSettings.launchAtStartup) {
           await launchAtStartup.enable();
@@ -335,6 +369,14 @@ class _AppShellState extends State<AppShell> with WindowListener {
       );
     }
 
+    // Switch between desktop and mobile layouts
+    if (PlatformUtils.isMobile) {
+      return _buildMobileShell();
+    }
+    return _buildDesktopShell();
+  }
+
+  Widget _buildDesktopShell() {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Stack(
@@ -370,15 +412,58 @@ class _AppShellState extends State<AppShell> with WindowListener {
     );
   }
 
+  Widget _buildMobileShell() {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Radial gradient background
+          Container(decoration: AppColors.radialGradientBackground),
+          // Accent glow overlay
+          Container(decoration: AppColors.accentGlowBackground),
+          // Main content with safe area
+          SafeArea(
+            child: _buildCurrentPage(),
+          ),
+        ],
+      ),
+      bottomNavigationBar: MobileBottomNav(
+        currentPage: _currentPage,
+        onPageSelected: (page) {
+          setState(() {
+            _currentPage = page;
+          });
+        },
+      ),
+    );
+  }
+
   Widget _buildCurrentPage() {
     switch (_currentPage) {
       case AppPage.dashboard:
+        // Mobile gets simplified dashboard, desktop gets full dashboard
+        if (PlatformUtils.isMobile) {
+          return MobileDashboardPage(
+            followService: _followService!,
+            syncService: _syncService!,
+            db: _db!,
+          );
+        }
         return DashboardPage(
           playtimeService: _playtimeService,
           installedGames: _games,
           db: _db,
         );
       case AppPage.library:
+        // Desktop: installed games with manifest upload
+        // Mobile: redirects to followed games (browse page)
+        if (PlatformUtils.isMobile) {
+          return BrowsePage(
+            followService: _followService!,
+            db: _db!,
+          );
+        }
         return LibraryPage(
           games: _games,
           uploadStatuses: _uploadStatuses,
@@ -386,13 +471,26 @@ class _AppShellState extends State<AppShell> with WindowListener {
           isLoading: _isLoading,
           isUploadingAll: _isUploadingAll,
           followService: _followService!,
-          manifestPath: _scanner.getManifestsPath(),
+          manifestPath: _scanner?.getManifestsPath() ?? '',
           onScanGames: _scanGames,
           onUploadManifest: _uploadManifest,
           onUploadAll: _uploadAll,
           onToggleConsole: () => setState(() => _showConsole = !_showConsole),
           showConsole: _showConsole,
           addLog: _addLog,
+        );
+      case AppPage.browse:
+        // Mobile only: browse/search games
+        return BrowsePage(
+          followService: _followService!,
+          db: _db!,
+        );
+      case AppPage.freeGames:
+        // Mobile only: free games list
+        return FreeGamesPage(
+          followService: _followService!,
+          syncService: _syncService!,
+          db: _db!,
         );
       case AppPage.settings:
         return SettingsPage(

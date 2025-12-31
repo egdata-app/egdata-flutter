@@ -1,11 +1,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'app_shell.dart';
+import 'utils/platform_utils.dart';
+
+// Desktop-only imports (conditionally used)
 import 'package:window_manager/window_manager.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:windows_single_instance/windows_single_instance.dart';
 import 'package:updat/updat_window_manager.dart';
 import 'package:updat/theme/chips/flat.dart';
-import 'app_shell.dart';
 import 'services/update_service.dart';
 
 // App version - keep in sync with pubspec.yaml
@@ -14,8 +17,18 @@ const String appVersion = '1.0.0';
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Desktop-only initialization
+  if (PlatformUtils.isDesktop) {
+    await _initDesktop(args);
+  }
+
+  runApp(const EGDataApp());
+}
+
+/// Initialize desktop-specific features (window manager, single instance, etc.)
+Future<void> _initDesktop(List<String> args) async {
   // Ensure only one instance of the app runs on Windows
-  if (Platform.isWindows) {
+  if (PlatformUtils.isWindows) {
     await WindowsSingleInstance.ensureSingleInstance(
       args,
       'egdata_client_single_instance',
@@ -28,32 +41,30 @@ void main(List<String> args) async {
   }
 
   // Initialize window manager for desktop platforms
-  if (Platform.isWindows || Platform.isMacOS) {
-    await windowManager.ensureInitialized();
+  await windowManager.ensureInitialized();
 
-    const windowOptions = WindowOptions(
-      size: Size(1280, 800),
-      minimumSize: Size(900, 650),
-      center: true,
-      backgroundColor: Colors.transparent,
-      skipTaskbar: false,
-      titleBarStyle: TitleBarStyle.normal,
-      title: 'EGData Client',
-    );
+  const windowOptions = WindowOptions(
+    size: Size(1280, 800),
+    minimumSize: Size(900, 650),
+    center: true,
+    backgroundColor: Colors.transparent,
+    skipTaskbar: false,
+    titleBarStyle: TitleBarStyle.normal,
+    title: 'EGData Client',
+  );
 
-    await windowManager.waitUntilReadyToShow(windowOptions, () async {
-      await windowManager.show();
-      await windowManager.focus();
-    });
+  await windowManager.waitUntilReadyToShow(windowOptions, () async {
+    await windowManager.show();
+    await windowManager.focus();
+  });
 
-    // Initialize launch at startup
+  // Initialize launch at startup (Windows only for now)
+  if (PlatformUtils.isWindows) {
     launchAtStartup.setup(
       appName: 'EGData Client',
       appPath: Platform.resolvedExecutable,
     );
   }
-
-  runApp(const EGDataApp());
 }
 
 // Unreal Engine inspired color palette
@@ -326,21 +337,23 @@ class EGDataApp extends StatelessWidget {
           ),
         ),
       ),
-      home: UpdatWindowManager(
-        appName: 'EGData Client',
-        currentVersion: appVersion,
-        getLatestVersion: () async {
-          return await UpdateService.getLatestVersion() ?? appVersion;
-        },
-        getBinaryUrl: (version) async {
-          return UpdateService.getBinaryUrl(version ?? appVersion);
-        },
-        getChangelog: (_, version) async {
-          return await UpdateService.getChangelog(version) ?? '';
-        },
-        updateChipBuilder: flatChip,
-        child: const AppShell(),
-      ),
+      home: PlatformUtils.isDesktop
+          ? UpdatWindowManager(
+              appName: 'EGData Client',
+              currentVersion: appVersion,
+              getLatestVersion: () async {
+                return await UpdateService.getLatestVersion() ?? appVersion;
+              },
+              getBinaryUrl: (version) async {
+                return UpdateService.getBinaryUrl(version ?? appVersion);
+              },
+              getChangelog: (_, version) async {
+                return await UpdateService.getChangelog(version) ?? '';
+              },
+              updateChipBuilder: flatChip,
+              child: const AppShell(),
+            )
+          : const AppShell(),
     );
   }
 }
