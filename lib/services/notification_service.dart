@@ -20,8 +20,15 @@ class NotificationService {
         requestSoundPermission: true,
       );
 
+      const windowsSettings = WindowsInitializationSettings(
+        appName: 'EGData',
+        appUserModelId: 'com.egdata.egdata_flutter',
+        guid: 'd3b07384-d9a3-4e6b-8b0d-324e5678a123',
+      );
+
       const initSettings = InitializationSettings(
         macOS: darwinSettings,
+        windows: windowsSettings,
       );
 
       await _notificationsPlugin.initialize(initSettings);
@@ -40,8 +47,11 @@ class NotificationService {
       presentSound: true,
     );
 
+    const windowsDetails = WindowsNotificationDetails();
+
     const notificationDetails = NotificationDetails(
       macOS: darwinDetails,
+      windows: windowsDetails,
     );
 
     await _notificationsPlugin.show(
