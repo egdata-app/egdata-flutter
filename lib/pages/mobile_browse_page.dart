@@ -44,7 +44,7 @@ class MobileBrowsePage extends HookWidget {
     if (request.onSale == true) parts.add('onSale');
     if (request.excludeBlockchain == true) parts.add('noBlockchain');
     if (request.pastGiveaways == true) parts.add('pastGiveaways');
-    if (request.isLowestPrice == true) parts.add('lowestPrice');
+    if (request.isLowestPriceEver == true) parts.add('lowestPriceEver');
     if (request.price != null) {
       parts.add(
         'price=${request.price!.min ?? 0}-${request.price!.max ?? '∞'}',
@@ -70,7 +70,7 @@ class MobileBrowsePage extends HookWidget {
     final priceRange = useState<PriceRange?>(null);
     final excludeBlockchain = useState(false);
     final pastGiveaways = useState(false);
-    final isLowestPrice = useState(false);
+    final isLowestPriceEver = useState(false);
 
     // Search text state
     final searchText = useState(searchController.text);
@@ -115,7 +115,7 @@ class MobileBrowsePage extends HookWidget {
         priceRange.value?.max,
         excludeBlockchain.value,
         pastGiveaways.value,
-        isLowestPrice.value,
+        isLowestPriceEver.value,
       ],
       [
         settings.country,
@@ -127,7 +127,7 @@ class MobileBrowsePage extends HookWidget {
         priceRange.value,
         excludeBlockchain.value,
         pastGiveaways.value,
-        isLowestPrice.value,
+        isLowestPriceEver.value,
       ],
     );
 
@@ -147,7 +147,7 @@ class MobileBrowsePage extends HookWidget {
           price: priceRange.value,
           excludeBlockchain: excludeBlockchain.value ? true : null,
           pastGiveaways: pastGiveaways.value ? true : null,
-          isLowestPrice: isLowestPrice.value ? true : null,
+          isLowestPriceEver: isLowestPriceEver.value ? true : null,
           tags: null,
           limit: 20,
           page: page,
@@ -248,7 +248,7 @@ class MobileBrowsePage extends HookWidget {
           priceRange: priceRange.value,
           excludeBlockchain: excludeBlockchain.value,
           pastGiveaways: pastGiveaways.value,
-          isLowestPrice: isLowestPrice.value,
+          isLowestPriceEver: isLowestPriceEver.value,
           aggregations: aggregations,
           onApply:
               (
@@ -259,13 +259,13 @@ class MobileBrowsePage extends HookWidget {
                 newPriceRange,
                 newExcludeBlockchain,
                 newPastGiveaways,
-                newIsLowestPrice,
+                newIsLowestPriceEver,
               ) {
                 _log(
                   'filtersApplied - type=$newOfferType, sort=$newSortBy/$newSortDir, '
                   'onSale=$newOnSale, price=$newPriceRange, '
                   'noBlockchain=$newExcludeBlockchain, pastGiveaways=$newPastGiveaways, '
-                  'lowestPrice=$newIsLowestPrice',
+                  'lowestPriceEver=$newIsLowestPriceEver',
                 );
 
                 offerType.value = newOfferType;
@@ -275,7 +275,7 @@ class MobileBrowsePage extends HookWidget {
                 priceRange.value = newPriceRange;
                 excludeBlockchain.value = newExcludeBlockchain;
                 pastGiveaways.value = newPastGiveaways;
-                isLowestPrice.value = newIsLowestPrice;
+                isLowestPriceEver.value = newIsLowestPriceEver;
               },
         ),
       );
@@ -287,7 +287,7 @@ class MobileBrowsePage extends HookWidget {
       if (onSale.value == true) count++;
       if (priceRange.value != null) count++;
       if (pastGiveaways.value) count++;
-      if (isLowestPrice.value) count++;
+      if (isLowestPriceEver.value) count++;
       if (excludeBlockchain.value) count++;
       if (sortBy.value != SearchSortBy.lastModifiedDate ||
           sortDir.value != SearchSortDir.desc) {
@@ -720,7 +720,7 @@ class _FiltersBottomSheet extends StatefulWidget {
   final PriceRange? priceRange;
   final bool excludeBlockchain;
   final bool pastGiveaways;
-  final bool isLowestPrice;
+  final bool isLowestPriceEver;
   final SearchAggregations? aggregations;
   final void Function(
     SearchOfferType? offerType,
@@ -730,7 +730,7 @@ class _FiltersBottomSheet extends StatefulWidget {
     PriceRange? priceRange,
     bool excludeBlockchain,
     bool pastGiveaways,
-    bool isLowestPrice,
+    bool isLowestPriceEver,
   )
   onApply;
 
@@ -742,7 +742,7 @@ class _FiltersBottomSheet extends StatefulWidget {
     required this.priceRange,
     required this.excludeBlockchain,
     required this.pastGiveaways,
-    required this.isLowestPrice,
+    required this.isLowestPriceEver,
     required this.aggregations,
     required this.onApply,
   });
@@ -759,7 +759,7 @@ class _FiltersBottomSheetState extends State<_FiltersBottomSheet> {
   late PriceRange? _priceRange;
   late bool _excludeBlockchain;
   late bool _pastGiveaways;
-  late bool _isLowestPrice;
+  late bool _isLowestPriceEver;
 
   final TextEditingController _minPriceController = TextEditingController();
   final TextEditingController _maxPriceController = TextEditingController();
@@ -821,7 +821,7 @@ class _FiltersBottomSheetState extends State<_FiltersBottomSheet> {
     _priceRange = widget.priceRange;
     _excludeBlockchain = widget.excludeBlockchain;
     _pastGiveaways = widget.pastGiveaways;
-    _isLowestPrice = widget.isLowestPrice;
+    _isLowestPriceEver = widget.isLowestPriceEver;
 
     if (_priceRange?.min != null) {
       _minPriceController.text = (_priceRange!.min! / 100).toString();
@@ -847,7 +847,7 @@ class _FiltersBottomSheetState extends State<_FiltersBottomSheet> {
       _priceRange = null;
       _excludeBlockchain = false;
       _pastGiveaways = false;
-      _isLowestPrice = false;
+      _isLowestPriceEver = false;
       _minPriceController.clear();
       _maxPriceController.clear();
     });
@@ -873,7 +873,7 @@ class _FiltersBottomSheetState extends State<_FiltersBottomSheet> {
       priceRange,
       _excludeBlockchain,
       _pastGiveaways,
-      _isLowestPrice,
+      _isLowestPriceEver,
     );
     Navigator.pop(context);
   }
@@ -1074,8 +1074,8 @@ class _FiltersBottomSheetState extends State<_FiltersBottomSheet> {
                   _buildToggleOption(
                     'Lowest Price Ever',
                     Icons.trending_down_rounded,
-                    _isLowestPrice,
-                    (value) => setState(() => _isLowestPrice = value),
+                    _isLowestPriceEver,
+                    (value) => setState(() => _isLowestPriceEver = value),
                     AppColors.warning,
                   ),
                   const SizedBox(height: 12),

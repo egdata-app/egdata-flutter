@@ -160,7 +160,7 @@ class SearchRequest {
   final String? publisherDisplayName;
   final bool? excludeBlockchain;
   final bool? pastGiveaways;
-  final bool? isLowestPrice;
+  final bool? isLowestPriceEver;
 
   const SearchRequest({
     this.title,
@@ -181,7 +181,7 @@ class SearchRequest {
     this.publisherDisplayName,
     this.excludeBlockchain,
     this.pastGiveaways,
-    this.isLowestPrice,
+    this.isLowestPriceEver,
   });
 
   Map<String, dynamic> toJson() {
@@ -211,7 +211,7 @@ class SearchRequest {
     }
     if (excludeBlockchain != null) map['excludeBlockchain'] = excludeBlockchain;
     if (pastGiveaways != null) map['pastGiveaways'] = pastGiveaways;
-    if (isLowestPrice != null) map['isLowestPrice'] = isLowestPrice;
+    if (isLowestPriceEver != null) map['isLowestPrice'] = isLowestPriceEver;
 
     return map;
   }
