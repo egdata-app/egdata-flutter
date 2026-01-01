@@ -74,7 +74,9 @@ class _PriceHistoryWidgetState extends State<PriceHistoryWidget>
     double nearestDistance = double.infinity;
 
     for (int i = 0; i < sortedHistory.length; i++) {
-      final pointX = leftPadding + (i / (sortedHistory.length - 1)) * chartWidth;
+      final pointX = sortedHistory.length == 1
+          ? leftPadding + chartWidth / 2
+          : leftPadding + (i / (sortedHistory.length - 1)) * chartWidth;
       final distance = (tapX - pointX).abs();
 
       // Use larger tolerance for better mobile UX
@@ -654,7 +656,9 @@ class _PriceChartPainter extends CustomPainter {
           ? entry.price.originalPrice.toDouble()
           : entry.price.discountPrice.toDouble();
 
-      final x = leftPadding + (i / (priceHistory.length - 1)) * chartWidth;
+      final x = priceHistory.length == 1
+          ? leftPadding + chartWidth / 2
+          : leftPadding + (i / (priceHistory.length - 1)) * chartWidth;
       final normalizedPrice = priceRange > 0 ? (price - minPrice) / priceRange : 0.5;
       final y = topPadding + chartHeight - (normalizedPrice * chartHeight);
 
@@ -708,7 +712,9 @@ class _PriceChartPainter extends CustomPainter {
       final entry = priceHistory[i];
       final price = entry.price.discountPrice.toDouble();
 
-      final x = leftPadding + (i / (priceHistory.length - 1)) * chartWidth;
+      final x = priceHistory.length == 1
+          ? leftPadding + chartWidth / 2
+          : leftPadding + (i / (priceHistory.length - 1)) * chartWidth;
       final normalizedPrice = priceRange > 0 ? (price - minPrice) / priceRange : 0.5;
       final y = topPadding + chartHeight - (normalizedPrice * chartHeight);
 
@@ -746,7 +752,9 @@ class _PriceChartPainter extends CustomPainter {
     final price = entry.price.discountPrice.toDouble();
 
     // Calculate point position
-    final x = leftPadding + (selectedPointIndex! / (priceHistory.length - 1)) * chartWidth;
+    final x = priceHistory.length == 1
+        ? leftPadding + chartWidth / 2
+        : leftPadding + (selectedPointIndex! / (priceHistory.length - 1)) * chartWidth;
     final normalizedPrice = priceRange > 0 ? (price - minPrice) / priceRange : 0.5;
     final y = topPadding + chartHeight - (normalizedPrice * chartHeight);
 
