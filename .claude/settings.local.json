@@ -17,7 +17,11 @@
       "Bash(git -C /Users/nacho/Documents/code/egdata-flutter diff lib/app_shell.dart lib/pages/settings_page.dart)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "WebFetch(domain:api.flutter.dev)"
+      "WebFetch(domain:api.flutter.dev)",
+      "Bash(git tag:*)",
+      "Bash(git push)",
+      "Bash(git push:*)",
+      "Bash(gh release create:*)"
     ]
   }
 }
