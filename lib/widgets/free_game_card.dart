@@ -143,7 +143,7 @@ class _FreeGameCardState extends State<FreeGameCard> {
                 padding: const EdgeInsets.all(14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
                       widget.game.title,
@@ -155,63 +155,52 @@ class _FreeGameCardState extends State<FreeGameCard> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: widget.isActive
-                                ? AppColors.success.withValues(alpha: 0.15)
-                                : AppColors.warning.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                widget.isActive
-                                    ? Icons.access_time_rounded
-                                    : Icons.schedule_rounded,
-                                size: 12,
+                    const SizedBox(height: 6),
+                    // Time badge - simplified without platform text
+                    IntrinsicWidth(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: widget.isActive
+                              ? AppColors.success.withValues(alpha: 0.15)
+                              : AppColors.warning.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              widget.isActive
+                                  ? Icons.access_time_rounded
+                                  : Icons.schedule_rounded,
+                              size: 12,
+                              color: widget.isActive
+                                  ? AppColors.success
+                                  : AppColors.warning,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              widget.isActive
+                                  ? (widget.game.endDate != null
+                                      ? _formatTimeRemaining(widget.game.endDate!)
+                                      : 'Available')
+                                  : (widget.game.startDate != null
+                                      ? _formatStartDate(widget.game.startDate!)
+                                      : 'Coming soon'),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
                                 color: widget.isActive
                                     ? AppColors.success
                                     : AppColors.warning,
                               ),
-                              const SizedBox(width: 4),
-                              Text(
-                                widget.isActive
-                                    ? (widget.game.endDate != null
-                                        ? _formatTimeRemaining(widget.game.endDate!)
-                                        : 'Available')
-                                    : (widget.game.startDate != null
-                                        ? _formatStartDate(widget.game.startDate!)
-                                        : 'Coming soon'),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: widget.isActive
-                                      ? AppColors.success
-                                      : AppColors.warning,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        if (widget.game.platforms.isNotEmpty)
-                          Text(
-                            widget.game.platforms.first.toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textMuted,
                             ),
-                          ),
-                      ],
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),

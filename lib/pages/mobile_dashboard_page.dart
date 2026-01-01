@@ -59,7 +59,12 @@ class MobileDashboardPage extends HookWidget {
     return entries.where((g) => g.isOnSale).toList();
   }
 
-  void _openGame(BuildContext context, String offerId, {String? title, String? imageUrl}) {
+  void _openGame(
+    BuildContext context,
+    String offerId, {
+    String? title,
+    String? imageUrl,
+  }) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -114,60 +119,67 @@ class MobileDashboardPage extends HookWidget {
     }, []);
 
     // Show free games notification prompt for new users
-    useEffect(() {
-      Future<void> showPromptIfNeeded() async {
-        // Only show if:
-        // 1. User hasn't seen the prompt yet
-        // 2. Push service is available
-        // 3. User is not already subscribed
-        if (!settings.hasSeenFreeGamesNotificationPrompt &&
-            pushService != null &&
-            pushService!.isAvailable &&
-            !settings.pushNotificationsEnabled) {
-          // Wait a bit for the page to load before showing dialog
-          await Future.delayed(const Duration(milliseconds: 500));
+    useEffect(
+      () {
+        Future<void> showPromptIfNeeded() async {
+          // Only show if:
+          // 1. User hasn't seen the prompt yet
+          // 2. Push service is available
+          // 3. User is not already subscribed
+          if (!settings.hasSeenFreeGamesNotificationPrompt &&
+              pushService != null &&
+              pushService!.isAvailable &&
+              !settings.pushNotificationsEnabled) {
+            // Wait a bit for the page to load before showing dialog
+            await Future.delayed(const Duration(milliseconds: 500));
 
-          if (context.mounted) {
-            final shouldEnable = await showDialog<bool>(
-              context: context,
-              barrierDismissible: false,
-              builder: (context) => const FreeGamesNotificationPromptDialog(),
-            );
-
-            // Mark as seen regardless of user choice
-            final updatedSettings = settings.copyWith(
-              hasSeenFreeGamesNotificationPrompt: true,
-            );
-
-            if (shouldEnable == true && pushService != null) {
-              // User accepted - subscribe to push notifications with free-games topic
-              final result = await pushService!.subscribe(
-                topics: [PushTopics.freeGames],
+            if (context.mounted) {
+              final shouldEnable = await showDialog<bool>(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const FreeGamesNotificationPromptDialog(),
               );
 
-              if (result.success) {
-                // Update settings to mark as subscribed
-                onSettingsChanged(updatedSettings.copyWith(
-                  pushNotificationsEnabled: true,
-                ));
+              // Mark as seen regardless of user choice
+              final updatedSettings = settings.copyWith(
+                hasSeenFreeGamesNotificationPrompt: true,
+              );
+
+              if (shouldEnable == true && pushService != null) {
+                // User accepted - subscribe to push notifications with free-games topic
+                final result = await pushService!.subscribe(
+                  topics: [PushTopics.freeGames],
+                );
+
+                if (result.success) {
+                  // Update settings to mark as subscribed
+                  onSettingsChanged(
+                    updatedSettings.copyWith(pushNotificationsEnabled: true),
+                  );
+                } else {
+                  // Failed to subscribe, just mark as seen
+                  onSettingsChanged(updatedSettings);
+                }
               } else {
-                // Failed to subscribe, just mark as seen
+                // User declined, just mark as seen
                 onSettingsChanged(updatedSettings);
               }
-            } else {
-              // User declined, just mark as seen
-              onSettingsChanged(updatedSettings);
             }
           }
         }
-      }
 
-      showPromptIfNeeded();
-      return null;
-    }, [settings.hasSeenFreeGamesNotificationPrompt, settings.pushNotificationsEnabled]);
+        showPromptIfNeeded();
+        return null;
+      },
+      [
+        settings.hasSeenFreeGamesNotificationPrompt,
+        settings.pushNotificationsEnabled,
+      ],
+    );
 
     // Handle loading state
-    final isLoading = freeGamesQuery.isLoading ||
+    final isLoading =
+        freeGamesQuery.isLoading ||
         homepageStatsQuery.isLoading ||
         freeGamesStatsQuery.isLoading ||
         gamesOnSaleQuery.isLoading;
@@ -326,7 +338,7 @@ class MobileDashboardPage extends HookWidget {
                         Expanded(
                           child: _buildMiniStat(
                             'Total Giveaways',
-                            _formatNumber(freeGamesStats!.totalGiveaways),
+                            _formatNumber(freeGamesStats.totalGiveaways),
                           ),
                         ),
                         Container(
@@ -337,7 +349,7 @@ class MobileDashboardPage extends HookWidget {
                         Expanded(
                           child: _buildMiniStat(
                             'Total Offers',
-                            _formatNumber(freeGamesStats!.totalOffers),
+                            _formatNumber(freeGamesStats.totalOffers),
                           ),
                         ),
                         Container(
@@ -348,7 +360,7 @@ class MobileDashboardPage extends HookWidget {
                         Expanded(
                           child: _buildMiniStat(
                             'Publishers',
-                            _formatNumber(freeGamesStats!.sellers),
+                            _formatNumber(freeGamesStats.sellers),
                           ),
                         ),
                       ],
@@ -370,7 +382,7 @@ class MobileDashboardPage extends HookWidget {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Total value: ${freeGamesStats!.totalValue.formattedOriginalPrice}',
+                            'Total value: ${freeGamesStats.totalValue.formattedOriginalPrice}',
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
@@ -581,12 +593,14 @@ class MobileDashboardPage extends HookWidget {
     if (game.keyImages.isEmpty) return null;
 
     // Prefer Thumbnail, then DieselGameBoxTall, then any image
-    final thumbnail =
-        game.keyImages.where((img) => img.type == 'Thumbnail').firstOrNull;
+    final thumbnail = game.keyImages
+        .where((img) => img.type == 'Thumbnail')
+        .firstOrNull;
     if (thumbnail != null) return thumbnail.url;
 
-    final boxTall =
-        game.keyImages.where((img) => img.type == 'DieselGameBoxTall').firstOrNull;
+    final boxTall = game.keyImages
+        .where((img) => img.type == 'DieselGameBoxTall')
+        .firstOrNull;
     if (boxTall != null) return boxTall.url;
 
     return game.keyImages.first.url;
@@ -595,7 +609,12 @@ class MobileDashboardPage extends HookWidget {
   Widget _buildFreeGameCard(BuildContext context, FreeGame game) {
     final thumbnailUrl = _getThumbnailUrl(game);
     return GestureDetector(
-      onTap: () => _openGame(context, game.id, title: game.title, imageUrl: thumbnailUrl),
+      onTap: () => _openGame(
+        context,
+        game.id,
+        title: game.title,
+        imageUrl: thumbnailUrl,
+      ),
       child: Container(
         width: 200,
         decoration: BoxDecoration(
@@ -667,7 +686,12 @@ class MobileDashboardPage extends HookWidget {
 
   Widget _buildSaleCard(BuildContext context, FollowedGameEntry game) {
     return GestureDetector(
-      onTap: () => _openGame(context, game.offerId, title: game.title, imageUrl: game.thumbnailUrl),
+      onTap: () => _openGame(
+        context,
+        game.offerId,
+        title: game.title,
+        imageUrl: game.thumbnailUrl,
+      ),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -710,21 +734,27 @@ class MobileDashboardPage extends HookWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Text(
-                        game.formattedOriginalPrice,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textMuted,
-                          decoration: TextDecoration.lineThrough,
+                      Flexible(
+                        child: Text(
+                          game.formattedOriginalPrice,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textMuted,
+                            decoration: TextDecoration.lineThrough,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       const SizedBox(width: 6),
-                      Text(
-                        game.formattedCurrentPrice,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.success,
+                      Flexible(
+                        child: Text(
+                          game.formattedCurrentPrice,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.success,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
