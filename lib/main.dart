@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_in_app_messaging/firebase_in_app_messaging.dart';
 import 'package:fluquery/fluquery.dart';
 import 'app_shell.dart';
 import 'utils/platform_utils.dart';
@@ -24,6 +25,8 @@ void main(List<String> args) async {
       await Firebase.initializeApp();
       // Initialize Firebase Analytics
       await AnalyticsService().initialize();
+      // Initialize Firebase In-App Messaging
+      FirebaseInAppMessaging.instance.setMessagesSuppressed(false);
     } catch (e) {
       // Firebase not configured - push notifications and analytics will be disabled
       debugPrint('Firebase initialization failed: $e');
