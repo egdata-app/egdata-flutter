@@ -187,6 +187,16 @@ class MobileBrowsePage extends HookWidget {
       staleTime: StaleTime(const Duration(minutes: 5)),
     );
 
+    // Listen to followed games changes to update UI
+    final followedGamesVersion = useState(0);
+    useEffect(() {
+      final sub = followService.followedGamesStream.listen((_) {
+        // Increment version to trigger rebuild
+        followedGamesVersion.value++;
+      });
+      return sub.cancel;
+    }, []);
+
     // Setup infinite scroll
     useEffect(() {
       void onScroll() {
