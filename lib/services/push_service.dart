@@ -74,31 +74,19 @@ class PushService {
     try {
       _messaging = FirebaseMessaging.instance;
 
-      // Request permission
-      final settings = await _messaging!.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-        provisional: false,
-      );
+      // Don't request permission yet - wait until user opts in
+      // Just set up message handlers for when permission is granted
+      _fcmToken = await _messaging!.getToken();
+      debugPrint('PushService: FCM Token: $_fcmToken');
 
-      if (settings.authorizationStatus == AuthorizationStatus.authorized ||
-          settings.authorizationStatus == AuthorizationStatus.provisional) {
-        // Get FCM token
-        _fcmToken = await _messaging!.getToken();
-        debugPrint('PushService: FCM Token: $_fcmToken');
+      // Listen for token refresh
+      _messaging!.onTokenRefresh.listen(_handleTokenRefresh);
 
-        // Listen for token refresh
-        _messaging!.onTokenRefresh.listen(_handleTokenRefresh);
+      // Handle foreground messages
+      FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
 
-        // Handle foreground messages
-        FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
-
-        // Handle background message tap
-        FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
-      } else {
-        debugPrint('PushService: Push notification permission denied');
-      }
+      // Handle background message tap
+      FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
 
       _initialized = true;
     } catch (e) {
@@ -159,6 +147,25 @@ class PushService {
     }
 
     try {
+      // Request permission when user opts in
+      final settings = await _messaging!.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+        provisional: false,
+      );
+
+      if (settings.authorizationStatus == AuthorizationStatus.denied) {
+        return PushSubscriptionResult(
+          success: false,
+          error: 'Notification permission denied',
+        );
+      }
+
+      // Get/refresh FCM token after permission is granted
+      _fcmToken = await _messaging!.getToken();
+      debugPrint('PushService: FCM Token after permission: $_fcmToken');
+
       // Generate a local subscription ID
       final subscriptionId = _generateUuid();
 
