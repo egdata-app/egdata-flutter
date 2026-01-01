@@ -3,13 +3,18 @@ import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../database/collections/free_game_entry.dart';
 import '../models/followed_game.dart';
+import '../models/notification_topics.dart';
 import '../services/follow_service.dart';
+import '../services/push_service.dart';
+import '../utils/platform_utils.dart';
 import 'follow_button.dart';
+import 'notification_topic_selector.dart';
 import 'progressive_image.dart';
 
 class FreeGameCard extends StatefulWidget {
   final FreeGameEntry game;
   final FollowService followService;
+  final PushService? pushService;
   final bool isActive;
   final VoidCallback? onTap;
 
@@ -17,6 +22,7 @@ class FreeGameCard extends StatefulWidget {
     super.key,
     required this.game,
     required this.followService,
+    this.pushService,
     required this.isActive,
     this.onTap,
   });
@@ -27,6 +33,7 @@ class FreeGameCard extends StatefulWidget {
 
 class _FreeGameCardState extends State<FreeGameCard> {
   bool _isFollowing = false;
+  bool _isFollowLoading = false;
 
   @override
   void initState() {
@@ -89,21 +96,89 @@ class _FreeGameCardState extends State<FreeGameCard> {
   }
 
   Future<void> _toggleFollow() async {
-    if (_isFollowing) {
-      await widget.followService.unfollowGame(widget.game.offerId);
-    } else {
-      final game = FollowedGame(
-        offerId: widget.game.offerId,
-        title: widget.game.title,
-        namespace: widget.game.namespace,
-        thumbnailUrl: widget.game.thumbnailUrl,
-        followedAt: DateTime.now(),
-      );
-      await widget.followService.followGame(game);
+    if (_isFollowLoading) return;
+
+    setState(() => _isFollowLoading = true);
+
+    try {
+      if (_isFollowing) {
+        // Unfollow: unsubscribe from all topics and delete from database
+        final topics = await widget.followService.getNotificationTopics(widget.game.offerId);
+        if (topics.isNotEmpty && widget.pushService != null && PlatformUtils.isMobile) {
+          await widget.pushService!.unsubscribeFromTopics(topics: topics);
+        }
+        await widget.followService.unfollowGame(widget.game.offerId);
+      } else {
+        // Follow: save to database and auto-subscribe to "all" topic
+        final game = FollowedGame(
+          offerId: widget.game.offerId,
+          title: widget.game.title,
+          namespace: widget.game.namespace,
+          thumbnailUrl: widget.game.thumbnailUrl,
+          followedAt: DateTime.now(),
+        );
+        await widget.followService.followGame(game);
+
+        // Auto-subscribe to "all notifications" by default on mobile
+        if (widget.pushService != null && PlatformUtils.isMobile) {
+          final allTopic = OfferNotificationTopic.all.getTopicForOffer(widget.game.offerId);
+          await _updateTopics([allTopic]);
+        }
+      }
+      setState(() {
+        _isFollowing = !_isFollowing;
+      });
+    } finally {
+      setState(() => _isFollowLoading = false);
     }
-    setState(() {
-      _isFollowing = !_isFollowing;
-    });
+  }
+
+  Future<void> _showTopicSelector() async {
+    if (!_isFollowing || !PlatformUtils.isMobile) return;
+
+    final currentTopics = await widget.followService.getNotificationTopics(widget.game.offerId);
+
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => NotificationTopicSelector(
+        offerId: widget.game.offerId,
+        currentTopics: currentTopics,
+        onTopicsChanged: _updateTopics,
+      ),
+    );
+  }
+
+  Future<void> _updateTopics(List<String> newTopics) async {
+    setState(() => _isFollowLoading = true);
+
+    try {
+      final currentTopics = await widget.followService.getNotificationTopics(widget.game.offerId);
+
+      // Calculate topics to add and remove
+      final toAdd = newTopics.where((t) => !currentTopics.contains(t)).toList();
+      final toRemove = currentTopics.where((t) => !newTopics.contains(t)).toList();
+
+      // Update FCM subscriptions
+      if (widget.pushService != null && PlatformUtils.isMobile) {
+        if (toAdd.isNotEmpty) {
+          await widget.pushService!.subscribeToTopics(topics: toAdd);
+        }
+        if (toRemove.isNotEmpty) {
+          await widget.pushService!.unsubscribeFromTopics(topics: toRemove);
+        }
+      }
+
+      // Update database
+      await widget.followService.updateNotificationTopics(widget.game.offerId, newTopics);
+    } finally {
+      if (mounted) {
+        setState(() => _isFollowLoading = false);
+      }
+    }
   }
 
   @override
@@ -211,7 +286,9 @@ class _FreeGameCardState extends State<FreeGameCard> {
               padding: const EdgeInsets.only(right: 14),
               child: FollowButton(
                 isFollowing: _isFollowing,
+                isLoading: _isFollowLoading,
                 onToggle: _toggleFollow,
+                onLongPress: PlatformUtils.isMobile ? _showTopicSelector : null,
                 compact: true,
               ),
             ),

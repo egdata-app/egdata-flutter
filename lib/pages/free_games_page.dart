@@ -3,6 +3,7 @@ import '../main.dart';
 import '../database/database_service.dart';
 import '../models/settings.dart';
 import '../services/follow_service.dart';
+import '../services/push_service.dart';
 import '../services/sync_service.dart';
 import '../widgets/free_game_card.dart';
 import 'mobile_offer_detail_page.dart';
@@ -11,12 +12,14 @@ class FreeGamesPage extends StatefulWidget {
   final FollowService followService;
   final SyncService syncService;
   final DatabaseService db;
+  final PushService? pushService;
 
   const FreeGamesPage({
     super.key,
     required this.followService,
     required this.syncService,
     required this.db,
+    this.pushService,
   });
 
   @override
@@ -73,6 +76,7 @@ class _FreeGamesPageState extends State<FreeGamesPage>
         builder: (context) => MobileOfferDetailPage(
           offerId: game.offerId,
           followService: widget.followService,
+          pushService: widget.pushService,
           initialTitle: game.title,
           initialImageUrl: game.thumbnailUrl,
         ),
@@ -209,6 +213,7 @@ class _FreeGamesPageState extends State<FreeGamesPage>
                       child: FreeGameCard(
                         game: game,
                         followService: widget.followService,
+                        pushService: widget.pushService,
                         isActive: true,
                         onTap: () => _navigateToOffer(game),
                       ),
@@ -275,6 +280,7 @@ class _FreeGamesPageState extends State<FreeGamesPage>
                       child: FreeGameCard(
                         game: game,
                         followService: widget.followService,
+                        pushService: widget.pushService,
                         isActive: false,
                         onTap: () => _navigateToOffer(game),
                       ),

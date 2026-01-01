@@ -71,6 +71,7 @@ class MobileDashboardPage extends HookWidget {
         builder: (context) => MobileOfferDetailPage(
           offerId: offerId,
           followService: followService,
+          pushService: pushService,
           initialTitle: title,
           initialImageUrl: imageUrl,
         ),

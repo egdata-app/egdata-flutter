@@ -4,6 +4,7 @@ class FollowedGame {
   final String? namespace;
   final String? thumbnailUrl;
   final DateTime followedAt;
+  final List<String> notificationTopics;
 
   const FollowedGame({
     required this.offerId,
@@ -11,6 +12,7 @@ class FollowedGame {
     this.namespace,
     this.thumbnailUrl,
     required this.followedAt,
+    this.notificationTopics = const [],
   });
 
   FollowedGame copyWith({
@@ -19,6 +21,7 @@ class FollowedGame {
     String? namespace,
     String? thumbnailUrl,
     DateTime? followedAt,
+    List<String>? notificationTopics,
   }) {
     return FollowedGame(
       offerId: offerId ?? this.offerId,
@@ -26,6 +29,7 @@ class FollowedGame {
       namespace: namespace ?? this.namespace,
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
       followedAt: followedAt ?? this.followedAt,
+      notificationTopics: notificationTopics ?? this.notificationTopics,
     );
   }
 
@@ -36,6 +40,7 @@ class FollowedGame {
       'namespace': namespace,
       'thumbnailUrl': thumbnailUrl,
       'followedAt': followedAt.toIso8601String(),
+      'notificationTopics': notificationTopics,
     };
   }
 
@@ -48,6 +53,9 @@ class FollowedGame {
       followedAt: json['followedAt'] != null
           ? DateTime.parse(json['followedAt'])
           : DateTime.now(),
+      notificationTopics: json['notificationTopics'] != null
+          ? List<String>.from(json['notificationTopics'])
+          : [],
     );
   }
 

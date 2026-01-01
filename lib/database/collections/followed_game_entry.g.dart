@@ -67,33 +67,38 @@ const FollowedGameEntrySchema = CollectionSchema(
       name: r'namespace',
       type: IsarType.string,
     ),
-    r'notifiedSale': PropertySchema(
+    r'notificationTopics': PropertySchema(
       id: 10,
+      name: r'notificationTopics',
+      type: IsarType.stringList,
+    ),
+    r'notifiedSale': PropertySchema(
+      id: 11,
       name: r'notifiedSale',
       type: IsarType.bool,
     ),
     r'offerId': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'offerId',
       type: IsarType.string,
     ),
     r'originalPrice': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'originalPrice',
       type: IsarType.double,
     ),
     r'priceCurrency': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'priceCurrency',
       type: IsarType.string,
     ),
     r'thumbnailUrl': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'thumbnailUrl',
       type: IsarType.string,
     ),
     r'title': PropertySchema(
-      id: 15,
+      id: 16,
       name: r'title',
       type: IsarType.string,
     )
@@ -147,6 +152,13 @@ int _followedGameEntryEstimateSize(
       bytesCount += 3 + value.length * 3;
     }
   }
+  bytesCount += 3 + object.notificationTopics.length * 3;
+  {
+    for (var i = 0; i < object.notificationTopics.length; i++) {
+      final value = object.notificationTopics[i];
+      bytesCount += value.length * 3;
+    }
+  }
   bytesCount += 3 + object.offerId.length * 3;
   {
     final value = object.priceCurrency;
@@ -180,12 +192,13 @@ void _followedGameEntrySerialize(
   writer.writeDateTime(offsets[7], object.lastChangelogCheck);
   writer.writeString(offsets[8], object.lastChangelogId);
   writer.writeString(offsets[9], object.namespace);
-  writer.writeBool(offsets[10], object.notifiedSale);
-  writer.writeString(offsets[11], object.offerId);
-  writer.writeDouble(offsets[12], object.originalPrice);
-  writer.writeString(offsets[13], object.priceCurrency);
-  writer.writeString(offsets[14], object.thumbnailUrl);
-  writer.writeString(offsets[15], object.title);
+  writer.writeStringList(offsets[10], object.notificationTopics);
+  writer.writeBool(offsets[11], object.notifiedSale);
+  writer.writeString(offsets[12], object.offerId);
+  writer.writeDouble(offsets[13], object.originalPrice);
+  writer.writeString(offsets[14], object.priceCurrency);
+  writer.writeString(offsets[15], object.thumbnailUrl);
+  writer.writeString(offsets[16], object.title);
 }
 
 FollowedGameEntry _followedGameEntryDeserialize(
@@ -202,12 +215,13 @@ FollowedGameEntry _followedGameEntryDeserialize(
   object.lastChangelogCheck = reader.readDateTimeOrNull(offsets[7]);
   object.lastChangelogId = reader.readStringOrNull(offsets[8]);
   object.namespace = reader.readStringOrNull(offsets[9]);
-  object.notifiedSale = reader.readBool(offsets[10]);
-  object.offerId = reader.readString(offsets[11]);
-  object.originalPrice = reader.readDoubleOrNull(offsets[12]);
-  object.priceCurrency = reader.readStringOrNull(offsets[13]);
-  object.thumbnailUrl = reader.readStringOrNull(offsets[14]);
-  object.title = reader.readString(offsets[15]);
+  object.notificationTopics = reader.readStringList(offsets[10]) ?? [];
+  object.notifiedSale = reader.readBool(offsets[11]);
+  object.offerId = reader.readString(offsets[12]);
+  object.originalPrice = reader.readDoubleOrNull(offsets[13]);
+  object.priceCurrency = reader.readStringOrNull(offsets[14]);
+  object.thumbnailUrl = reader.readStringOrNull(offsets[15]);
+  object.title = reader.readString(offsets[16]);
   return object;
 }
 
@@ -239,16 +253,18 @@ P _followedGameEntryDeserializeProp<P>(
     case 9:
       return (reader.readStringOrNull(offset)) as P;
     case 10:
-      return (reader.readBool(offset)) as P;
+      return (reader.readStringList(offset) ?? []) as P;
     case 11:
-      return (reader.readString(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 12:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 13:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 14:
       return (reader.readStringOrNull(offset)) as P;
     case 15:
+      return (reader.readStringOrNull(offset)) as P;
+    case 16:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1525,6 +1541,233 @@ extension FollowedGameEntryQueryFilter
   }
 
   QueryBuilder<FollowedGameEntry, FollowedGameEntry, QAfterFilterCondition>
+      notificationTopicsElementEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'notificationTopics',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FollowedGameEntry, FollowedGameEntry, QAfterFilterCondition>
+      notificationTopicsElementGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'notificationTopics',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FollowedGameEntry, FollowedGameEntry, QAfterFilterCondition>
+      notificationTopicsElementLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'notificationTopics',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FollowedGameEntry, FollowedGameEntry, QAfterFilterCondition>
+      notificationTopicsElementBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'notificationTopics',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FollowedGameEntry, FollowedGameEntry, QAfterFilterCondition>
+      notificationTopicsElementStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'notificationTopics',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FollowedGameEntry, FollowedGameEntry, QAfterFilterCondition>
+      notificationTopicsElementEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'notificationTopics',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FollowedGameEntry, FollowedGameEntry, QAfterFilterCondition>
+      notificationTopicsElementContains(String value,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'notificationTopics',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FollowedGameEntry, FollowedGameEntry, QAfterFilterCondition>
+      notificationTopicsElementMatches(String pattern,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'notificationTopics',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FollowedGameEntry, FollowedGameEntry, QAfterFilterCondition>
+      notificationTopicsElementIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'notificationTopics',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<FollowedGameEntry, FollowedGameEntry, QAfterFilterCondition>
+      notificationTopicsElementIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'notificationTopics',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<FollowedGameEntry, FollowedGameEntry, QAfterFilterCondition>
+      notificationTopicsLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'notificationTopics',
+        length,
+        true,
+        length,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<FollowedGameEntry, FollowedGameEntry, QAfterFilterCondition>
+      notificationTopicsIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'notificationTopics',
+        0,
+        true,
+        0,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<FollowedGameEntry, FollowedGameEntry, QAfterFilterCondition>
+      notificationTopicsIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'notificationTopics',
+        0,
+        false,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<FollowedGameEntry, FollowedGameEntry, QAfterFilterCondition>
+      notificationTopicsLengthLessThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'notificationTopics',
+        0,
+        true,
+        length,
+        include,
+      );
+    });
+  }
+
+  QueryBuilder<FollowedGameEntry, FollowedGameEntry, QAfterFilterCondition>
+      notificationTopicsLengthGreaterThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'notificationTopics',
+        length,
+        include,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<FollowedGameEntry, FollowedGameEntry, QAfterFilterCondition>
+      notificationTopicsLengthBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'notificationTopics',
+        lower,
+        includeLower,
+        upper,
+        includeUpper,
+      );
+    });
+  }
+
+  QueryBuilder<FollowedGameEntry, FollowedGameEntry, QAfterFilterCondition>
       notifiedSaleEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
@@ -2749,6 +2992,13 @@ extension FollowedGameEntryQueryWhereDistinct
   }
 
   QueryBuilder<FollowedGameEntry, FollowedGameEntry, QDistinct>
+      distinctByNotificationTopics() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'notificationTopics');
+    });
+  }
+
+  QueryBuilder<FollowedGameEntry, FollowedGameEntry, QDistinct>
       distinctByNotifiedSale() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'notifiedSale');
@@ -2866,6 +3116,13 @@ extension FollowedGameEntryQueryProperty
       namespaceProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'namespace');
+    });
+  }
+
+  QueryBuilder<FollowedGameEntry, List<String>, QQueryOperations>
+      notificationTopicsProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'notificationTopics');
     });
   }
 

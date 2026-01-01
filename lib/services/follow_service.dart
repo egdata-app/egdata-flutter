@@ -25,6 +25,7 @@ class FollowService {
       namespace: entry.namespace,
       thumbnailUrl: entry.thumbnailUrl,
       followedAt: entry.followedAt,
+      notificationTopics: entry.notificationTopics,
     );
   }
 
@@ -35,7 +36,8 @@ class FollowService {
       ..title = game.title
       ..namespace = game.namespace
       ..thumbnailUrl = game.thumbnailUrl
-      ..followedAt = game.followedAt;
+      ..followedAt = game.followedAt
+      ..notificationTopics = game.notificationTopics;
   }
 
   Future<List<FollowedGame>> loadFollowedGames() async {
@@ -83,6 +85,22 @@ class FollowService {
     final entries = await _db.getAllFollowedGames();
     _followedGames = entries.map(_entryToModel).toList();
     _followedGamesController.add(_followedGames);
+  }
+
+  /// Update notification topics for a followed game (mobile only)
+  Future<void> updateNotificationTopics(String offerId, List<String> topics) async {
+    final entry = await _db.getFollowedGameByOfferId(offerId);
+    if (entry != null) {
+      entry.notificationTopics = topics;
+      await _db.saveFollowedGame(entry);
+      await _refreshFollowedGames();
+    }
+  }
+
+  /// Get notification topics for a followed game
+  Future<List<String>> getNotificationTopics(String offerId) async {
+    final entry = await _db.getFollowedGameByOfferId(offerId);
+    return entry?.notificationTopics ?? [];
   }
 
   void dispose() {

@@ -8,6 +8,7 @@ import 'main.dart';
 import 'utils/platform_utils.dart';
 import 'database/database_service.dart';
 import 'models/game_info.dart';
+import 'models/notification_topics.dart';
 import 'models/settings.dart';
 import 'models/upload_status.dart';
 import 'services/follow_service.dart';
@@ -142,6 +143,15 @@ class _AppShellState extends State<AppShell> {
     }
 
     await _followService!.loadFollowedGames();
+
+    // Migrate existing followed games to have notification topics
+    if (PlatformUtils.isMobile && _pushService != null) {
+      final pushState = await _pushService!.getSubscriptionState();
+      if (pushState.isSubscribed) {
+        await _migrateFollowedGamesTopics();
+      }
+    }
+
     _setupAutoSync();
 
     // Desktop: initialize tray
@@ -200,6 +210,26 @@ class _AppShellState extends State<AppShell> {
           await launchAtStartup.disable();
         }
       }
+    }
+  }
+
+  Future<void> _migrateFollowedGamesTopics() async {
+    final followedGames = await _db!.getAllFollowedGames();
+    final topicsToSubscribe = <String>[];
+
+    for (final entry in followedGames) {
+      if (entry.notificationTopics.isEmpty) {
+        // Auto-assign "all notifications" topic for existing followed games
+        final allTopic = OfferNotificationTopic.all.getTopicForOffer(entry.offerId);
+        entry.notificationTopics = [allTopic];
+        await _db!.saveFollowedGame(entry);
+        topicsToSubscribe.add(allTopic);
+      }
+    }
+
+    // Subscribe to all topics in one batch
+    if (topicsToSubscribe.isNotEmpty) {
+      await _pushService!.subscribeToTopics(topics: topicsToSubscribe);
     }
   }
 
@@ -487,11 +517,13 @@ class _AppShellState extends State<AppShell> {
                 MobileBrowsePage(
                   settings: _settings,
                   followService: _followService!,
+                  pushService: _pushService,
                 ),
                 FreeGamesPage(
                   followService: _followService!,
                   syncService: _syncService!,
                   db: _db!,
+                  pushService: _pushService,
                 ),
                 SettingsPage(
                   settings: _settings,
@@ -549,6 +581,7 @@ class _AppShellState extends State<AppShell> {
           return MobileBrowsePage(
             settings: _settings,
             followService: _followService!,
+            pushService: _pushService,
           );
         }
         return LibraryPage(
@@ -571,6 +604,7 @@ class _AppShellState extends State<AppShell> {
         return MobileBrowsePage(
           settings: _settings,
           followService: _followService!,
+          pushService: _pushService,
         );
       case AppPage.freeGames:
         // Mobile only: free games list
@@ -578,6 +612,7 @@ class _AppShellState extends State<AppShell> {
           followService: _followService!,
           syncService: _syncService!,
           db: _db!,
+          pushService: _pushService,
         );
       case AppPage.settings:
         return SettingsPage(

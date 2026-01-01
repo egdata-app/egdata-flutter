@@ -8,17 +8,20 @@ import '../models/settings.dart';
 import '../services/analytics_service.dart';
 import '../services/api_service.dart';
 import '../services/follow_service.dart';
+import '../services/push_service.dart';
 import '../widgets/game_card.dart';
 import 'mobile_offer_detail_page.dart';
 
 class MobileBrowsePage extends HookWidget {
   final AppSettings settings;
   final FollowService followService;
+  final PushService? pushService;
 
   const MobileBrowsePage({
     super.key,
     required this.settings,
     required this.followService,
+    this.pushService,
   });
 
   static const String _logTag = 'MobileBrowsePage';
@@ -622,6 +625,7 @@ class MobileBrowsePage extends HookWidget {
         builder: (context) => MobileOfferDetailPage(
           offerId: offer.id,
           followService: followService,
+          pushService: pushService,
           initialTitle: offer.title,
           initialImageUrl: _getThumbnailUrl(offer),
         ),

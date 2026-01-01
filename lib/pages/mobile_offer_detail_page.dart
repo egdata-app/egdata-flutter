@@ -3,10 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../models/followed_game.dart';
+import '../models/notification_topics.dart';
 import '../services/api_service.dart';
 import '../services/analytics_service.dart';
 import '../services/follow_service.dart';
+import '../services/push_service.dart';
+import '../utils/platform_utils.dart';
 import '../widgets/follow_button.dart';
+import '../widgets/notification_topic_selector.dart';
 import '../widgets/progressive_image.dart';
 import '../widgets/price_history_widget.dart';
 import '../widgets/mobile_offer_detail_header.dart';
@@ -16,12 +20,14 @@ class MobileOfferDetailPage extends StatefulWidget {
   final String? initialTitle;
   final String? initialImageUrl;
   final FollowService followService;
+  final PushService? pushService;
   final String country;
 
   const MobileOfferDetailPage({
     super.key,
     required this.offerId,
     required this.followService,
+    this.pushService,
     this.initialTitle,
     this.initialImageUrl,
     this.country = 'US',
@@ -53,6 +59,7 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
 
   // Following state
   bool _isFollowing = false;
+  bool _isFollowLoading = false;
 
   // Cached image URLs to avoid recomputation
   String? _cachedWideImageUrl;
@@ -90,36 +97,103 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
   }
 
   Future<void> _toggleFollow() async {
-    if (_offer == null) return;
+    if (_offer == null || _isFollowLoading) return;
 
-    if (_isFollowing) {
-      await widget.followService.unfollowGame(widget.offerId);
-      // Track unfollow
-      await AnalyticsService().logFollowGame(
-        gameId: widget.offerId,
-        gameName: _offer!.title,
-        followed: false,
-      );
-    } else {
-      final game = FollowedGame(
-        offerId: widget.offerId,
-        title: _offer!.title,
-        namespace: _offer!.namespace,
-        thumbnailUrl: _getWideImageUrl(_offer!) ?? _getThumbnailUrl(_offer!),
-        followedAt: DateTime.now(),
-      );
-      await widget.followService.followGame(game);
-      // Track follow
-      await AnalyticsService().logFollowGame(
-        gameId: widget.offerId,
-        gameName: _offer!.title,
-        followed: true,
-      );
+    setState(() => _isFollowLoading = true);
+
+    try {
+      if (_isFollowing) {
+        // Unfollow: unsubscribe from all topics and delete from database
+        final topics = await widget.followService.getNotificationTopics(widget.offerId);
+        if (topics.isNotEmpty && widget.pushService != null && PlatformUtils.isMobile) {
+          await widget.pushService!.unsubscribeFromTopics(topics: topics);
+        }
+        await widget.followService.unfollowGame(widget.offerId);
+        // Track unfollow
+        await AnalyticsService().logFollowGame(
+          gameId: widget.offerId,
+          gameName: _offer!.title,
+          followed: false,
+        );
+      } else {
+        // Follow: save to database and auto-subscribe to "all" topic
+        final game = FollowedGame(
+          offerId: widget.offerId,
+          title: _offer!.title,
+          namespace: _offer!.namespace,
+          thumbnailUrl: _getWideImageUrl(_offer!) ?? _getThumbnailUrl(_offer!),
+          followedAt: DateTime.now(),
+        );
+        await widget.followService.followGame(game);
+
+        // Auto-subscribe to "all notifications" by default on mobile
+        if (widget.pushService != null && PlatformUtils.isMobile) {
+          final allTopic = OfferNotificationTopic.all.getTopicForOffer(widget.offerId);
+          await _updateTopics([allTopic]);
+        }
+
+        // Track follow
+        await AnalyticsService().logFollowGame(
+          gameId: widget.offerId,
+          gameName: _offer!.title,
+          followed: true,
+        );
+      }
+
+      setState(() {
+        _isFollowing = !_isFollowing;
+      });
+    } finally {
+      setState(() => _isFollowLoading = false);
     }
+  }
 
-    setState(() {
-      _isFollowing = !_isFollowing;
-    });
+  Future<void> _showTopicSelector() async {
+    if (!_isFollowing || !PlatformUtils.isMobile) return;
+
+    final currentTopics = await widget.followService.getNotificationTopics(widget.offerId);
+
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => NotificationTopicSelector(
+        offerId: widget.offerId,
+        currentTopics: currentTopics,
+        onTopicsChanged: _updateTopics,
+      ),
+    );
+  }
+
+  Future<void> _updateTopics(List<String> newTopics) async {
+    setState(() => _isFollowLoading = true);
+
+    try {
+      final currentTopics = await widget.followService.getNotificationTopics(widget.offerId);
+
+      // Calculate topics to add and remove
+      final toAdd = newTopics.where((t) => !currentTopics.contains(t)).toList();
+      final toRemove = currentTopics.where((t) => !newTopics.contains(t)).toList();
+
+      // Update FCM subscriptions
+      if (widget.pushService != null && PlatformUtils.isMobile) {
+        if (toAdd.isNotEmpty) {
+          await widget.pushService!.subscribeToTopics(topics: toAdd);
+        }
+        if (toRemove.isNotEmpty) {
+          await widget.pushService!.unsubscribeFromTopics(topics: toRemove);
+        }
+      }
+
+      // Update database
+      await widget.followService.updateNotificationTopics(widget.offerId, newTopics);
+    } finally {
+      if (mounted) {
+        setState(() => _isFollowLoading = false);
+      }
+    }
   }
 
   Future<void> _loadData() async {
@@ -400,7 +474,9 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
         Expanded(
           child: FollowButton(
             isFollowing: _isFollowing,
+            isLoading: _isFollowLoading,
             onToggle: _toggleFollow,
+            onLongPress: PlatformUtils.isMobile ? _showTopicSelector : null,
           ),
         ),
         const SizedBox(width: 12),
@@ -845,6 +921,7 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
                     builder: (context) => MobileOfferDetailPage(
                       offerId: offer.id,
                       followService: widget.followService,
+                      pushService: widget.pushService,
                       initialTitle: offer.title,
                       initialImageUrl: thumbnailUrl,
                       country: widget.country,

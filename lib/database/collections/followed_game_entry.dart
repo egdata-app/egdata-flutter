@@ -25,6 +25,11 @@ class FollowedGameEntry {
   DateTime? lastChangelogCheck;
   String? lastChangelogId;
 
+  // Push notification topics for this offer (mobile only)
+  // Empty list means no topics subscribed (won't receive any notifications)
+  // Default: ['offers:<id>:*'] when following
+  List<String> notificationTopics = [];
+
   FollowedGameEntry();
 
   bool get isOnSale => discountPercent != null && discountPercent! > 0;
