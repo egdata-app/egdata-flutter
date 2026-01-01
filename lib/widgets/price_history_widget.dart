@@ -262,25 +262,17 @@ class _PriceHistoryWidgetState extends State<PriceHistoryWidget>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title
-          const Text(
-            'Price History',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          // Header with current price
+          // Title and current price
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Last 6 months',
+                'Price History',
                 style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textMuted,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
                 ),
               ),
               Column(
@@ -311,6 +303,15 @@ class _PriceHistoryWidgetState extends State<PriceHistoryWidget>
                 ],
               ),
             ],
+          ),
+          const SizedBox(height: 4),
+          // Subtitle
+          const Text(
+            'Last 6 months',
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.textMuted,
+            ),
           ),
           const SizedBox(height: 12),
           // Chart with tap detection
