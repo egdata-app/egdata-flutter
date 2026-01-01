@@ -1,3 +1,5 @@
+import 'package:intl/intl.dart';
+
 /// Homepage statistics from /stats/homepage endpoint
 class HomepageStats {
   final int offers;
@@ -73,8 +75,11 @@ class TotalValue {
   }
 
   String _formatPrice(double price, String currency) {
-    final symbol = _getCurrencySymbol(currency);
-    return '$symbol${price.toStringAsFixed(2)}';
+    final formatter = NumberFormat.currency(
+      symbol: _getCurrencySymbol(currency),
+      decimalDigits: 0, // Round to remove cents
+    );
+    return formatter.format(price);
   }
 
   String _getCurrencySymbol(String code) {
