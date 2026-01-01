@@ -6,6 +6,13 @@ plugins {
     id("com.google.gms.google-services")
 }
 
+// Load keystore properties
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = java.util.Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(keystorePropertiesFile.inputStream())
+}
+
 android {
     namespace = "com.ignacioaldama.egdata"
     compileSdk = 36
@@ -21,6 +28,16 @@ android {
         jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
+    // Signing configurations
+    signingConfigs {
+        create("release") {
+            storeFile = file(keystoreProperties.getProperty("storeFile") ?: "upload-keystore.jks")
+            storePassword = keystoreProperties.getProperty("storePassword")
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+        }
+    }
+
     defaultConfig {
         applicationId = "com.ignacioaldama.egdata"
         minSdk = flutter.minSdkVersion
@@ -31,9 +48,8 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Use release signing config
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

@@ -196,6 +196,19 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           sed -i "s/const String appVersion = '[^']*';/const String appVersion = '$VERSION';/" lib/main.dart
 
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+
+      - name: Create key.properties
+        run: |
+          cat > android/key.properties << EOF
+          storeFile=app/upload-keystore.jks
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          EOF
+
       - name: Build Android APK
         run: flutter build apk --release
 
