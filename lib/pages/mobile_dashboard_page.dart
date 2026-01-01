@@ -1,5 +1,6 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:fluquery/fluquery.dart';
 import '../main.dart';
 import '../database/database_service.dart';
 import '../models/settings.dart';
@@ -9,7 +10,7 @@ import '../services/sync_service.dart';
 import '../widgets/progressive_image.dart';
 import 'mobile_offer_detail_page.dart';
 
-class MobileDashboardPage extends StatefulWidget {
+class MobileDashboardPage extends HookWidget {
   final FollowService followService;
   final SyncService syncService;
   final DatabaseService db;
@@ -23,101 +24,42 @@ class MobileDashboardPage extends StatefulWidget {
     required this.settings,
   });
 
-  @override
-  State<MobileDashboardPage> createState() => _MobileDashboardPageState();
-}
+  Future<List<FreeGame>> _fetchActiveFreeGames() async {
+    final apiService = ApiService();
+    final allGames = await apiService.getFreeGames();
 
-class _MobileDashboardPageState extends State<MobileDashboardPage>
-    with AutomaticKeepAliveClientMixin {
-  final ApiService _apiService = ApiService();
-
-  @override
-  bool get wantKeepAlive => true;
-  List<FreeGame> _activeFreeGames = [];
-  List<FollowedGameEntry> _gamesOnSale = [];
-  HomepageStats? _homepageStats;
-  FreeGamesStats? _freeGamesStats;
-  bool _isLoading = true;
-  StreamSubscription? _followedSub;
-  String? _lastCountry;
-
-  @override
-  void initState() {
-    super.initState();
-    _lastCountry = widget.settings.country;
-    _loadData();
-    _followedSub = widget.followService.followedGamesStream.listen((_) {
-      _loadGamesOnSale();
-    });
+    // Filter for active free games (currently within giveaway period)
+    final now = DateTime.now();
+    return allGames.where((g) {
+      if (g.giveaway == null) return false;
+      return now.isAfter(g.giveaway!.startDate) &&
+          now.isBefore(g.giveaway!.endDate);
+    }).toList();
   }
 
-  @override
-  void didUpdateWidget(MobileDashboardPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Reload data if country changed
-    if (widget.settings.country != _lastCountry) {
-      _lastCountry = widget.settings.country;
-      _loadData();
-    }
+  Future<HomepageStats> _fetchHomepageStats(String country) async {
+    final apiService = ApiService();
+    return apiService.getHomepageStats(country: country);
   }
 
-  Future<void> _loadGamesOnSale() async {
-    final entries = await widget.db.getAllFollowedGames();
-    setState(() {
-      _gamesOnSale = entries.where((g) => g.isOnSale).toList();
-    });
+  Future<FreeGamesStats> _fetchFreeGamesStats(String country) async {
+    final apiService = ApiService();
+    return apiService.getFreeGamesStats(country: country);
   }
 
-  @override
-  void dispose() {
-    _followedSub?.cancel();
-    super.dispose();
+  Future<List<FollowedGameEntry>> _fetchGamesOnSale() async {
+    await followService.loadFollowedGames();
+    final entries = await db.getAllFollowedGames();
+    return entries.where((g) => g.isOnSale).toList();
   }
 
-  Future<void> _loadData() async {
-    setState(() => _isLoading = true);
-    final country = widget.settings.country;
-    try {
-      // Fetch all data in parallel
-      final results = await Future.wait([
-        _apiService.getFreeGames(),
-        _apiService.getHomepageStats(country: country),
-        _apiService.getFreeGamesStats(country: country),
-      ]);
-
-      final allGames = results[0] as List<FreeGame>;
-      final homepageStats = results[1] as HomepageStats;
-      final freeGamesStats = results[2] as FreeGamesStats;
-
-      await widget.followService.loadFollowedGames();
-      await _loadGamesOnSale();
-
-      // Filter for active free games (currently within giveaway period)
-      final now = DateTime.now();
-      final activeGames = allGames.where((g) {
-        if (g.giveaway == null) return false;
-        return now.isAfter(g.giveaway!.startDate) &&
-            now.isBefore(g.giveaway!.endDate);
-      }).toList();
-
-      setState(() {
-        _activeFreeGames = activeGames;
-        _homepageStats = homepageStats;
-        _freeGamesStats = freeGamesStats;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  void _openGame(String offerId, {String? title, String? imageUrl}) {
+  void _openGame(BuildContext context, String offerId, {String? title, String? imageUrl}) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => MobileOfferDetailPage(
           offerId: offerId,
-          followService: widget.followService,
+          followService: followService,
           initialTitle: title,
           initialImageUrl: imageUrl,
         ),
@@ -127,15 +69,74 @@ class _MobileDashboardPageState extends State<MobileDashboardPage>
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); // Required for AutomaticKeepAliveClientMixin
-    if (_isLoading) {
+    final queryClient = useQueryClient();
+
+    // Query for free games
+    final freeGamesQuery = useQuery<List<FreeGame>, Object>(
+      queryKey: ['free-games'],
+      queryFn: (_) => _fetchActiveFreeGames(),
+      staleTime: StaleTime(const Duration(minutes: 5)),
+    );
+
+    // Query for homepage stats
+    final homepageStatsQuery = useQuery<HomepageStats, Object>(
+      queryKey: ['homepage-stats', settings.country],
+      queryFn: (_) => _fetchHomepageStats(settings.country),
+      staleTime: StaleTime(const Duration(minutes: 5)),
+    );
+
+    // Query for free games stats
+    final freeGamesStatsQuery = useQuery<FreeGamesStats, Object>(
+      queryKey: ['free-games-stats', settings.country],
+      queryFn: (_) => _fetchFreeGamesStats(settings.country),
+      staleTime: StaleTime(const Duration(minutes: 5)),
+    );
+
+    // Query for games on sale
+    final gamesOnSaleQuery = useQuery<List<FollowedGameEntry>, Object>(
+      queryKey: ['games-on-sale'],
+      queryFn: (_) => _fetchGamesOnSale(),
+      staleTime: StaleTime(const Duration(minutes: 1)),
+    );
+
+    // Listen to followed games stream and invalidate query
+    useEffect(() {
+      final sub = followService.followedGamesStream.listen((_) {
+        queryClient.invalidateQueries(queryKey: ['games-on-sale']);
+      });
+      return sub.cancel;
+    }, []);
+
+    // Handle loading state
+    final isLoading = freeGamesQuery.isLoading ||
+        homepageStatsQuery.isLoading ||
+        freeGamesStatsQuery.isLoading ||
+        gamesOnSaleQuery.isLoading;
+
+    if (isLoading) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.primary),
       );
     }
 
+    // Extract data
+    final activeFreeGames = freeGamesQuery.data ?? [];
+    final homepageStats = homepageStatsQuery.data;
+    final freeGamesStats = freeGamesStatsQuery.data;
+    final gamesOnSale = gamesOnSaleQuery.data ?? [];
+
+    // Refresh handler
+    Future<void> handleRefresh() async {
+      await Future.wait([
+        freeGamesQuery.refetch(),
+        homepageStatsQuery.refetch(),
+        freeGamesStatsQuery.refetch(),
+        gamesOnSaleQuery.refetch(),
+      ]);
+    }
+
     return RefreshIndicator(
-      onRefresh: _loadData,
+      onRefresh: handleRefresh,
       color: AppColors.primary,
       backgroundColor: AppColors.surface,
       child: SingleChildScrollView(
@@ -194,7 +195,7 @@ class _MobileDashboardPageState extends State<MobileDashboardPage>
                   child: _buildStatCard(
                     icon: Icons.storefront_rounded,
                     label: 'Offers',
-                    value: _formatNumber(_homepageStats?.offers ?? 0),
+                    value: _formatNumber(homepageStats?.offers ?? 0),
                     color: AppColors.primary,
                   ),
                 ),
@@ -203,7 +204,7 @@ class _MobileDashboardPageState extends State<MobileDashboardPage>
                   child: _buildStatCard(
                     icon: Icons.card_giftcard_rounded,
                     label: 'Giveaways',
-                    value: _formatNumber(_homepageStats?.giveaways ?? 0),
+                    value: _formatNumber(homepageStats?.giveaways ?? 0),
                     color: AppColors.success,
                   ),
                 ),
@@ -212,7 +213,7 @@ class _MobileDashboardPageState extends State<MobileDashboardPage>
                   child: _buildStatCard(
                     icon: Icons.percent_rounded,
                     label: 'On Sale',
-                    value: _formatNumber(_homepageStats?.activeDiscounts ?? 0),
+                    value: _formatNumber(homepageStats?.activeDiscounts ?? 0),
                     color: AppColors.warning,
                   ),
                 ),
@@ -222,7 +223,7 @@ class _MobileDashboardPageState extends State<MobileDashboardPage>
             const SizedBox(height: 12),
 
             // Free games stats row
-            if (_freeGamesStats != null)
+            if (freeGamesStats != null)
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -266,7 +267,7 @@ class _MobileDashboardPageState extends State<MobileDashboardPage>
                         Expanded(
                           child: _buildMiniStat(
                             'Total Giveaways',
-                            _formatNumber(_freeGamesStats!.totalGiveaways),
+                            _formatNumber(freeGamesStats!.totalGiveaways),
                           ),
                         ),
                         Container(
@@ -277,7 +278,7 @@ class _MobileDashboardPageState extends State<MobileDashboardPage>
                         Expanded(
                           child: _buildMiniStat(
                             'Total Offers',
-                            _formatNumber(_freeGamesStats!.totalOffers),
+                            _formatNumber(freeGamesStats!.totalOffers),
                           ),
                         ),
                         Container(
@@ -288,7 +289,7 @@ class _MobileDashboardPageState extends State<MobileDashboardPage>
                         Expanded(
                           child: _buildMiniStat(
                             'Publishers',
-                            _formatNumber(_freeGamesStats!.sellers),
+                            _formatNumber(freeGamesStats!.sellers),
                           ),
                         ),
                       ],
@@ -310,7 +311,7 @@ class _MobileDashboardPageState extends State<MobileDashboardPage>
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Total value: ${_freeGamesStats!.totalValue.formattedOriginalPrice}',
+                            'Total value: ${freeGamesStats!.totalValue.formattedOriginalPrice}',
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
@@ -327,7 +328,7 @@ class _MobileDashboardPageState extends State<MobileDashboardPage>
             const SizedBox(height: 28),
 
             // Free games section
-            if (_activeFreeGames.isNotEmpty) ...[
+            if (activeFreeGames.isNotEmpty) ...[
               _buildSectionHeader(
                 'Free Now',
                 Icons.card_giftcard_rounded,
@@ -338,11 +339,11 @@ class _MobileDashboardPageState extends State<MobileDashboardPage>
                 height: 160,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
-                  itemCount: _activeFreeGames.length,
+                  itemCount: activeFreeGames.length,
                   separatorBuilder: (_, __) => const SizedBox(width: 12),
                   itemBuilder: (context, index) {
-                    final game = _activeFreeGames[index];
-                    return _buildFreeGameCard(game);
+                    final game = activeFreeGames[index];
+                    return _buildFreeGameCard(context, game);
                   },
                 ),
               ),
@@ -350,26 +351,26 @@ class _MobileDashboardPageState extends State<MobileDashboardPage>
             ],
 
             // Games on sale section
-            if (_gamesOnSale.isNotEmpty) ...[
+            if (gamesOnSale.isNotEmpty) ...[
               _buildSectionHeader(
                 'Followed Games On Sale',
                 Icons.local_offer_rounded,
                 AppColors.warning,
               ),
               const SizedBox(height: 12),
-              ..._gamesOnSale
+              ...gamesOnSale
                   .take(5)
                   .map(
                     (game) => Padding(
                       padding: const EdgeInsets.only(bottom: 10),
-                      child: _buildSaleCard(game),
+                      child: _buildSaleCard(context, game),
                     ),
                   ),
               const SizedBox(height: 16),
             ],
 
             // Empty state
-            if (_activeFreeGames.isEmpty && _gamesOnSale.isEmpty)
+            if (activeFreeGames.isEmpty && gamesOnSale.isEmpty)
               Container(
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
@@ -532,10 +533,10 @@ class _MobileDashboardPageState extends State<MobileDashboardPage>
     return game.keyImages.first.url;
   }
 
-  Widget _buildFreeGameCard(FreeGame game) {
+  Widget _buildFreeGameCard(BuildContext context, FreeGame game) {
     final thumbnailUrl = _getThumbnailUrl(game);
     return GestureDetector(
-      onTap: () => _openGame(game.id, title: game.title, imageUrl: thumbnailUrl),
+      onTap: () => _openGame(context, game.id, title: game.title, imageUrl: thumbnailUrl),
       child: Container(
         width: 200,
         decoration: BoxDecoration(
@@ -605,9 +606,9 @@ class _MobileDashboardPageState extends State<MobileDashboardPage>
     );
   }
 
-  Widget _buildSaleCard(FollowedGameEntry game) {
+  Widget _buildSaleCard(BuildContext context, FollowedGameEntry game) {
     return GestureDetector(
-      onTap: () => _openGame(game.offerId, title: game.title, imageUrl: game.thumbnailUrl),
+      onTap: () => _openGame(context, game.offerId, title: game.title, imageUrl: game.thumbnailUrl),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(

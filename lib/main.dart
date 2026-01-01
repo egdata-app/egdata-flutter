@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:fluquery/fluquery.dart';
 import 'app_shell.dart';
 import 'utils/platform_utils.dart';
 
@@ -190,11 +191,13 @@ class EGDataApp extends StatelessWidget {
     const interTextStyle = TextStyle(fontFamily: 'Inter');
     final baseTextTheme = ThemeData.dark().textTheme.apply(fontFamily: 'Inter');
 
-    return MaterialApp(
-      title: 'EGData Client',
-      debugShowCheckedModeBanner: false,
-      themeMode: ThemeMode.dark,
-      darkTheme: ThemeData(
+    return QueryClientProvider(
+      client: QueryClient(),
+      child: MaterialApp(
+        title: 'EGData Client',
+        debugShowCheckedModeBanner: false,
+        themeMode: ThemeMode.dark,
+        darkTheme: ThemeData(
         brightness: Brightness.dark,
         fontFamily: 'Inter',
         colorScheme: const ColorScheme.dark(
@@ -371,7 +374,8 @@ class EGDataApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const AppShell(),
+        home: const AppShell(),
+      ),
     );
   }
 }

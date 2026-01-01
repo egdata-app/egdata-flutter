@@ -127,11 +127,146 @@ Typed models for EGData API responses. All `fromJson` methods are null-safe with
 ### Key Dependencies
 - `http` - API requests
 - `isar` - Local database for persistent storage
+- `fluquery` - Data fetching and caching (mobile pages use hooks-based queries)
+- `flutter_hooks` - Reactive state management (transitive dependency via fluquery)
 - `url_launcher` - Open URLs in browser
 - `window_manager` - Window controls
 - `tray_manager` - System tray
 - `flutter_local_notifications` - Desktop notifications (uses UserNotifications framework on macOS)
 - `launch_at_startup` - Auto-start on login
+
+## Data Fetching with fluquery (Mobile)
+
+Mobile pages use **fluquery** for data fetching, caching, and state management. This provides automatic caching, background refetching, and smart query invalidation.
+
+### Setup (lib/main.dart:194-196)
+The app is wrapped with `QueryClientProvider` to enable fluquery globally:
+```dart
+return QueryClientProvider(
+  client: QueryClient(),
+  child: MaterialApp(...)
+);
+```
+
+### Usage Pattern - Simple Queries (lib/pages/mobile_dashboard_page.dart)
+
+Mobile dashboard uses multiple `useQuery` hooks for different data:
+
+```dart
+class MobileDashboardPage extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    // Query with unique key and fetch function
+    final freeGamesQuery = useQuery<List<FreeGame>, Object>(
+      queryKey: ['free-games'],
+      queryFn: (_) => _fetchActiveFreeGames(),
+      staleTime: StaleTime(const Duration(minutes: 5)),
+    );
+
+    // Query that depends on settings (country)
+    final homepageStatsQuery = useQuery<HomepageStats, Object>(
+      queryKey: ['homepage-stats', settings.country],
+      queryFn: (_) => _fetchHomepageStats(settings.country),
+      staleTime: StaleTime(const Duration(minutes: 5)),
+    );
+
+    // Handle loading/error states
+    if (freeGamesQuery.isLoading) return CircularProgressIndicator();
+    if (freeGamesQuery.isError) return Text('Error: ${freeGamesQuery.error}');
+
+    // Access data
+    final games = freeGamesQuery.data ?? [];
+  }
+}
+```
+
+### Usage Pattern - Infinite Queries (lib/pages/mobile_browse_page.dart)
+
+Browse page uses `useInfiniteQuery` for paginated search results:
+
+```dart
+// Debounced search state
+final searchText = useState('');
+final debouncedSearch = useDebounced(searchText.value, const Duration(milliseconds: 400));
+
+// Filter state with hooks
+final offerType = useState<SearchOfferType?>(null);
+final sortBy = useState(SearchSortBy.lastModifiedDate);
+
+// Query key includes all filters for smart caching
+final queryKey = useMemoized(
+  () => [
+    'search',
+    settings.country,
+    debouncedSearch,
+    offerType.value?.value,
+    sortBy.value.value,
+    // ... other filters
+  ],
+  [settings.country, debouncedSearch, offerType.value, sortBy.value],
+);
+
+// Infinite query for pagination
+final searchQuery = useInfiniteQuery<SearchResponse, Object, int>(
+  queryKey: queryKey,
+  queryFn: (ctx) async {
+    final page = (ctx.pageParam as int?) ?? 1;
+    return apiService.search(request, country: settings.country);
+  },
+  initialPageParam: 1,
+  getNextPageParam: (lastPage, allPages, _, __) {
+    final loadedCount = allPages.fold<int>(0, (sum, page) => sum + page.offers.length);
+    if (loadedCount < lastPage.total) return allPages.length + 1;
+    return null;
+  },
+  staleTime: StaleTime(const Duration(minutes: 5)),
+);
+
+// Extract all pages into flat list
+final allOffers = useMemoized(() {
+  return searchQuery.pages.expand((page) => page.offers).toList();
+}, [searchQuery.pages]);
+
+// Infinite scroll setup
+useEffect(() {
+  void onScroll() {
+    if (scrollController.position.pixels >= scrollController.position.maxScrollExtent - 200 &&
+        searchQuery.hasNextPage && !searchQuery.isFetchingNextPage) {
+      searchQuery.fetchNextPage();
+    }
+  }
+  scrollController.addListener(onScroll);
+  return () => scrollController.removeListener(onScroll);
+}, [scrollController, searchQuery]);
+```
+
+### Key fluquery Concepts
+
+**Query Keys:**
+- Unique identifier for cached data: `['query-name']` or `['query-name', param1, param2]`
+- Changing any part of the key creates a new cache entry
+- Used for automatic refetching when dependencies change
+
+**Stale Time:**
+- How long data is considered fresh: `StaleTime(Duration(minutes: 5))`
+- Fresh data won't refetch on mount
+- After stale time, data refetches in background
+
+**Hook-based State:**
+- `useState` - Reactive state that triggers rebuilds
+- `useTextEditingController` - TextField controller with auto-disposal
+- `useScrollController` - ScrollController with auto-disposal
+- `useDebounced` - Debounced value (e.g., for search input)
+- `useMemoized` - Memoized computed values
+- `useEffect` - Side effects with cleanup
+
+**Benefits:**
+- Automatic caching (5-minute default for most queries)
+- Smart background refetching
+- Automatic deduplication of identical requests
+- Built-in loading/error states
+- No manual state management (`setState`, `initState`, `dispose`)
+- Query invalidation triggers automatic refetches
 
 ## EGData API
 

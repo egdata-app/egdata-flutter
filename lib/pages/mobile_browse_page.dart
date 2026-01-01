@@ -1,6 +1,7 @@
-import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:fluquery/fluquery.dart';
 import '../main.dart';
 import '../models/followed_game.dart';
 import '../models/settings.dart';
@@ -9,7 +10,7 @@ import '../services/follow_service.dart';
 import '../widgets/game_card.dart';
 import 'mobile_offer_detail_page.dart';
 
-class MobileBrowsePage extends StatefulWidget {
+class MobileBrowsePage extends HookWidget {
   final AppSettings settings;
   final FollowService followService;
 
@@ -19,45 +20,7 @@ class MobileBrowsePage extends StatefulWidget {
     required this.followService,
   });
 
-  @override
-  State<MobileBrowsePage> createState() => _MobileBrowsePageState();
-}
-
-class _MobileBrowsePageState extends State<MobileBrowsePage>
-    with AutomaticKeepAliveClientMixin {
   static const String _logTag = 'MobileBrowsePage';
-
-  @override
-  bool get wantKeepAlive => true;
-
-  final TextEditingController _searchController = TextEditingController();
-  final FocusNode _searchFocus = FocusNode();
-  final ApiService _apiService = ApiService();
-  final ScrollController _scrollController = ScrollController();
-
-  // Search state
-  List<Offer> _searchResults = [];
-  bool _isSearching = false;
-  bool _isLoadingMore = false;
-  bool _hasMore = true;
-  int _currentPage = 1;
-  int _totalResults = 0;
-  Timer? _debounce;
-  String? _lastError;
-
-  // Filter state
-  SearchOfferType? _offerType;
-  SearchSortBy _sortBy = SearchSortBy.lastModifiedDate;
-  SearchSortDir _sortDir = SearchSortDir.desc;
-  bool? _onSale;
-  PriceRange? _priceRange;
-  bool _excludeBlockchain = false;
-  bool _pastGiveaways = false;
-  bool _isLowestPrice = false;
-  List<String>? _tags;
-
-  // Filter counts from aggregations
-  SearchAggregations? _aggregations;
 
   void _log(String message, {Object? error}) {
     final timestamp = DateTime.now().toIso8601String().substring(11, 23);
@@ -69,134 +32,12 @@ class _MobileBrowsePageState extends State<MobileBrowsePage>
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _log('initState - country: ${widget.settings.country}');
-    _scrollController.addListener(_onScroll);
-    // Perform initial search with default filters
-    _performSearch(resetPage: true);
-  }
-
-  @override
-  void didUpdateWidget(covariant MobileBrowsePage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Re-fetch search results if country changed
-    if (oldWidget.settings.country != widget.settings.country) {
-      _log(
-        'didUpdateWidget - country changed from ${oldWidget.settings.country} to ${widget.settings.country}',
-      );
-      _performSearch(resetPage: true);
-    }
-  }
-
-  @override
-  void dispose() {
-    _log('dispose');
-    _searchController.dispose();
-    _searchFocus.dispose();
-    _apiService.dispose();
-    _debounce?.cancel();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (_scrollController.position.pixels >=
-            _scrollController.position.maxScrollExtent - 200 &&
-        !_isLoadingMore &&
-        _hasMore) {
-      _log('onScroll - loading more (page ${_currentPage + 1})');
-      _loadMore();
-    }
-  }
-
-  void _onSearchChanged(String query) {
-    _debounce?.cancel();
-    _log('onSearchChanged - query: "$query" (debouncing)');
-    _debounce = Timer(const Duration(milliseconds: 400), () {
-      _performSearch(resetPage: true);
-    });
-  }
-
-  Future<void> _performSearch({bool resetPage = false}) async {
-    final query = _searchController.text;
-
-    if (resetPage) {
-      _log('performSearch - starting new search for "$query"');
-      setState(() {
-        _currentPage = 1;
-        _hasMore = true;
-        _isSearching = true;
-        _lastError = null;
-      });
-    } else {
-      _log('performSearch - loading page $_currentPage for "$query"');
-    }
-
-    try {
-      final request = SearchRequest(
-        title: query.isNotEmpty ? query : null,
-        offerType: _offerType,
-        sortBy: _sortBy,
-        sortDir: _sortDir,
-        onSale: _onSale,
-        price: _priceRange,
-        excludeBlockchain: _excludeBlockchain ? true : null,
-        pastGiveaways: _pastGiveaways ? true : null,
-        isLowestPrice: _isLowestPrice ? true : null,
-        tags: _tags,
-        limit: 20,
-        page: _currentPage,
-      );
-
-      _log('performSearch - request: ${_formatRequest(request)}');
-
-      final stopwatch = Stopwatch()..start();
-      final response = await _apiService.search(
-        request,
-        country: widget.settings.country,
-      );
-      stopwatch.stop();
-
-      _log(
-        'performSearch - response: ${response.total} total, '
-        'page ${response.page}, ${response.offers.length} offers, '
-        '${stopwatch.elapsedMilliseconds}ms'
-        '${response.meta?.cached == true ? ' (cached)' : ''}',
-      );
-
-      if (mounted) {
-        setState(() {
-          if (resetPage) {
-            _searchResults = response.offers;
-          } else {
-            _searchResults.addAll(response.offers);
-          }
-          _totalResults = response.total;
-          _hasMore = _searchResults.length < response.total;
-          _isSearching = false;
-          _isLoadingMore = false;
-          _aggregations = response.aggregations;
-        });
-      }
-    } catch (e) {
-      _log('performSearch - error', error: e);
-      if (mounted) {
-        setState(() {
-          _isSearching = false;
-          _isLoadingMore = false;
-          _lastError = e.toString();
-        });
-      }
-    }
-  }
-
   String _formatRequest(SearchRequest request) {
     final parts = <String>[];
     if (request.title != null) parts.add('title="${request.title}"');
-    if (request.offerType != null)
+    if (request.offerType != null) {
       parts.add('type=${request.offerType!.value}');
+    }
     if (request.sortBy != null) parts.add('sort=${request.sortBy!.value}');
     if (request.sortDir != null) parts.add('dir=${request.sortDir!.value}');
     if (request.onSale == true) parts.add('onSale');
@@ -213,97 +54,225 @@ class _MobileBrowsePageState extends State<MobileBrowsePage>
     return parts.join(', ');
   }
 
-  Future<void> _loadMore() async {
-    if (_isLoadingMore || !_hasMore) return;
-
-    setState(() {
-      _isLoadingMore = true;
-      _currentPage++;
-    });
-
-    await _performSearch(resetPage: false);
-  }
-
-  void _clearSearch() {
-    _log('clearSearch');
-    _searchController.clear();
-    _searchFocus.unfocus();
-    _performSearch(resetPage: true);
-  }
-
-  void _showFiltersBottomSheet() {
-    _log(
-      'showFiltersBottomSheet - current filters: '
-      'type=$_offerType, sort=$_sortBy/$_sortDir, '
-      'onSale=$_onSale, excludeBlockchain=$_excludeBlockchain',
-    );
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _FiltersBottomSheet(
-        offerType: _offerType,
-        sortBy: _sortBy,
-        sortDir: _sortDir,
-        onSale: _onSale,
-        priceRange: _priceRange,
-        excludeBlockchain: _excludeBlockchain,
-        pastGiveaways: _pastGiveaways,
-        isLowestPrice: _isLowestPrice,
-        aggregations: _aggregations,
-        onApply:
-            (
-              offerType,
-              sortBy,
-              sortDir,
-              onSale,
-              priceRange,
-              excludeBlockchain,
-              pastGiveaways,
-              isLowestPrice,
-            ) {
-              _log(
-                'filtersApplied - type=$offerType, sort=$sortBy/$sortDir, '
-                'onSale=$onSale, price=$priceRange, '
-                'noBlockchain=$excludeBlockchain, pastGiveaways=$pastGiveaways, '
-                'lowestPrice=$isLowestPrice',
-              );
-
-              setState(() {
-                _offerType = offerType;
-                _sortBy = sortBy;
-                _sortDir = sortDir;
-                _onSale = onSale;
-                _priceRange = priceRange;
-                _excludeBlockchain = excludeBlockchain;
-                _pastGiveaways = pastGiveaways;
-                _isLowestPrice = isLowestPrice;
-              });
-              // Always trigger new search with updated filters
-              _performSearch(resetPage: true);
-            },
-      ),
-    );
-  }
-
-  int get _activeFilterCount {
-    int count = 0;
-    if (_offerType != null) count++;
-    if (_onSale == true) count++;
-    if (_priceRange != null) count++;
-    if (_pastGiveaways) count++;
-    if (_isLowestPrice) count++;
-    if (_excludeBlockchain) count++;
-    if (_sortBy != SearchSortBy.lastModifiedDate ||
-        _sortDir != SearchSortDir.desc)
-      count++;
-    return count;
-  }
-
   @override
   Widget build(BuildContext context) {
-    super.build(context); // Required for AutomaticKeepAliveClientMixin
+    final apiService = useMemoized(() => ApiService());
+    final searchController = useTextEditingController();
+    final searchFocus = useFocusNode();
+    final scrollController = useScrollController();
+
+    // Filter state
+    final offerType = useState<SearchOfferType?>(null);
+    final sortBy = useState(SearchSortBy.lastModifiedDate);
+    final sortDir = useState(SearchSortDir.desc);
+    final onSale = useState<bool?>(null);
+    final priceRange = useState<PriceRange?>(null);
+    final excludeBlockchain = useState(false);
+    final pastGiveaways = useState(false);
+    final isLowestPrice = useState(false);
+
+    // Search text state
+    final searchText = useState(searchController.text);
+    final debouncedSearch = useDebounced(searchText.value, const Duration(milliseconds: 400));
+
+    // Listen to search text changes
+    useEffect(() {
+      void listener() {
+        searchText.value = searchController.text;
+      }
+      searchController.addListener(listener);
+      return () => searchController.removeListener(listener);
+    }, [searchController]);
+
+    // Dispose API service
+    useEffect(() {
+      return apiService.dispose;
+    }, [apiService]);
+
+    // Create query key from filters
+    final queryKey = useMemoized(
+      () => [
+        'search',
+        settings.country,
+        debouncedSearch,
+        offerType.value?.value,
+        sortBy.value.value,
+        sortDir.value.value,
+        onSale.value,
+        priceRange.value?.min,
+        priceRange.value?.max,
+        excludeBlockchain.value,
+        pastGiveaways.value,
+        isLowestPrice.value,
+      ],
+      [
+        settings.country,
+        debouncedSearch,
+        offerType.value,
+        sortBy.value,
+        sortDir.value,
+        onSale.value,
+        priceRange.value,
+        excludeBlockchain.value,
+        pastGiveaways.value,
+        isLowestPrice.value,
+      ],
+    );
+
+    // Infinite query for pagination
+    final searchQuery = useInfiniteQuery<SearchResponse, Object, int>(
+      queryKey: queryKey,
+      queryFn: (ctx) async {
+        final page = (ctx.pageParam as int?) ?? 1;
+        final query = debouncedSearch;
+
+        final request = SearchRequest(
+          title: (query?.isNotEmpty ?? false) ? query : null,
+          offerType: offerType.value,
+          sortBy: sortBy.value,
+          sortDir: sortDir.value,
+          onSale: onSale.value,
+          price: priceRange.value,
+          excludeBlockchain: excludeBlockchain.value ? true : null,
+          pastGiveaways: pastGiveaways.value ? true : null,
+          isLowestPrice: isLowestPrice.value ? true : null,
+          tags: null,
+          limit: 20,
+          page: page,
+        );
+
+        _log('performSearch - request: ${_formatRequest(request)}');
+
+        final stopwatch = Stopwatch()..start();
+        final response = await apiService.search(
+          request,
+          country: settings.country,
+        );
+        stopwatch.stop();
+
+        _log(
+          'performSearch - response: ${response.total} total, '
+          'page ${response.page}, ${response.offers.length} offers, '
+          '${stopwatch.elapsedMilliseconds}ms'
+          '${response.meta?.cached == true ? ' (cached)' : ''}',
+        );
+
+        return response;
+      },
+      initialPageParam: 1,
+      getNextPageParam: (lastPage, allPages, _, __) {
+        // Calculate total loaded items from all pages
+        final loadedCount = allPages.fold<int>(
+          0,
+          (sum, page) => sum + page.offers.length,
+        );
+        // If there are more items, return next page number
+        if (loadedCount < lastPage.total) {
+          return allPages.length + 1;
+        }
+        return null;
+      },
+      staleTime: StaleTime(const Duration(minutes: 5)),
+    );
+
+    // Setup infinite scroll
+    useEffect(() {
+      void onScroll() {
+        if (scrollController.position.pixels >=
+                scrollController.position.maxScrollExtent - 200 &&
+            searchQuery.hasNextPage &&
+            !searchQuery.isFetchingNextPage) {
+          _log('onScroll - loading more');
+          searchQuery.fetchNextPage();
+        }
+      }
+      scrollController.addListener(onScroll);
+      return () => scrollController.removeListener(onScroll);
+    }, [scrollController, searchQuery]);
+
+    // Extract all search results from pages
+    final allOffers = useMemoized(() {
+      if (searchQuery.pages.isEmpty) return <Offer>[];
+      return searchQuery.pages
+          .expand((page) => page.offers)
+          .toList();
+    }, [searchQuery.pages]);
+
+    final totalResults = searchQuery.pages.isNotEmpty ? searchQuery.pages.first.total : 0;
+    final aggregations = searchQuery.pages.isNotEmpty ? searchQuery.pages.first.aggregations : null;
+
+    void clearSearch() {
+      _log('clearSearch');
+      searchController.clear();
+      searchFocus.unfocus();
+    }
+
+    void showFiltersBottomSheet() {
+      _log(
+        'showFiltersBottomSheet - current filters: '
+        'type=${offerType.value}, sort=${sortBy.value}/${sortDir.value}, '
+        'onSale=${onSale.value}, excludeBlockchain=${excludeBlockchain.value}',
+      );
+
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => _FiltersBottomSheet(
+          offerType: offerType.value,
+          sortBy: sortBy.value,
+          sortDir: sortDir.value,
+          onSale: onSale.value,
+          priceRange: priceRange.value,
+          excludeBlockchain: excludeBlockchain.value,
+          pastGiveaways: pastGiveaways.value,
+          isLowestPrice: isLowestPrice.value,
+          aggregations: aggregations,
+          onApply:
+              (
+                newOfferType,
+                newSortBy,
+                newSortDir,
+                newOnSale,
+                newPriceRange,
+                newExcludeBlockchain,
+                newPastGiveaways,
+                newIsLowestPrice,
+              ) {
+                _log(
+                  'filtersApplied - type=$newOfferType, sort=$newSortBy/$newSortDir, '
+                  'onSale=$newOnSale, price=$newPriceRange, '
+                  'noBlockchain=$newExcludeBlockchain, pastGiveaways=$newPastGiveaways, '
+                  'lowestPrice=$newIsLowestPrice',
+                );
+
+                offerType.value = newOfferType;
+                sortBy.value = newSortBy;
+                sortDir.value = newSortDir;
+                onSale.value = newOnSale;
+                priceRange.value = newPriceRange;
+                excludeBlockchain.value = newExcludeBlockchain;
+                pastGiveaways.value = newPastGiveaways;
+                isLowestPrice.value = newIsLowestPrice;
+              },
+        ),
+      );
+    }
+
+    int getActiveFilterCount() {
+      int count = 0;
+      if (offerType.value != null) count++;
+      if (onSale.value == true) count++;
+      if (priceRange.value != null) count++;
+      if (pastGiveaways.value) count++;
+      if (isLowestPrice.value) count++;
+      if (excludeBlockchain.value) count++;
+      if (sortBy.value != SearchSortBy.lastModifiedDate ||
+          sortDir.value != SearchSortDir.desc) {
+        count++;
+      }
+      return count;
+    }
     return Column(
       children: [
         // Header with search
@@ -354,9 +323,8 @@ class _MobileBrowsePageState extends State<MobileBrowsePage>
               const SizedBox(height: 20),
               // Search bar
               TextField(
-                controller: _searchController,
-                focusNode: _searchFocus,
-                onChanged: _onSearchChanged,
+                controller: searchController,
+                focusNode: searchFocus,
                 style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 15,
@@ -364,7 +332,7 @@ class _MobileBrowsePageState extends State<MobileBrowsePage>
                 decoration: InputDecoration(
                   hintText: 'Search for games...',
                   hintStyle: TextStyle(color: AppColors.textMuted),
-                  prefixIcon: _isSearching
+                  prefixIcon: searchQuery.isLoading && allOffers.isEmpty
                       ? Container(
                           width: 20,
                           height: 20,
@@ -378,13 +346,13 @@ class _MobileBrowsePageState extends State<MobileBrowsePage>
                           Icons.search_rounded,
                           color: AppColors.textMuted,
                         ),
-                  suffixIcon: _searchController.text.isNotEmpty
+                  suffixIcon: searchController.text.isNotEmpty
                       ? IconButton(
                           icon: const Icon(
                             Icons.close_rounded,
                             color: AppColors.textMuted,
                           ),
-                          onPressed: _clearSearch,
+                          onPressed: clearSearch,
                         )
                       : null,
                   filled: true,
@@ -416,19 +384,19 @@ class _MobileBrowsePageState extends State<MobileBrowsePage>
                 children: [
                   Expanded(
                     child: GestureDetector(
-                      onTap: _showFiltersBottomSheet,
+                      onTap: showFiltersBottomSheet,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 12,
                         ),
                         decoration: BoxDecoration(
-                          color: _activeFilterCount > 0
+                          color: getActiveFilterCount() > 0
                               ? AppColors.primary.withValues(alpha: 0.1)
                               : AppColors.surface,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: _activeFilterCount > 0
+                            color: getActiveFilterCount() > 0
                                 ? AppColors.primary
                                 : AppColors.border,
                           ),
@@ -439,7 +407,7 @@ class _MobileBrowsePageState extends State<MobileBrowsePage>
                             Icon(
                               Icons.tune_rounded,
                               size: 18,
-                              color: _activeFilterCount > 0
+                              color: getActiveFilterCount() > 0
                                   ? AppColors.primary
                                   : AppColors.textSecondary,
                             ),
@@ -449,12 +417,12 @@ class _MobileBrowsePageState extends State<MobileBrowsePage>
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: _activeFilterCount > 0
+                                color: getActiveFilterCount() > 0
                                     ? AppColors.primary
                                     : AppColors.textSecondary,
                               ),
                             ),
-                            if (_activeFilterCount > 0) ...[
+                            if (getActiveFilterCount() > 0) ...[
                               const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(
@@ -466,7 +434,7 @@ class _MobileBrowsePageState extends State<MobileBrowsePage>
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Text(
-                                  '$_activeFilterCount',
+                                  '${getActiveFilterCount()}',
                                   style: const TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
@@ -487,13 +455,13 @@ class _MobileBrowsePageState extends State<MobileBrowsePage>
         ),
 
         // Results count
-        if (_totalResults > 0)
+        if (totalResults > 0)
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
             child: Row(
               children: [
                 Text(
-                  '${_totalResults == 10000 ? '+' : ''}$_totalResults results',
+                  '${totalResults == 10000 ? '+' : ''}$totalResults results',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
@@ -505,7 +473,7 @@ class _MobileBrowsePageState extends State<MobileBrowsePage>
           ),
 
         // Error message
-        if (_lastError != null)
+        if (searchQuery.isError)
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
             child: Container(
@@ -527,7 +495,7 @@ class _MobileBrowsePageState extends State<MobileBrowsePage>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      _lastError!,
+                      searchQuery.error.toString(),
                       style: const TextStyle(
                         fontSize: 12,
                         color: AppColors.error,
@@ -540,19 +508,29 @@ class _MobileBrowsePageState extends State<MobileBrowsePage>
           ),
 
         // Content
-        Expanded(child: _buildSearchResults()),
+        Expanded(
+          child: _buildSearchResults(
+            searchQuery,
+            allOffers,
+            scrollController,
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildSearchResults() {
-    if (_isSearching && _searchResults.isEmpty) {
+  Widget _buildSearchResults(
+    UseInfiniteQueryResult<SearchResponse, Object, int> query,
+    List<Offer> offers,
+    ScrollController scrollController,
+  ) {
+    if (query.isLoading && offers.isEmpty) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.primary),
       );
     }
 
-    if (_searchResults.isEmpty) {
+    if (offers.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -582,11 +560,11 @@ class _MobileBrowsePageState extends State<MobileBrowsePage>
     }
 
     return ListView.builder(
-      controller: _scrollController,
+      controller: scrollController,
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-      itemCount: _searchResults.length + (_isLoadingMore ? 1 : 0),
+      itemCount: offers.length + (query.isFetchingNextPage ? 1 : 0),
       itemBuilder: (context, index) {
-        if (index >= _searchResults.length) {
+        if (index >= offers.length) {
           return const Center(
             child: Padding(
               padding: EdgeInsets.all(16),
@@ -598,8 +576,8 @@ class _MobileBrowsePageState extends State<MobileBrowsePage>
           );
         }
 
-        final offer = _searchResults[index];
-        final isFollowing = widget.followService.isFollowing(offer.id);
+        final offer = offers[index];
+        final isFollowing = followService.isFollowing(offer.id);
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),
@@ -607,21 +585,21 @@ class _MobileBrowsePageState extends State<MobileBrowsePage>
             offer: offer,
             isFollowing: isFollowing,
             thumbnailUrl: _getThumbnailUrl(offer),
-            onSwipeComplete: () => _toggleFollow(offer, isFollowing),
-            onTap: () => _navigateToOffer(offer),
+            onSwipeComplete: () => _toggleFollow(context, offer, isFollowing),
+            onTap: () => _navigateToOffer(context, offer),
           ),
         );
       },
     );
   }
 
-  void _navigateToOffer(Offer offer) {
+  void _navigateToOffer(BuildContext context, Offer offer) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => MobileOfferDetailPage(
           offerId: offer.id,
-          followService: widget.followService,
+          followService: followService,
           initialTitle: offer.title,
           initialImageUrl: _getThumbnailUrl(offer),
         ),
@@ -629,7 +607,7 @@ class _MobileBrowsePageState extends State<MobileBrowsePage>
     );
   }
 
-  Future<void> _toggleFollow(Offer offer, bool wasFollowing) async {
+  Future<void> _toggleFollow(BuildContext context, Offer offer, bool wasFollowing) async {
     final followedGame = FollowedGame(
       offerId: offer.id,
       title: offer.title,
@@ -639,16 +617,14 @@ class _MobileBrowsePageState extends State<MobileBrowsePage>
     );
 
     if (wasFollowing) {
-      await widget.followService.unfollowGame(offer.id);
+      await followService.unfollowGame(offer.id);
       _log('unfollowed: ${offer.title}');
     } else {
-      await widget.followService.followGame(followedGame);
+      await followService.followGame(followedGame);
       _log('followed: ${offer.title}');
     }
 
-    if (mounted) {
-      setState(() {}); // Refresh to update follow status
-
+    if (context.mounted) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -683,11 +659,10 @@ class _MobileBrowsePageState extends State<MobileBrowsePage>
             onPressed: () async {
               // Reverse the action
               if (wasFollowing) {
-                await widget.followService.followGame(followedGame);
+                await followService.followGame(followedGame);
               } else {
-                await widget.followService.unfollowGame(offer.id);
+                await followService.unfollowGame(offer.id);
               }
-              if (mounted) setState(() {});
             },
           ),
           duration: const Duration(seconds: 3),
