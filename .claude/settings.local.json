@@ -22,7 +22,10 @@
       "Bash(git push)",
       "Bash(git push:*)",
       "Bash(gh release create:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "WebFetch(domain:firebase.google.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:ai.google.dev)"
     ]
   }
 }

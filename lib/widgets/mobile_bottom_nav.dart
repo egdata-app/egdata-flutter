@@ -17,41 +17,55 @@ class MobileBottomNav extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        border: Border(
-          top: BorderSide(color: AppColors.borderGlass, width: 1),
-        ),
+        border: Border(top: BorderSide(color: AppColors.borderGlass, width: 1)),
       ),
       child: SafeArea(
         top: false,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(
-                icon: Icons.home_rounded,
-                label: 'Home',
-                page: AppPage.dashboard,
+              // Left side items
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildNavItem(
+                      icon: Icons.home_rounded,
+                      label: 'Home',
+                      page: AppPage.dashboard,
+                    ),
+                    _buildNavItem(
+                      icon: Icons.explore_rounded,
+                      label: 'Browse',
+                      page: AppPage.browse,
+                    ),
+                  ],
+                ),
               ),
-              _buildNavItem(
-                icon: Icons.explore_rounded,
-                label: 'Browse',
-                page: AppPage.browse,
-              ),
+              // Center item - always centered
               _buildNavItem(
                 icon: Icons.auto_awesome_rounded,
                 label: 'Chat',
                 page: AppPage.chat,
               ),
-              _buildNavItem(
-                icon: Icons.card_giftcard_rounded,
-                label: 'Free Games',
-                page: AppPage.freeGames,
-              ),
-              _buildNavItem(
-                icon: Icons.settings_rounded,
-                label: 'Settings',
-                page: AppPage.settings,
+              // Right side items
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildNavItem(
+                      icon: Icons.card_giftcard_rounded,
+                      label: 'Freebies',
+                      page: AppPage.freeGames,
+                    ),
+                    _buildNavItem(
+                      icon: Icons.settings_rounded,
+                      label: 'Settings',
+                      page: AppPage.settings,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
