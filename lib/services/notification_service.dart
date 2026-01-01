@@ -14,7 +14,7 @@ class NotificationService {
     if (_isInitialized) return;
 
     // Android initialization
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings('@drawable/ic_notification');
 
     // iOS/macOS initialization
     const darwinSettings = DarwinInitializationSettings(
@@ -89,7 +89,7 @@ class NotificationService {
       importance: Importance.high,
       priority: Priority.high,
       showWhen: true,
-      icon: '@mipmap/ic_launcher',
+      icon: '@drawable/ic_notification',
     );
 
     const darwinDetails = DarwinNotificationDetails(
