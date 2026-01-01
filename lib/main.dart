@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:fluquery/fluquery.dart';
 import 'app_shell.dart';
 import 'utils/platform_utils.dart';
+import 'services/analytics_service.dart';
 
 // Desktop-only imports (conditionally used)
 import 'package:window_manager/window_manager.dart';
@@ -16,15 +17,17 @@ const String appVersion = '1.0.6';
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase for mobile platforms (required for push notifications)
+  // Initialize Firebase for mobile platforms (required for push notifications and analytics)
   // Firebase configuration files (google-services.json / GoogleService-Info.plist) are optional
   if (PlatformUtils.isMobile) {
     try {
       await Firebase.initializeApp();
+      // Initialize Firebase Analytics
+      await AnalyticsService().initialize();
     } catch (e) {
-      // Firebase not configured - push notifications will be disabled
+      // Firebase not configured - push notifications and analytics will be disabled
       debugPrint('Firebase initialization failed: $e');
-      debugPrint('Push notifications will be disabled. To enable them, add Firebase configuration files.');
+      debugPrint('Push notifications and analytics will be disabled. To enable them, add Firebase configuration files.');
     }
   }
 
@@ -197,6 +200,10 @@ class EGDataApp extends StatelessWidget {
         title: 'EGData Client',
         debugShowCheckedModeBanner: false,
         themeMode: ThemeMode.dark,
+        navigatorObservers: [
+          if (AnalyticsService().observer != null)
+            AnalyticsService().observer!,
+        ],
         darkTheme: ThemeData(
         brightness: Brightness.dark,
         fontFamily: 'Inter',

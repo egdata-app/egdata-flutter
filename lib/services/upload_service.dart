@@ -4,6 +4,7 @@ import 'package:http_parser/http_parser.dart';
 import 'dart:convert';
 import '../models/upload_status.dart';
 import '../models/game_info.dart';
+import 'analytics_service.dart';
 import 'manifest_scanner.dart';
 
 class UploadService {
@@ -80,6 +81,19 @@ class UploadService {
       final status = await uploadManifest(game);
       results[game.installationGuid] = status;
       onProgress?.call(game.displayName, status);
+    }
+
+    // Track upload analytics
+    final successCount = results.values
+        .where((s) => s.status == UploadStatusType.uploaded || s.status == UploadStatusType.alreadyUploaded)
+        .length;
+    final success = successCount == results.length;
+
+    if (results.isNotEmpty) {
+      await AnalyticsService().logManifestUpload(
+        count: results.length,
+        success: success,
+      );
     }
 
     return results;

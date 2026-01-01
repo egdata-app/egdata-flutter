@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../main.dart';
 import '../models/settings.dart';
+import '../services/analytics_service.dart';
 import '../services/api_service.dart';
 import '../services/push_service.dart';
 import '../utils/country_utils.dart';
@@ -84,6 +85,11 @@ class _SettingsPageState extends State<SettingsPage>
   }
 
   void _updateSettings(AppSettings newSettings) {
+    // Track country changes
+    if (_settings.country != newSettings.country) {
+      AnalyticsService().setUserCountry(newSettings.country);
+    }
+
     setState(() {
       _settings = newSettings;
     });

@@ -5,6 +5,7 @@ import 'package:fluquery/fluquery.dart';
 import '../main.dart';
 import '../models/followed_game.dart';
 import '../models/settings.dart';
+import '../services/analytics_service.dart';
 import '../services/api_service.dart';
 import '../services/follow_service.dart';
 import '../widgets/game_card.dart';
@@ -88,6 +89,17 @@ class MobileBrowsePage extends HookWidget {
     useEffect(() {
       return apiService.dispose;
     }, [apiService]);
+
+    // Track search analytics
+    useEffect(() {
+      if (debouncedSearch != null && debouncedSearch.isNotEmpty) {
+        AnalyticsService().logSearch(
+          searchTerm: debouncedSearch,
+          category: offerType.value?.value,
+        );
+      }
+      return null;
+    }, [debouncedSearch, offerType.value]);
 
     // Create query key from filters
     final queryKey = useMemoized(

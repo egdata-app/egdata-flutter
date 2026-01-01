@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../models/followed_game.dart';
 import '../services/api_service.dart';
+import '../services/analytics_service.dart';
 import '../services/follow_service.dart';
 import '../widgets/follow_button.dart';
 import '../widgets/progressive_image.dart';
@@ -93,6 +94,12 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
 
     if (_isFollowing) {
       await widget.followService.unfollowGame(widget.offerId);
+      // Track unfollow
+      await AnalyticsService().logFollowGame(
+        gameId: widget.offerId,
+        gameName: _offer!.title,
+        followed: false,
+      );
     } else {
       final game = FollowedGame(
         offerId: widget.offerId,
@@ -102,6 +109,12 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
         followedAt: DateTime.now(),
       );
       await widget.followService.followGame(game);
+      // Track follow
+      await AnalyticsService().logFollowGame(
+        gameId: widget.offerId,
+        gameName: _offer!.title,
+        followed: true,
+      );
     }
 
     setState(() {
@@ -124,6 +137,13 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
           _isLoadingOffer = false;
         });
         _updateCachedImageUrls();
+        // Track game view
+        if (_offer != null) {
+          AnalyticsService().logGameView(
+            gameId: widget.offerId,
+            gameName: _offer!.title,
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
