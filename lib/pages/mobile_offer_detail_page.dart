@@ -6,15 +6,16 @@ import '../main.dart';
 import '../models/followed_game.dart';
 import '../services/api_service.dart';
 import '../services/follow_service.dart';
-import '../utils/currency_utils.dart';
 import '../widgets/follow_button.dart';
 import '../widgets/progressive_image.dart';
+import '../widgets/price_history_widget.dart';
 
 class MobileOfferDetailPage extends StatefulWidget {
   final String offerId;
   final String? initialTitle;
   final String? initialImageUrl;
   final FollowService followService;
+  final String country;
 
   const MobileOfferDetailPage({
     super.key,
@@ -22,6 +23,7 @@ class MobileOfferDetailPage extends StatefulWidget {
     required this.followService,
     this.initialTitle,
     this.initialImageUrl,
+    this.country = 'US',
   });
 
   @override
@@ -34,6 +36,7 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
 
   // Data state
   Offer? _offer;
+  TotalPrice? _price;
   OfferFeatures? _features;
   List<AchievementSet>? _achievements;
   OfferHltb? _hltb;
@@ -109,10 +112,15 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
   Future<void> _loadData() async {
     // Load main offer data first
     try {
-      final offer = await _apiService.getOffer(widget.offerId);
+      final results = await Future.wait([
+        _apiService.getOffer(widget.offerId),
+        _apiService.getOfferPrice(widget.offerId, country: widget.country),
+      ]);
+
       if (mounted) {
         setState(() {
-          _offer = offer;
+          _offer = results[0] as Offer;
+          _price = results[1] as TotalPrice?;
           _isLoadingOffer = false;
         });
         _updateCachedImageUrls();
@@ -213,7 +221,8 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
     final collapsedHeight = kToolbarHeight + statusBarHeight;
     // Delay the collapse - only start showing collapsed header after scrolling 60% of the way
     final scrollRange = expandedHeight - collapsedHeight;
-    final collapseThreshold = scrollRange * 0.6; // Start collapse after 60% scroll
+    final collapseThreshold =
+        scrollRange * 0.6; // Start collapse after 60% scroll
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -350,103 +359,105 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
                         ),
                       ),
                     ),
-                  // Content row
-                  Positioned(
-                    top: statusBarHeight,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: Row(
-                      children: [
-                        // Back button
-                        GestureDetector(
-                          onTap: () => Navigator.of(context).pop(),
-                          child: Container(
-                            width: 48,
-                            height: 48,
-                            margin: const EdgeInsets.only(left: 4),
-                            child: const Icon(
-                              Icons.arrow_back_rounded,
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                          ),
-                        ),
-                        // Tall game image
-                        if (tallImageUrl != null)
-                          Container(
-                            width: 36,
-                            height: 48,
-                            margin: const EdgeInsets.only(right: 12),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(6),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.3),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
-                              child: CachedNetworkImage(
-                                imageUrl: tallImageUrl,
-                                fit: BoxFit.cover,
-                                placeholder: (context, url) =>
-                                    Container(color: AppColors.surfaceLight),
-                                errorWidget: (context, url, error) =>
-                                    Container(color: AppColors.surfaceLight),
+                    // Content row
+                    Positioned(
+                      top: statusBarHeight,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: Row(
+                        children: [
+                          // Back button
+                          GestureDetector(
+                            onTap: () => Navigator.of(context).pop(),
+                            child: Container(
+                              width: 48,
+                              height: 48,
+                              margin: const EdgeInsets.only(left: 4),
+                              child: const Icon(
+                                Icons.arrow_back_rounded,
+                                color: Colors.white,
+                                size: 24,
                               ),
                             ),
                           ),
-                        // Title and developer
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                _offer?.title ?? widget.initialTitle ?? '',
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                          // Tall game image
+                          if (tallImageUrl != null)
+                            Container(
+                              width: 36,
+                              height: 48,
+                              margin: const EdgeInsets.only(right: 12),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(6),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
                               ),
-                              if (_offer?.developerDisplayName != null)
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: CachedNetworkImage(
+                                  imageUrl: tallImageUrl,
+                                  fit: BoxFit.cover,
+                                  placeholder: (context, url) =>
+                                      Container(color: AppColors.surfaceLight),
+                                  errorWidget: (context, url, error) =>
+                                      Container(color: AppColors.surfaceLight),
+                                ),
+                              ),
+                            ),
+                          // Title and developer
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
                                 Text(
-                                  _offer!.developerDisplayName!,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.white.withValues(alpha: 0.7),
+                                  _offer?.title ?? widget.initialTitle ?? '',
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                            ],
-                          ),
-                        ),
-                        // Browser button
-                        GestureDetector(
-                          onTap: _openInBrowser,
-                          child: Container(
-                            width: 48,
-                            height: 48,
-                            margin: const EdgeInsets.only(right: 4),
-                            child: const Icon(
-                              Icons.open_in_browser_rounded,
-                              color: Colors.white,
-                              size: 22,
+                                if (_offer?.developerDisplayName != null)
+                                  Text(
+                                    _offer!.developerDisplayName!,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.white.withValues(
+                                        alpha: 0.7,
+                                      ),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                              ],
                             ),
                           ),
-                        ),
-                      ],
+                          // Browser button
+                          GestureDetector(
+                            onTap: _openInBrowser,
+                            child: Container(
+                              width: 48,
+                              height: 48,
+                              margin: const EdgeInsets.only(right: 4),
+                              child: const Icon(
+                                Icons.open_in_browser_rounded,
+                                color: Colors.white,
+                                size: 22,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
                   ],
                 ),
               ),
@@ -710,9 +721,12 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
           _buildActionButtons(),
           const SizedBox(height: 24),
 
-          // Price section
-          if (_offer?.price != null) ...[
-            _buildPriceSection(),
+          // Price history (includes current price)
+          if (_price != null) ...[
+            PriceHistoryWidget(
+              offerId: widget.offerId,
+              country: widget.country,
+            ),
             const SizedBox(height: 24),
           ],
 
@@ -807,85 +821,6 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
             ),
           ),
       ],
-    );
-  }
-
-  Widget _buildPriceSection() {
-    final price = _offer!.price!.totalPrice;
-    if (price == null) return const SizedBox.shrink();
-
-    final isOnSale = price.isOnSale;
-    final isFree = price.discountPrice == 0;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (isOnSale) ...[
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.success,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        '-${price.discountPercent}%',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      CurrencyUtils.formatPrice(
-                        price.originalPrice,
-                        price.currencyCode,
-                      ),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textMuted,
-                        decoration: TextDecoration.lineThrough,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-              ],
-              Text(
-                isFree
-                    ? 'Free'
-                    : CurrencyUtils.formatPrice(
-                        price.discountPrice,
-                        price.currencyCode,
-                      ),
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  color: isFree || isOnSale
-                      ? AppColors.success
-                      : AppColors.textPrimary,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 
@@ -1295,6 +1230,7 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
                       followService: widget.followService,
                       initialTitle: offer.title,
                       initialImageUrl: thumbnailUrl,
+                      country: widget.country,
                     ),
                   ),
                 );
@@ -1454,10 +1390,7 @@ class _ScreenshotCarousel extends StatefulWidget {
   final List<MediaImage> images;
   final int initialIndex;
 
-  const _ScreenshotCarousel({
-    required this.images,
-    required this.initialIndex,
-  });
+  const _ScreenshotCarousel({required this.images, required this.initialIndex});
 
   @override
   State<_ScreenshotCarousel> createState() => _ScreenshotCarouselState();
@@ -1627,9 +1560,8 @@ class _ScreenshotCarouselState extends State<_ScreenshotCarousel> {
                             child: CachedNetworkImage(
                               imageUrl: widget.images[index].src,
                               fit: BoxFit.cover,
-                              placeholder: (context, url) => Container(
-                                color: Colors.grey.shade800,
-                              ),
+                              placeholder: (context, url) =>
+                                  Container(color: Colors.grey.shade800),
                               errorWidget: (context, url, error) => Container(
                                 color: Colors.grey.shade800,
                                 child: const Icon(

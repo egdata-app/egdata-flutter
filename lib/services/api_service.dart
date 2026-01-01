@@ -115,6 +115,19 @@ class ApiService {
     return Offer.fromJson(data);
   }
 
+  /// Fetches price information for an offer in a specific country
+  Future<TotalPrice?> getOfferPrice(String offerId, {String country = 'US'}) async {
+    try {
+      final data = await _get('/offers/$offerId/price?country=$country') as Map<String, dynamic>;
+      final priceData = data['price'] as Map<String, dynamic>?;
+      return priceData != null ? TotalPrice.fromJson(priceData) : null;
+    } on ApiException catch (e) {
+      // Price may not exist for all offers
+      if (e.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
   /// Fetches changelog/update history for an offer
   Future<ChangelogResponse> getOfferChangelog(String offerId, {int limit = 5}) async {
     final data = await _get('/offers/$offerId/changelog?limit=$limit') as Map<String, dynamic>;
@@ -203,6 +216,48 @@ class ApiService {
   Future<FreeGamesStats> getFreeGamesStats({String country = 'US'}) async {
     final data = await _get('/free-games/stats?country=$country') as Map<String, dynamic>;
     return FreeGamesStats.fromJson(data);
+  }
+
+  /// Fetches region information for a country
+  Future<Region> getRegion(String countryCode) async {
+    final data = await _get('/region?country=$countryCode') as Map<String, dynamic>;
+    final regionData = data['region'] as Map<String, dynamic>;
+    return Region.fromJson(regionData);
+  }
+
+  /// Fetches price history for an offer in a specific region
+  ///
+  /// [offerId] - The offer ID to fetch price history for
+  /// [region] - The region code (e.g., "EURO", "US")
+  /// [since] - Optional start date for price history
+  Future<List<PriceHistoryEntry>> getOfferPriceHistory(
+    String offerId,
+    String region, {
+    DateTime? since,
+  }) async {
+    try {
+      var endpoint = '/offers/$offerId/price-history?region=$region';
+      if (since != null) {
+        endpoint += '&since=${since.toIso8601String()}';
+      }
+      final data = await _get(endpoint);
+
+      // Handle both array response and empty object response
+      if (data is List) {
+        return data
+            .map((e) => PriceHistoryEntry.fromJson(e as Map<String, dynamic>))
+            .toList();
+      } else if (data is Map) {
+        // Empty response or error - return empty list
+        return [];
+      }
+
+      return [];
+    } on ApiException catch (e) {
+      // Price history may not exist for all offers
+      if (e.statusCode == 404) return [];
+      rethrow;
+    }
   }
 
   // ============================================

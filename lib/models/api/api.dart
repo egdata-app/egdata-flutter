@@ -5,3 +5,5 @@ export 'changelog.dart';
 export 'item.dart';
 export 'search.dart';
 export 'stats.dart';
+export 'region.dart';
+export 'price_history.dart';
