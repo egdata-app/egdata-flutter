@@ -39,6 +39,11 @@ class MobileBottomNav extends StatelessWidget {
                 page: AppPage.browse,
               ),
               _buildNavItem(
+                icon: Icons.auto_awesome_rounded,
+                label: 'Chat',
+                page: AppPage.chat,
+              ),
+              _buildNavItem(
                 icon: Icons.card_giftcard_rounded,
                 label: 'Free Games',
                 page: AppPage.freeGames,

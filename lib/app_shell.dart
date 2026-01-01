@@ -30,6 +30,7 @@ import 'pages/settings_page.dart';
 import 'pages/free_games_page.dart';
 import 'pages/mobile_browse_page.dart';
 import 'pages/mobile_dashboard_page.dart';
+import 'pages/mobile_chat_page.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -47,6 +48,7 @@ class _AppShellState extends State<AppShell> {
   static const List<AppPage> _mobilePages = [
     AppPage.dashboard,
     AppPage.browse,
+    AppPage.chat,
     AppPage.freeGames,
     AppPage.settings,
   ];
@@ -519,6 +521,10 @@ class _AppShellState extends State<AppShell> {
                   followService: _followService!,
                   pushService: _pushService,
                 ),
+                MobileChatPage(
+                  settings: _settings,
+                  db: _db!,
+                ),
                 FreeGamesPage(
                   followService: _followService!,
                   syncService: _syncService!,
@@ -605,6 +611,12 @@ class _AppShellState extends State<AppShell> {
           settings: _settings,
           followService: _followService!,
           pushService: _pushService,
+        );
+      case AppPage.chat:
+        // Mobile only: AI chat assistant
+        return MobileChatPage(
+          settings: _settings,
+          db: _db!,
         );
       case AppPage.freeGames:
         // Mobile only: free games list

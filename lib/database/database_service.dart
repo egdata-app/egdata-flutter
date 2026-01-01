@@ -11,6 +11,7 @@ import 'collections/changelog_entry.dart';
 import 'collections/playtime_session_entry.dart';
 import 'collections/game_process_cache_entry.dart';
 import 'collections/push_subscription_entry.dart';
+import 'collections/chat_message_entry.dart';
 
 export 'collections/free_game_entry.dart';
 export 'collections/followed_game_entry.dart';
@@ -18,6 +19,7 @@ export 'collections/changelog_entry.dart';
 export 'collections/playtime_session_entry.dart';
 export 'collections/game_process_cache_entry.dart';
 export 'collections/push_subscription_entry.dart';
+export 'collections/chat_message_entry.dart';
 
 class DatabaseService {
   static DatabaseService? _instance;
@@ -46,6 +48,7 @@ class DatabaseService {
         PlaytimeSessionEntrySchema,
         GameProcessCacheEntrySchema,
         PushSubscriptionEntrySchema,
+        ChatMessageEntrySchema,
       ],
       directory: dir.path,
       name: 'egdata',
@@ -366,6 +369,33 @@ class DatabaseService {
 
   Future<void> clearAllPushSubscriptions() async {
     await _isar.writeTxn(() => _isar.pushSubscriptionEntrys.clear());
+  }
+
+  // Chat Message operations
+  Future<List<ChatMessageEntry>> getAllChatMessages() async {
+    return _isar.chatMessageEntrys
+        .where()
+        .sortByTimestamp()
+        .findAll();
+  }
+
+  Future<ChatMessageEntry?> getChatMessageById(String messageId) async {
+    return _isar.chatMessageEntrys
+        .filter()
+        .messageIdEqualTo(messageId)
+        .findFirst();
+  }
+
+  Future<void> saveChatMessage(ChatMessageEntry entry) async {
+    await _isar.writeTxn(() => _isar.chatMessageEntrys.put(entry));
+  }
+
+  Future<void> saveChatMessages(List<ChatMessageEntry> entries) async {
+    await _isar.writeTxn(() => _isar.chatMessageEntrys.putAll(entries));
+  }
+
+  Future<void> deleteChatHistory() async {
+    await _isar.writeTxn(() => _isar.chatMessageEntrys.clear());
   }
 
   Future<void> close() async {

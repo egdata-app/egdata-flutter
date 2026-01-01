@@ -6,6 +6,7 @@ enum AppPage {
   dashboard,
   library,
   browse,    // Mobile only: browse/search games
+  chat,      // Mobile only: AI chat assistant
   freeGames, // Mobile only: free games list
   settings,
 }
