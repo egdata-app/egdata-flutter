@@ -11,6 +11,7 @@ class AppSettings {
   // Push notification settings - deviceId is auto-generated UUID for API auth
   final String? deviceId;
   final bool pushNotificationsEnabled;
+  final bool hasSeenFreeGamesNotificationPrompt;
 
   AppSettings({
     this.autoSync = false,
@@ -24,6 +25,7 @@ class AppSettings {
     this.country = 'US',
     this.deviceId,
     this.pushNotificationsEnabled = false,
+    this.hasSeenFreeGamesNotificationPrompt = false,
   });
 
   AppSettings copyWith({
@@ -38,6 +40,7 @@ class AppSettings {
     String? country,
     String? deviceId,
     bool? pushNotificationsEnabled,
+    bool? hasSeenFreeGamesNotificationPrompt,
   }) {
     return AppSettings(
       autoSync: autoSync ?? this.autoSync,
@@ -51,6 +54,7 @@ class AppSettings {
       country: country ?? this.country,
       deviceId: deviceId ?? this.deviceId,
       pushNotificationsEnabled: pushNotificationsEnabled ?? this.pushNotificationsEnabled,
+      hasSeenFreeGamesNotificationPrompt: hasSeenFreeGamesNotificationPrompt ?? this.hasSeenFreeGamesNotificationPrompt,
     );
   }
 
@@ -67,6 +71,7 @@ class AppSettings {
       'country': country,
       'deviceId': deviceId,
       'pushNotificationsEnabled': pushNotificationsEnabled,
+      'hasSeenFreeGamesNotificationPrompt': hasSeenFreeGamesNotificationPrompt,
     };
   }
 
@@ -83,6 +88,7 @@ class AppSettings {
       country: json['country'] ?? 'US',
       deviceId: json['deviceId'] as String?,
       pushNotificationsEnabled: json['pushNotificationsEnabled'] ?? false,
+      hasSeenFreeGamesNotificationPrompt: json['hasSeenFreeGamesNotificationPrompt'] ?? false,
     );
   }
 }

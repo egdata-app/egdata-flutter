@@ -6,8 +6,10 @@ import '../database/database_service.dart';
 import '../models/settings.dart';
 import '../services/api_service.dart';
 import '../services/follow_service.dart';
+import '../services/push_service.dart';
 import '../services/sync_service.dart';
 import '../widgets/progressive_image.dart';
+import '../widgets/free_games_notification_prompt_dialog.dart';
 import 'mobile_offer_detail_page.dart';
 
 class MobileDashboardPage extends HookWidget {
@@ -15,6 +17,8 @@ class MobileDashboardPage extends HookWidget {
   final SyncService syncService;
   final DatabaseService db;
   final AppSettings settings;
+  final PushService? pushService;
+  final ValueChanged<AppSettings> onSettingsChanged;
 
   const MobileDashboardPage({
     super.key,
@@ -22,6 +26,8 @@ class MobileDashboardPage extends HookWidget {
     required this.syncService,
     required this.db,
     required this.settings,
+    this.pushService,
+    required this.onSettingsChanged,
   });
 
   Future<List<FreeGame>> _fetchActiveFreeGames() async {
@@ -106,6 +112,59 @@ class MobileDashboardPage extends HookWidget {
       });
       return sub.cancel;
     }, []);
+
+    // Show free games notification prompt for new users
+    useEffect(() {
+      Future<void> showPromptIfNeeded() async {
+        // Only show if:
+        // 1. User hasn't seen the prompt yet
+        // 2. Push service is available
+        // 3. User is not already subscribed
+        if (!settings.hasSeenFreeGamesNotificationPrompt &&
+            pushService != null &&
+            pushService!.isAvailable &&
+            !settings.pushNotificationsEnabled) {
+          // Wait a bit for the page to load before showing dialog
+          await Future.delayed(const Duration(milliseconds: 500));
+
+          if (context.mounted) {
+            final shouldEnable = await showDialog<bool>(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => const FreeGamesNotificationPromptDialog(),
+            );
+
+            // Mark as seen regardless of user choice
+            final updatedSettings = settings.copyWith(
+              hasSeenFreeGamesNotificationPrompt: true,
+            );
+
+            if (shouldEnable == true && pushService != null) {
+              // User accepted - subscribe to push notifications with free-games topic
+              final result = await pushService!.subscribe(
+                topics: [PushTopics.freeGames],
+              );
+
+              if (result.success) {
+                // Update settings to mark as subscribed
+                onSettingsChanged(updatedSettings.copyWith(
+                  pushNotificationsEnabled: true,
+                ));
+              } else {
+                // Failed to subscribe, just mark as seen
+                onSettingsChanged(updatedSettings);
+              }
+            } else {
+              // User declined, just mark as seen
+              onSettingsChanged(updatedSettings);
+            }
+          }
+        }
+      }
+
+      showPromptIfNeeded();
+      return null;
+    }, [settings.hasSeenFreeGamesNotificationPrompt, settings.pushNotificationsEnabled]);
 
     // Handle loading state
     final isLoading = freeGamesQuery.isLoading ||

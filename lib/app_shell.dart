@@ -481,6 +481,8 @@ class _AppShellState extends State<AppShell> {
                   syncService: _syncService!,
                   db: _db!,
                   settings: _settings,
+                  pushService: _pushService,
+                  onSettingsChanged: _onSettingsChanged,
                 ),
                 MobileBrowsePage(
                   settings: _settings,
@@ -531,6 +533,8 @@ class _AppShellState extends State<AppShell> {
             syncService: _syncService!,
             db: _db!,
             settings: _settings,
+            pushService: _pushService,
+            onSettingsChanged: _onSettingsChanged,
           );
         }
         return DashboardPage(
