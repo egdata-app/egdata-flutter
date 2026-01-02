@@ -10,3 +10,5 @@ export 'price_history.dart';
 export 'offer_ratings.dart';
 export 'offer_polls.dart';
 export 'offer_tops.dart';
+export 'age_rating.dart';
+export 'offer_assets.dart';

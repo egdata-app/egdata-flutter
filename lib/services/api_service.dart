@@ -172,8 +172,27 @@ class ApiService {
   }
 
   /// Fetches changelog/update history for an offer
-  Future<ChangelogResponse> getOfferChangelog(String offerId, {int limit = 5}) async {
-    final data = await _get('/offers/$offerId/changelog?limit=$limit') as Map<String, dynamic>;
+  Future<ChangelogResponse> getOfferChangelog(
+    String offerId, {
+    int limit = 5,
+    int page = 1,
+    String? query,
+    String? type,
+    String? field,
+  }) async {
+    final params = <String, String>{
+      'limit': limit.toString(),
+      'page': page.toString(),
+    };
+    if (query != null) params['query'] = query;
+    if (type != null) params['type'] = type;
+    if (field != null) params['field'] = field;
+
+    final queryString = params.entries
+        .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
+        .join('&');
+
+    final data = await _get('/offers/$offerId/changelog?$queryString') as Map<String, dynamic>;
     return ChangelogResponse.fromJson(data);
   }
 
@@ -268,6 +287,81 @@ class ApiService {
     } on ApiException catch (e) {
       // No base game means this offer IS the base game or error
       if (e.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
+  /// Fetches age ratings for an offer
+  /// If [country] and [single] are provided, returns only that country's rating
+  /// Otherwise returns all available age ratings
+  Future<AgeRatings?> getOfferAgeRatings(
+    String offerId, {
+    String? country,
+    bool single = false,
+  }) async {
+    try {
+      final queryParams = <String, String>{};
+      if (country != null) queryParams['country'] = country;
+      if (single) queryParams['single'] = 'true';
+
+      var uri = Uri.parse('$baseUrl/offers/$offerId/age-rating');
+      if (queryParams.isNotEmpty) {
+        uri = uri.replace(queryParameters: queryParams);
+      }
+
+      final response = await _client.get(uri);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return AgeRatings.fromJson(data);
+      }
+
+      throw ApiException(
+        'GET /offers/$offerId/age-rating failed',
+        response.statusCode,
+      );
+    } on ApiException catch (e) {
+      // Age ratings may not exist for all offers
+      if (e.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
+  /// Fetches giveaway history for an offer
+  /// Returns list of giveaways sorted by start date (most recent first)
+  Future<List<Giveaway>> getOfferGiveaways(String offerId) async {
+    try {
+      final data = await _get('/offers/$offerId/giveaways') as List<dynamic>;
+      final giveaways = data
+          .map((e) => Giveaway.fromJson(e as Map<String, dynamic>))
+          .toList();
+
+      // Sort by start date, most recent first
+      giveaways.sort((a, b) {
+        if (a.startDate == null && b.startDate == null) return 0;
+        if (a.startDate == null) return 1;
+        if (b.startDate == null) return -1;
+        return b.startDate!.compareTo(a.startDate!);
+      });
+
+      return giveaways;
+    } on ApiException catch (e) {
+      // No giveaways means game was never free
+      if (e.statusCode == 404) return [];
+      rethrow;
+    }
+  }
+
+  /// Fetches asset information (download sizes, platforms) for an offer
+  /// Returns list of assets for different platforms
+  Future<List<OfferAsset>> getOfferAssets(String offerId) async {
+    try {
+      final data = await _get('/offers/$offerId/assets') as List<dynamic>;
+      return data
+          .map((e) => OfferAsset.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on ApiException catch (e) {
+      // No assets available
+      if (e.statusCode == 404) return [];
       rethrow;
     }
   }

@@ -105,11 +105,15 @@ class FreeGame {
 }
 
 class Giveaway {
+  final String? id;
+  final String? namespace;
   final DateTime startDate;
   final DateTime endDate;
   final String? title;
 
   Giveaway({
+    this.id,
+    this.namespace,
     required this.startDate,
     required this.endDate,
     this.title,
@@ -117,10 +121,58 @@ class Giveaway {
 
   factory Giveaway.fromJson(Map<String, dynamic> json) {
     return Giveaway(
+      id: json['id'] as String?,
+      namespace: json['namespace'] as String?,
       startDate: DateTime.parse(json['startDate'] as String),
       endDate: DateTime.parse(json['endDate'] as String),
       title: json['title'] as String?,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'namespace': namespace,
+      'startDate': startDate.toIso8601String(),
+      'endDate': endDate.toIso8601String(),
+      'title': title,
+    };
+  }
+
+  /// Get formatted date range (e.g., "Dec 31, 2024 - Jan 1, 2025")
+  String get dateRange {
+    final start = _formatDate(startDate);
+    final end = _formatDate(endDate);
+    return '$start - $end';
+  }
+
+  /// Get compact date (just the start date)
+  String get compactDate {
+    return _formatDate(startDate);
+  }
+
+  /// Check if giveaway is currently active
+  bool get isActive {
+    final now = DateTime.now();
+    return now.isAfter(startDate) && now.isBefore(endDate);
+  }
+
+  /// Check if giveaway is in the past
+  bool get isPast {
+    return DateTime.now().isAfter(endDate);
+  }
+
+  /// Check if giveaway is in the future
+  bool get isFuture {
+    return DateTime.now().isBefore(startDate);
+  }
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 }
 

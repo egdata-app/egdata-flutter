@@ -55,6 +55,37 @@ class ChangelogItem {
           : ChangelogMetadata(contextType: '', contextId: '', changes: []),
     );
   }
+
+  /// Get formatted date (e.g., "Jan 2, 2026")
+  String get formattedDate {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${months[timestamp.month - 1]} ${timestamp.day}, ${timestamp.year}';
+  }
+
+  /// Get relative time (e.g., "2 days ago")
+  String get relativeTime {
+    final now = DateTime.now();
+    final difference = now.difference(timestamp);
+
+    if (difference.inDays > 365) {
+      final years = (difference.inDays / 365).floor();
+      return '$years ${years == 1 ? 'year' : 'years'} ago';
+    } else if (difference.inDays > 30) {
+      final months = (difference.inDays / 30).floor();
+      return '$months ${months == 1 ? 'month' : 'months'} ago';
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays} ${difference.inDays == 1 ? 'day' : 'days'} ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} ${difference.inHours == 1 ? 'hour' : 'hours'} ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} ${difference.inMinutes == 1 ? 'minute' : 'minutes'} ago';
+    } else {
+      return 'Just now';
+    }
+  }
 }
 
 class ChangelogMetadata {
@@ -99,5 +130,133 @@ class Change {
       oldValue: json['oldValue'],
       newValue: json['newValue'],
     );
+  }
+
+  /// Get display label for the field
+  String get fieldLabel {
+    // Convert camelCase to Title Case
+    final words = field.replaceAllMapped(
+      RegExp(r'([A-Z])'),
+      (match) => ' ${match.group(1)}',
+    ).trim();
+    return words.isEmpty ? field : words[0].toUpperCase() + words.substring(1);
+  }
+
+  /// Get color for the change type badge
+  int get changeTypeColor {
+    switch (changeType) {
+      case 'insert':
+        return 0xFF10B981; // Green
+      case 'delete':
+        return 0xFFEF4444; // Red
+      case 'update':
+      default:
+        return 0xFF3B82F6; // Blue
+    }
+  }
+
+  /// Get background color for the change type badge (with opacity)
+  int get changeTypeBgColor {
+    switch (changeType) {
+      case 'insert':
+        return 0x3310B981; // Green with 20% opacity
+      case 'delete':
+        return 0x33EF4444; // Red with 20% opacity
+      case 'update':
+      default:
+        return 0x333B82F6; // Blue with 20% opacity
+    }
+  }
+
+  /// Get display label for change type
+  String get changeTypeLabel {
+    switch (changeType) {
+      case 'insert':
+        return 'Added';
+      case 'delete':
+        return 'Removed';
+      case 'update':
+      default:
+        return 'Updated';
+    }
+  }
+
+  /// Get formatted change text (without field label)
+  String get changeText {
+    if (changeType == 'insert') {
+      return _formatValue(newValue);
+    } else if (changeType == 'delete') {
+      return _formatValue(oldValue);
+    } else {
+      // Update
+      final oldStr = _formatValue(oldValue);
+      final newStr = _formatValue(newValue);
+
+      if (oldStr.isEmpty && newStr.isEmpty) {
+        return '';
+      } else if (oldStr.isEmpty) {
+        return newStr;
+      } else if (newStr.isEmpty) {
+        return oldStr;
+      } else {
+        return '$oldStr → $newStr';
+      }
+    }
+  }
+
+  /// Get formatted display string (deprecated, use fieldLabel + changeText separately for better styling)
+  String get displayString {
+    final text = changeText;
+    return text.isEmpty ? fieldLabel : '$fieldLabel: $text';
+  }
+
+  String _formatValue(dynamic value) {
+    if (value == null) return '';
+
+    // Handle dates
+    if (field.toLowerCase().contains('date') && value is String) {
+      try {
+        final date = DateTime.parse(value);
+        const months = [
+          'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+        ];
+        return '${months[date.month - 1]} ${date.day}, ${date.year}';
+      } catch (_) {
+        return value;
+      }
+    }
+
+    // Handle prices (cents to dollars)
+    if (field.toLowerCase().contains('price') && value is int) {
+      return '\$${(value / 100).toStringAsFixed(2)}';
+    }
+
+    // Handle file sizes (bytes)
+    if ((field.toLowerCase().contains('size') || field.toLowerCase().contains('bytes')) && value is int) {
+      if (value < 1024) return '$value B';
+      if (value < 1024 * 1024) return '${(value / 1024).toStringAsFixed(1)} KB';
+      if (value < 1024 * 1024 * 1024) return '${(value / (1024 * 1024)).toStringAsFixed(1)} MB';
+      return '${(value / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+    }
+
+    // Handle images/keyImages
+    if (field.toLowerCase().contains('image') && value is Map) {
+      final type = value['type'] as String?;
+      return type ?? 'Image';
+    }
+
+    // Handle tags
+    if (field.toLowerCase().contains('tag') && value is Map) {
+      final name = value['name'] as String?;
+      return name ?? value.toString();
+    }
+
+    if (value is String) return value;
+    if (value is num) return value.toString();
+    if (value is bool) return value ? 'Yes' : 'No';
+    if (value is List) return '${value.length} items';
+    if (value is Map) return value['name']?.toString() ?? value.toString();
+    return value.toString();
   }
 }

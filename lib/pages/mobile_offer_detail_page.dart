@@ -16,6 +16,11 @@ import '../widgets/price_history_widget.dart';
 import '../widgets/mobile_offer_detail_header.dart';
 import '../widgets/offer_ratings_card.dart';
 import '../widgets/base_game_banner.dart';
+import '../widgets/screenshot_carousel.dart';
+import '../widgets/achievements_bottom_sheet.dart';
+import '../widgets/offer_giveaway_banner.dart';
+import '../widgets/age_rating_badge.dart';
+import '../widgets/offer_changelog_card.dart';
 
 class MobileOfferDetailPage extends StatefulWidget {
   final String offerId;
@@ -54,6 +59,10 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
   OfferRatings? _ratings;
   OfferTops? _tops;
   Offer? _baseGame;
+  List<Giveaway>? _giveaways;
+  AgeRatings? _ageRatings;
+  List<ChangelogItem>? _changelogPreview;
+  int _changelogTotal = 0;
 
   // Loading state
   bool _isLoadingOffer = true;
@@ -254,6 +263,23 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
             .catchError((_) => <Offer>[]),
         _apiService.getOfferRatings(widget.offerId).catchError((_) => null),
         _apiService.getOfferTops(widget.offerId).catchError((_) => null),
+        _apiService
+            .getOfferGiveaways(widget.offerId)
+            .catchError((_) => <Giveaway>[]),
+        _apiService.getOfferAgeRatings(widget.offerId).catchError((_) => null),
+        _apiService
+            .getOfferChangelog(widget.offerId, page: 1, limit: 5)
+            .catchError(
+              (_) => ChangelogResponse(
+                elements: [],
+                page: 1,
+                limit: 5,
+                totalCount: 0,
+                totalPages: 0,
+                hasNextPage: false,
+                hasPreviousPage: false,
+              ),
+            ),
       ]);
 
       if (mounted) {
@@ -265,6 +291,11 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
           _relatedOffers = results[4] as List<Offer>;
           _ratings = results[5] as OfferRatings?;
           _tops = results[6] as OfferTops?;
+          _giveaways = results[7] as List<Giveaway>;
+          _ageRatings = results[8] as AgeRatings?;
+          final changelogResponse = results[9] as ChangelogResponse;
+          _changelogPreview = changelogResponse.elements;
+          _changelogTotal = changelogResponse.totalCount;
         });
       }
 
@@ -458,6 +489,12 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
           _buildActionButtons(),
           const SizedBox(height: 24),
 
+          // Giveaway banner (shows if game was/is free)
+          if (_giveaways != null && _giveaways!.isNotEmpty) ...[
+            OfferGiveawayBanner(giveaways: _giveaways!),
+            const SizedBox(height: 24),
+          ],
+
           // Base game banner (for DLC/Add-ons)
           if (_baseGame != null) ...[
             BaseGameBanner(
@@ -473,6 +510,15 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
             tops: _tops,
           ),
           if (_ratings != null || _tops != null) const SizedBox(height: 24),
+
+          // Age rating badge
+          if (_ageRatings != null) ...[
+            AgeRatingBadge(
+              ageRatings: _ageRatings!,
+              userCountry: widget.country,
+            ),
+            const SizedBox(height: 24),
+          ],
 
           // Price history (includes current price)
           if (_price != null) ...[
@@ -518,6 +564,16 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
           // Related offers
           if (_relatedOffers != null && _relatedOffers!.isNotEmpty) ...[
             _buildSection('Related', _buildRelatedOffers()),
+            const SizedBox(height: 24),
+          ],
+
+          // Changelog
+          if (_changelogPreview != null && _changelogPreview!.isNotEmpty) ...[
+            OfferChangelogCard(
+              offerId: widget.offerId,
+              preview: _changelogPreview!,
+              totalCount: _changelogTotal,
+            ),
             const SizedBox(height: 24),
           ],
 
@@ -895,7 +951,7 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) =>
-          _AchievementsBottomSheet(achievements: achievements),
+          AchievementsBottomSheet(achievements: achievements),
     );
   }
 
@@ -952,7 +1008,7 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
     Navigator.of(context).push(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (context) => _ScreenshotCarousel(
+        builder: (context) => ScreenshotCarousel(
           images: _media!.images,
           initialIndex: initialIndex,
         ),
@@ -1141,924 +1197,3 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
   }
 }
 
-// Screenshot carousel viewer
-class _ScreenshotCarousel extends StatefulWidget {
-  final List<MediaImage> images;
-  final int initialIndex;
-
-  const _ScreenshotCarousel({required this.images, required this.initialIndex});
-
-  @override
-  State<_ScreenshotCarousel> createState() => _ScreenshotCarouselState();
-}
-
-class _ScreenshotCarouselState extends State<_ScreenshotCarousel> {
-  late PageController _pageController;
-  late int _currentIndex;
-
-  @override
-  void initState() {
-    super.initState();
-    _currentIndex = widget.initialIndex;
-    _pageController = PageController(initialPage: widget.initialIndex);
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final topPadding = MediaQuery.of(context).padding.top;
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          // PageView for swiping between screenshots
-          PageView.builder(
-            controller: _pageController,
-            onPageChanged: (index) {
-              setState(() {
-                _currentIndex = index;
-              });
-            },
-            itemCount: widget.images.length,
-            itemBuilder: (context, index) {
-              return Center(
-                child: InteractiveViewer(
-                  minScale: 1.0,
-                  maxScale: 4.0,
-                  child: CachedNetworkImage(
-                    imageUrl: widget.images[index].src,
-                    fit: BoxFit.contain,
-                    placeholder: (context, url) => const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    errorWidget: (context, url, error) => const Center(
-                      child: Icon(
-                        Icons.broken_image_rounded,
-                        color: Colors.white54,
-                        size: 64,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-          // Download button (top left)
-          Positioned(
-            top: topPadding + 8,
-            left: 8,
-            child: GestureDetector(
-              onTap: _downloadCurrentImage,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Icon(
-                  Icons.download_rounded,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-            ),
-          ),
-          // Close button (top right)
-          Positioned(
-            top: topPadding + 8,
-            right: 8,
-            child: GestureDetector(
-              onTap: () => Navigator.of(context).pop(),
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Icon(
-                  Icons.close_rounded,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-            ),
-          ),
-          // Thumbnail preview strip at bottom
-          Positioned(
-            bottom: bottomPadding + 16,
-            left: 0,
-            right: 0,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Image counter
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${_currentIndex + 1} / ${widget.images.length}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Thumbnail strip
-                SizedBox(
-                  height: 60,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: widget.images.length,
-                    itemBuilder: (context, index) {
-                      final isActive = index == _currentIndex;
-                      return GestureDetector(
-                        onTap: () {
-                          _pageController.animateToPage(
-                            index,
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                          );
-                        },
-                        child: Container(
-                          width: 80,
-                          margin: EdgeInsets.only(
-                            right: index < widget.images.length - 1 ? 8 : 0,
-                          ),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: isActive
-                                  ? AppColors.primary
-                                  : Colors.white.withValues(alpha: 0.3),
-                              width: isActive ? 3 : 1.5,
-                            ),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: CachedNetworkImage(
-                              imageUrl: widget.images[index].src,
-                              fit: BoxFit.cover,
-                              placeholder: (context, url) =>
-                                  Container(color: Colors.grey.shade800),
-                              errorWidget: (context, url, error) => Container(
-                                color: Colors.grey.shade800,
-                                child: const Icon(
-                                  Icons.broken_image_rounded,
-                                  color: Colors.white54,
-                                  size: 24,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _downloadCurrentImage() async {
-    final url = Uri.parse(widget.images[_currentIndex].src);
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    }
-  }
-}
-
-// Achievements bottom sheet with filters
-enum AchievementSortBy { name, xp, tier }
-
-enum AchievementFilter { all, visible, hidden }
-
-enum AchievementTier { platinum, gold, silver, bronze }
-
-extension AchievementTierExtension on AchievementTier {
-  String get label {
-    switch (this) {
-      case AchievementTier.platinum:
-        return 'Platinum';
-      case AchievementTier.gold:
-        return 'Gold';
-      case AchievementTier.silver:
-        return 'Silver';
-      case AchievementTier.bronze:
-        return 'Bronze';
-    }
-  }
-
-  Color get color {
-    switch (this) {
-      case AchievementTier.platinum:
-        return const Color(0xFFE5E4E2); // Platinum silver
-      case AchievementTier.gold:
-        return const Color(0xFFFFD700); // Gold
-      case AchievementTier.silver:
-        return const Color(0xFFC0C0C0); // Silver
-      case AchievementTier.bronze:
-        return const Color(0xFFCD7F32); // Bronze
-    }
-  }
-
-  int get sortOrder {
-    switch (this) {
-      case AchievementTier.platinum:
-        return 0;
-      case AchievementTier.gold:
-        return 1;
-      case AchievementTier.silver:
-        return 2;
-      case AchievementTier.bronze:
-        return 3;
-    }
-  }
-
-  static AchievementTier fromXp(int xp) {
-    if (xp >= 250) return AchievementTier.platinum;
-    if (xp >= 100) return AchievementTier.gold;
-    if (xp >= 50) return AchievementTier.silver;
-    return AchievementTier.bronze;
-  }
-}
-
-class _AchievementsBottomSheet extends StatefulWidget {
-  final List<Achievement> achievements;
-
-  const _AchievementsBottomSheet({required this.achievements});
-
-  @override
-  State<_AchievementsBottomSheet> createState() =>
-      _AchievementsBottomSheetState();
-}
-
-class _AchievementsBottomSheetState extends State<_AchievementsBottomSheet> {
-  AchievementSortBy _sortBy = AchievementSortBy.tier;
-  AchievementFilter _filter = AchievementFilter.all;
-  String _searchQuery = '';
-  final TextEditingController _searchController = TextEditingController();
-
-  // Cached filtered list to avoid recomputation
-  List<Achievement>? _cachedFilteredAchievements;
-  // Cache keys to detect when we need to recompute
-  AchievementSortBy? _cachedSortBy;
-  AchievementFilter? _cachedFilter;
-  String? _cachedSearchQuery;
-  // Cached total XP
-  late final int _totalXp;
-
-  @override
-  void initState() {
-    super.initState();
-    _totalXp = widget.achievements.fold<int>(0, (sum, a) => sum + a.xp);
-  }
-
-  List<Achievement> get _filteredAchievements {
-    // Return cached result if nothing changed
-    if (_cachedFilteredAchievements != null &&
-        _cachedSortBy == _sortBy &&
-        _cachedFilter == _filter &&
-        _cachedSearchQuery == _searchQuery) {
-      return _cachedFilteredAchievements!;
-    }
-
-    var list = widget.achievements.toList();
-
-    // Apply filter
-    if (_filter == AchievementFilter.visible) {
-      list = list.where((a) => !a.hidden).toList();
-    } else if (_filter == AchievementFilter.hidden) {
-      list = list.where((a) => a.hidden).toList();
-    }
-
-    // Apply search
-    if (_searchQuery.isNotEmpty) {
-      final query = _searchQuery.toLowerCase();
-      list = list
-          .where(
-            (a) =>
-                a.unlockedDisplayName.toLowerCase().contains(query) ||
-                a.unlockedDescription.toLowerCase().contains(query) ||
-                a.flavorText.toLowerCase().contains(query),
-          )
-          .toList();
-    }
-
-    // Apply sort
-    switch (_sortBy) {
-      case AchievementSortBy.name:
-        list.sort(
-          (a, b) => a.unlockedDisplayName.compareTo(b.unlockedDisplayName),
-        );
-        break;
-      case AchievementSortBy.xp:
-        list.sort((a, b) => b.xp.compareTo(a.xp));
-        break;
-      case AchievementSortBy.tier:
-        // Sort by tier (Platinum first), then by XP within tier
-        list.sort((a, b) {
-          final tierA = AchievementTierExtension.fromXp(a.xp);
-          final tierB = AchievementTierExtension.fromXp(b.xp);
-          final tierCompare = tierA.sortOrder.compareTo(tierB.sortOrder);
-          if (tierCompare != 0) return tierCompare;
-          return b.xp.compareTo(a.xp);
-        });
-        break;
-    }
-
-    // Cache the result
-    _cachedFilteredAchievements = list;
-    _cachedSortBy = _sortBy;
-    _cachedFilter = _filter;
-    _cachedSearchQuery = _searchQuery;
-
-    return list;
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final filtered = _filteredAchievements;
-
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.85,
-      decoration: const BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        children: [
-          // Handle bar
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppColors.border,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          // Header
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColors.warning.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.emoji_events_rounded,
-                    color: AppColors.warning,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${widget.achievements.length} Achievements',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      Text(
-                        '$_totalXp XP total',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded),
-                  color: AppColors.textSecondary,
-                ),
-              ],
-            ),
-          ),
-          // Search bar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) => setState(() => _searchQuery = value),
-              style: const TextStyle(color: AppColors.textPrimary),
-              decoration: InputDecoration(
-                hintText: 'Search achievements...',
-                hintStyle: const TextStyle(color: AppColors.textMuted),
-                prefixIcon: const Icon(
-                  Icons.search_rounded,
-                  color: AppColors.textMuted,
-                ),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(
-                          Icons.clear_rounded,
-                          color: AppColors.textMuted,
-                        ),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() => _searchQuery = '');
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: AppColors.surface,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.border),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.border),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.primary),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          // Filter chips
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                // Filter dropdown
-                _buildFilterChip(
-                  label: _filter == AchievementFilter.all
-                      ? 'All'
-                      : _filter == AchievementFilter.visible
-                      ? 'Visible'
-                      : 'Hidden',
-                  icon: Icons.filter_list_rounded,
-                  onTap: () => _showFilterMenu(),
-                ),
-                const SizedBox(width: 8),
-                // Sort dropdown
-                _buildFilterChip(
-                  label: _sortBy == AchievementSortBy.tier
-                      ? 'By tier'
-                      : _sortBy == AchievementSortBy.xp
-                      ? 'Most XP'
-                      : 'A-Z',
-                  icon: Icons.sort_rounded,
-                  onTap: () => _showSortMenu(),
-                ),
-                const SizedBox(width: 8),
-                // Results count
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '${filtered.length} results',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          // Achievement list
-          Expanded(
-            child: filtered.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.search_off_rounded,
-                          size: 48,
-                          color: AppColors.textMuted.withValues(alpha: 0.5),
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'No achievements found',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    padding: EdgeInsets.only(
-                      left: 16,
-                      right: 16,
-                      bottom: bottomPadding + 16,
-                    ),
-                    itemCount: filtered.length,
-                    itemBuilder: (context, index) {
-                      final achievement = filtered[index];
-                      return _buildAchievementListItem(achievement);
-                    },
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterChip({
-    required String label,
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: AppColors.textSecondary),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(width: 4),
-            const Icon(
-              Icons.arrow_drop_down_rounded,
-              size: 18,
-              color: AppColors.textMuted,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showFilterMenu() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Filter by',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ),
-            _buildMenuOption(
-              'All achievements',
-              AchievementFilter.all,
-              _filter,
-              (f) {
-                setState(() => _filter = f);
-                Navigator.pop(context);
-              },
-            ),
-            _buildMenuOption(
-              'Visible only',
-              AchievementFilter.visible,
-              _filter,
-              (f) {
-                setState(() => _filter = f);
-                Navigator.pop(context);
-              },
-            ),
-            _buildMenuOption('Hidden only', AchievementFilter.hidden, _filter, (
-              f,
-            ) {
-              setState(() => _filter = f);
-              Navigator.pop(context);
-            }),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showSortMenu() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Sort by',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ),
-            _buildMenuOption(
-              'By tier (Platinum first)',
-              AchievementSortBy.tier,
-              _sortBy,
-              (s) {
-                setState(() => _sortBy = s);
-                Navigator.pop(context);
-              },
-            ),
-            _buildMenuOption('Most XP', AchievementSortBy.xp, _sortBy, (s) {
-              setState(() => _sortBy = s);
-              Navigator.pop(context);
-            }),
-            _buildMenuOption('Name (A-Z)', AchievementSortBy.name, _sortBy, (
-              s,
-            ) {
-              setState(() => _sortBy = s);
-              Navigator.pop(context);
-            }),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMenuOption<T>(
-    String label,
-    T value,
-    T current,
-    Function(T) onSelect,
-  ) {
-    final isSelected = value == current;
-    return ListTile(
-      onTap: () => onSelect(value),
-      leading: Icon(
-        isSelected
-            ? Icons.radio_button_checked_rounded
-            : Icons.radio_button_off_rounded,
-        color: isSelected ? AppColors.primary : AppColors.textMuted,
-      ),
-      title: Text(
-        label,
-        style: TextStyle(
-          color: isSelected ? AppColors.primary : AppColors.textPrimary,
-          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAchievementListItem(Achievement achievement) {
-    final tier = AchievementTierExtension.fromXp(achievement.xp);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Achievement icon with tier border
-          Stack(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: tier.color, width: 2),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: achievement.unlockedIconLink.isNotEmpty
-                      ? CachedNetworkImage(
-                          imageUrl: achievement.unlockedIconLink,
-                          width: 56,
-                          height: 56,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Container(
-                            width: 56,
-                            height: 56,
-                            color: AppColors.surfaceLight,
-                          ),
-                          errorWidget: (context, url, error) => Container(
-                            width: 56,
-                            height: 56,
-                            color: AppColors.surfaceLight,
-                            child: Icon(
-                              Icons.emoji_events_rounded,
-                              size: 32,
-                              color: tier.color,
-                            ),
-                          ),
-                        )
-                      : Container(
-                          width: 56,
-                          height: 56,
-                          color: AppColors.surfaceLight,
-                          child: Icon(
-                            Icons.emoji_events_rounded,
-                            size: 32,
-                            color: tier.color,
-                          ),
-                        ),
-                ),
-              ),
-              // Hidden badge
-              if (achievement.hidden)
-                Positioned(
-                  top: -2,
-                  right: -2,
-                  child: Container(
-                    padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      color: AppColors.background,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: const Icon(
-                      Icons.visibility_off_rounded,
-                      size: 10,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(width: 12),
-          // Achievement info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  achievement.unlockedDisplayName.isNotEmpty
-                      ? achievement.unlockedDisplayName
-                      : achievement.name,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                if (achievement.unlockedDescription.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    achievement.unlockedDescription,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textSecondary,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    // Tier badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: tier.color.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: tier.color.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.emoji_events_rounded,
-                            size: 12,
-                            color: tier.color,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            tier.label,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: tier.color,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // XP badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceLight,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        '${achievement.xp} XP',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                    // Completion percentage (if available)
-                    if (achievement.completedPercent > 0) ...[
-                      const SizedBox(width: 8),
-                      Text(
-                        '${achievement.completedPercent.toStringAsFixed(1)}%',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textMuted,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

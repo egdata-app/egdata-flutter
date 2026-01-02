@@ -21,6 +21,18 @@ This document outlines planned enhancements to the mobile offer detail page to b
 - [x] Related offers
   - **Endpoint:** `GET /offers/:id/related`
 - [x] Details section (developer, publisher, release date, type, refund policy)
+- [x] **Ratings & Community Rankings** (`lib/widgets/offer_ratings_card.dart`)
+  - **Endpoints:** `GET /offers/:id/ratings`, `GET /offers/:id/polls`, `GET /offers/:id/tops`
+- [x] **Base Game Banner** for DLC (`lib/widgets/base_game_banner.dart`)
+  - **Endpoint:** `GET /sandboxes/:namespace/base-game`
+- [x] **Age Rating** with bottom sheet (in Details section)
+  - **Endpoint:** `GET /offers/:id/age-rating`
+- [x] **Giveaway History Banner** (`lib/widgets/offer_giveaway_banner.dart`)
+  - **Endpoint:** `GET /offers/:id/giveaways`
+- [x] **Changelog Section** (`lib/widgets/offer_changelog_card.dart`)
+  - **Endpoint:** `GET /offers/:id/changelog` (with search, type filter, field filter, pagination)
+  - Advanced filtering: Change type (insert/update/delete), field filter, text search
+  - Pagination controls with page navigation
 
 ---
 
@@ -65,7 +77,7 @@ if (_ratings != null) ...[
 
 ## Phase 1: Ratings & Community Reception (High Priority)
 
-### 1.1 Ratings Card
+### 1.1 Ratings Card ✅ COMPLETED
 **Widget:** `lib/widgets/offer_ratings_card.dart`
 
 **Endpoints:**
@@ -108,8 +120,8 @@ Future<OfferTops?> getOfferTops(String offerId);
 
 ---
 
-### 1.2 Age Rating Badge
-**Widget:** `lib/widgets/offer_age_rating_badge.dart`
+### 1.2 Age Rating ✅ COMPLETED
+**Implementation:** Integrated into Details section as tappable row with bottom sheet
 
 **Endpoint:**
 - `GET /offers/:id/age-rating?country={country}&single={boolean}` - ESRB/PEGI ratings
@@ -132,7 +144,7 @@ Future<AgeRating?> getOfferAgeRating(String offerId, {String? country});
 
 ## Phase 2: Historical Data (High Priority)
 
-### 2.1 Giveaway History Banner
+### 2.1 Giveaway History Banner ✅ COMPLETED
 **Widget:** `lib/widgets/offer_giveaway_banner.dart`
 
 **Endpoint:**
@@ -163,9 +175,9 @@ Future<List<Giveaway>> getOfferGiveaways(String offerId);
 
 ---
 
-### 2.2 Changelog Section
+### 2.2 Changelog Section ✅ COMPLETED
 **Widget:** `lib/widgets/offer_changelog_card.dart`
-**Bottom Sheet:** Create `_ChangelogBottomSheet` inside the widget file (similar to achievements pattern)
+**Bottom Sheet:** `_ChangelogBottomSheet` with advanced filtering and search
 
 **Endpoints:**
 - `GET /offers/:id/changelog?limit={int}&page={int}&query={string}&type={string}&field={string}` - Detailed change history
@@ -396,21 +408,22 @@ Future<List<String>> getOfferGenres(String offerId);
 // In _buildContent() method of mobile_offer_detail_page.dart
 
 1. Action buttons (Follow, Epic Store) ✅ Existing
-2. [NEW] Giveaway banner (if applicable)
-3. [NEW] Ratings card
-4. Price history ✅ Existing
-5. Description ✅ Existing
-6. Features ✅ Existing
-7. [NEW] Genres (chips/tags)
-8. How Long To Beat ✅ Existing
-9. Achievements ✅ Existing
-10. Screenshots ✅ Existing
-11. [NEW] Changelog
-12. Related offers ✅ Existing
-13. [NEW] Items/DLC
-14. [NEW] Suggestions
-15. [NEW] Bundle info (if applicable)
-16. Details (+ download sizes) ✅ Existing (enhanced)
+2. Base Game Banner (if DLC) ✅ COMPLETED
+3. Giveaway banner (if applicable) ✅ COMPLETED
+4. Ratings card ✅ COMPLETED
+5. Price history ✅ Existing
+6. Description ✅ Existing
+7. Features ✅ Existing
+8. [TODO] Genres (chips/tags)
+9. How Long To Beat ✅ Existing
+10. Achievements ✅ Existing
+11. Screenshots ✅ Existing
+12. Changelog ✅ COMPLETED (with search & filters)
+13. Related offers ✅ Existing
+14. [TODO] Items/DLC
+15. [TODO] Suggestions
+16. [TODO] Bundle info (if applicable)
+17. Details (+ Age Rating + download sizes) ✅ Existing (enhanced with Age Rating)
 ```
 
 ---
@@ -446,10 +459,11 @@ For each widget/feature:
 
 ## Priority Summary
 
-### Must Have (Phase 1-2)
-- ⭐ Ratings & Tops rankings
-- ⭐ Giveaway history banner
-- ⭐ Changelog with bottom sheet
+### Must Have (Phase 1-2) ✅ ALL COMPLETED
+- ✅ ~~Ratings & Tops rankings~~ COMPLETED
+- ✅ ~~Age Rating~~ COMPLETED (integrated in Details)
+- ✅ ~~Giveaway history banner~~ COMPLETED
+- ✅ ~~Changelog with bottom sheet~~ COMPLETED (with advanced filtering & search)
 
 ### Should Have (Phase 3-4)
 - 📊 Download sizes in Details
