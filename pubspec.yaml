@@ -65,7 +65,6 @@ flutter:
     - assets/logo.png
     - assets/tray_icon.png
     - assets/tray_icon.ico
-    - .env
   fonts:
     - family: Inter
       fonts:
