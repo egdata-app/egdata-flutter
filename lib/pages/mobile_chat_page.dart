@@ -225,108 +225,94 @@ class MobileChatPage extends HookWidget {
       }
     }
 
-    // Handle suggested prompt tap
-    void handlePromptTap(String prompt) {
-      textController.text = prompt;
-      sendMessage(prompt);
-    }
-
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.surface,
-        elevation: 0,
-        title: Row(
-          children: [
-            Icon(Icons.auto_awesome_rounded, color: AppColors.accent, size: 24),
-            const SizedBox(width: 8),
-            Text(
-              'AI Chat',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          // Clear chat button
-          IconButton(
-            icon: Icon(Icons.delete_outline_rounded, color: AppColors.textMuted),
-            tooltip: 'Clear chat history',
-            onPressed: () async {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  backgroundColor: AppColors.surface,
-                  title: Text('Clear chat history?', style: TextStyle(color: AppColors.textPrimary)),
-                  content: Text(
-                    'This will delete all your chat messages.',
-                    style: TextStyle(color: AppColors.textMuted),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: Text('Clear', style: TextStyle(color: Colors.red)),
-                    ),
-                  ],
+      appBar: messages.value.isNotEmpty
+          ? AppBar(
+              backgroundColor: AppColors.background,
+              elevation: 0,
+              centerTitle: false,
+              title: Text(
+                'AI Chat',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
                 ),
-              );
+              ),
+              actions: [
+                IconButton(
+                  icon: Icon(
+                    Icons.refresh_rounded,
+                    color: AppColors.textMuted,
+                  ),
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        backgroundColor: AppColors.surface,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        title: Text(
+                          'Clear chat?',
+                          style: TextStyle(color: AppColors.textPrimary),
+                        ),
+                        content: Text(
+                          'This will delete your conversation history.',
+                          style: TextStyle(color: AppColors.textMuted),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: Text(
+                              'Cancel',
+                              style: TextStyle(color: AppColors.textMuted),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: Text(
+                              'Clear',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
 
-              if (confirm == true) {
-                await db.deleteChatHistory();
-                chatService.clearChat();
-                messages.value = [];
-              }
-            },
-          ),
-        ],
-      ),
+                    if (confirm == true) {
+                      await db.deleteChatHistory();
+                      chatService.clearChat();
+                      messages.value = [];
+                    }
+                  },
+                ),
+              ],
+            )
+          : null,
       body: Column(
         children: [
-          // Messages list
+          // Messages area
           Expanded(
             child: isLoading.value
                 ? Center(
-                    child: CircularProgressIndicator(color: AppColors.accent),
+                    child: CircularProgressIndicator(
+                      color: AppColors.accent,
+                      strokeWidth: 2.5,
+                    ),
                   )
                 : messages.value.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.chat_bubble_outline_rounded,
-                              size: 64,
-                              color: AppColors.textMuted.withValues(alpha: 0.5),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Start a conversation',
-                              style: TextStyle(
-                                color: AppColors.textMuted,
-                                fontSize: 16,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Ask me about games, prices, or sales!',
-                              style: TextStyle(
-                                color: AppColors.textMuted.withValues(alpha: 0.7),
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
+                    ? _buildEmptyState((prompt) {
+                        textController.text = prompt;
+                        sendMessage(prompt);
+                      })
                     : ListView.builder(
                         controller: scrollController,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
                         itemCount: messages.value.length,
                         itemBuilder: (context, index) {
                           final message = messages.value[index];
@@ -335,50 +321,49 @@ class MobileChatPage extends HookWidget {
                       ),
           ),
 
-          // Suggested prompts (show when no messages)
-          if (messages.value.isEmpty && !isLoading.value)
-            ChatSuggestedPrompts(onPromptTapped: handlePromptTap),
-
-          // Input field
+          // Input area
           Container(
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: AppColors.background,
               border: Border(
-                top: BorderSide(color: AppColors.borderGlass, width: 1),
+                top: BorderSide(
+                  color: AppColors.surface,
+                  width: 1,
+                ),
               ),
             ),
             child: SafeArea(
               top: false,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    // Text input
-                    Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  // Text input
+                  Expanded(
+                    child: Container(
+                      constraints: const BoxConstraints(maxHeight: 120),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(24),
+                      ),
                       child: TextField(
                         controller: textController,
                         enabled: !isSending.value,
-                        style: TextStyle(color: AppColors.textPrimary),
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 15,
+                        ),
                         decoration: InputDecoration(
-                          hintText: 'Ask about games...',
-                          hintStyle: TextStyle(color: AppColors.textMuted),
-                          filled: true,
-                          fillColor: AppColors.background,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                            borderSide: BorderSide(color: AppColors.borderGlass),
+                          hintText: 'Ask about games, prices, sales...',
+                          hintStyle: TextStyle(
+                            color: AppColors.textMuted.withValues(alpha: 0.6),
+                            fontSize: 15,
                           ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                            borderSide: BorderSide(color: AppColors.borderGlass),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                            borderSide: BorderSide(color: AppColors.primary, width: 2),
-                          ),
+                          filled: false,
+                          border: InputBorder.none,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 20,
-                            vertical: 12,
+                            vertical: 14,
                           ),
                         ),
                         maxLines: null,
@@ -386,33 +371,83 @@ class MobileChatPage extends HookWidget {
                         onSubmitted: (_) => sendMessage(textController.text),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    // Send button
-                    Container(
-                      decoration: BoxDecoration(
-                        color: isSending.value
-                            ? AppColors.textMuted.withValues(alpha: 0.3)
-                            : AppColors.primary,
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: IconButton(
-                        icon: Icon(
-                          isSending.value
-                              ? Icons.hourglass_empty_rounded
-                              : Icons.send_rounded,
-                          color: Colors.white,
-                        ),
-                        onPressed: isSending.value
-                            ? null
-                            : () => sendMessage(textController.text),
-                      ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Send button
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: isSending.value
+                          ? null
+                          : LinearGradient(
+                              colors: [
+                                AppColors.accent,
+                                AppColors.primary,
+                              ],
+                            ),
+                      color: isSending.value
+                          ? AppColors.surface
+                          : null,
+                      shape: BoxShape.circle,
                     ),
-                  ],
-                ),
+                    child: IconButton(
+                      icon: Icon(
+                        isSending.value
+                            ? Icons.hourglass_empty_rounded
+                            : Icons.arrow_upward_rounded,
+                        color: isSending.value
+                            ? AppColors.textMuted
+                            : Colors.white,
+                        size: 22,
+                      ),
+                      onPressed: isSending.value
+                          ? null
+                          : () => sendMessage(textController.text),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Build modern empty state
+  Widget _buildEmptyState(ValueChanged<String> onPromptTapped) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Title
+            Text(
+              'AI Chat',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 32,
+                fontWeight: FontWeight.w400,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Subtitle
+            Text(
+              'Ask detailed questions for better answers',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textMuted,
+                fontSize: 16,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+            const SizedBox(height: 48),
+            // Suggested prompts
+            ChatSuggestedPrompts(onPromptTapped: onPromptTapped),
+          ],
+        ),
       ),
     );
   }

@@ -6,7 +6,7 @@ import '../main.dart';
 import '../models/followed_game.dart';
 import '../models/settings.dart';
 import '../services/analytics_service.dart';
-import '../services/api_service.dart';
+import '../services/api_service.dart' show ApiService, ApiException, SearchRequest, SearchResponse, SearchOfferType, SearchSortBy, SearchSortDir, PriceRange, Offer, SearchAggregations;
 import '../services/follow_service.dart';
 import '../services/push_service.dart';
 import '../widgets/game_card.dart';
@@ -65,6 +65,9 @@ class MobileBrowsePage extends HookWidget {
     final searchFocus = useFocusNode();
     final scrollController = useScrollController();
 
+    // Stabilize country value to prevent unnecessary query refetches
+    final country = useMemoized(() => settings.country, [settings.country]);
+
     // Filter state
     final offerType = useState<SearchOfferType?>(null);
     final sortBy = useState(SearchSortBy.lastModifiedDate);
@@ -108,7 +111,7 @@ class MobileBrowsePage extends HookWidget {
     final queryKey = useMemoized(
       () => [
         'search',
-        settings.country,
+        country,
         debouncedSearch,
         offerType.value?.value,
         sortBy.value.value,
@@ -121,7 +124,7 @@ class MobileBrowsePage extends HookWidget {
         isLowestPriceEver.value,
       ],
       [
-        settings.country,
+        country,
         debouncedSearch,
         offerType.value,
         sortBy.value,
@@ -138,41 +141,62 @@ class MobileBrowsePage extends HookWidget {
     final searchQuery = useInfiniteQuery<SearchResponse, Object, int>(
       queryKey: queryKey,
       queryFn: (ctx) async {
-        final page = (ctx.pageParam as int?) ?? 1;
-        final query = debouncedSearch;
+        try {
+          final page = (ctx.pageParam as int?) ?? 1;
+          final query = debouncedSearch;
 
-        final request = SearchRequest(
-          title: (query?.isNotEmpty ?? false) ? query : null,
-          offerType: offerType.value,
-          sortBy: sortBy.value,
-          sortDir: sortDir.value,
-          onSale: onSale.value,
-          price: priceRange.value,
-          excludeBlockchain: excludeBlockchain.value ? true : null,
-          pastGiveaways: pastGiveaways.value ? true : null,
-          isLowestPriceEver: isLowestPriceEver.value ? true : null,
-          tags: null,
-          limit: 20,
-          page: page,
-        );
+          final request = SearchRequest(
+            title: (query?.isNotEmpty ?? false) ? query : null,
+            offerType: offerType.value,
+            sortBy: sortBy.value,
+            sortDir: sortDir.value,
+            onSale: onSale.value,
+            price: priceRange.value,
+            excludeBlockchain: excludeBlockchain.value ? true : null,
+            pastGiveaways: pastGiveaways.value ? true : null,
+            isLowestPriceEver: isLowestPriceEver.value ? true : null,
+            tags: null,
+            limit: 20,
+            page: page,
+          );
 
-        _log('performSearch - request: ${_formatRequest(request)}');
+          _log('performSearch - request: ${_formatRequest(request)}');
 
-        final stopwatch = Stopwatch()..start();
-        final response = await apiService.search(
-          request,
-          country: settings.country,
-        );
-        stopwatch.stop();
+          final stopwatch = Stopwatch()..start();
+          final response = await apiService.search(
+            request,
+            country: country,
+          );
+          stopwatch.stop();
 
-        _log(
-          'performSearch - response: ${response.total} total, '
-          'page ${response.page}, ${response.offers.length} offers, '
-          '${stopwatch.elapsedMilliseconds}ms'
-          '${response.meta?.cached == true ? ' (cached)' : ''}',
-        );
+          _log(
+            'performSearch - response: ${response.total} total, '
+            'page ${response.page}, ${response.offers.length} offers, '
+            '${stopwatch.elapsedMilliseconds}ms'
+            '${response.meta?.cached == true ? ' (cached)' : ''}',
+          );
 
-        return response;
+          return response;
+        } on ApiException catch (e) {
+          // Silently ignore cancelled requests (happens during navigation)
+          if (e.message.contains('Request cancelled')) {
+            _log('performSearch - request cancelled (navigation)');
+            // Return empty response to prevent error state
+            return SearchResponse(
+              offers: [],
+              total: 0,
+              page: 1,
+              limit: 20,
+              aggregations: null,
+              meta: null,
+            );
+          }
+          // Re-throw other API exceptions
+          rethrow;
+        } catch (e) {
+          _log('performSearch - error: $e');
+          rethrow;
+        }
       },
       initialPageParam: 1,
       getNextPageParam: (lastPage, allPages, _, __) {

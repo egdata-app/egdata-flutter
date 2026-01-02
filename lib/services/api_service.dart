@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../models/api/api.dart';
 
@@ -25,80 +26,122 @@ class ApiService {
 
   /// Generic GET request that returns decoded JSON
   Future<dynamic> _get(String endpoint, {String? apiKey}) async {
-    final headers = <String, String>{};
-    if (apiKey != null) {
-      headers['X-API-Key'] = apiKey;
+    try {
+      final headers = <String, String>{};
+      if (apiKey != null) {
+        headers['X-API-Key'] = apiKey;
+      }
+
+      final response = await _client.get(
+        Uri.parse('$baseUrl$endpoint'),
+        headers: headers.isEmpty ? null : headers,
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+
+      throw ApiException(
+        'GET $endpoint failed',
+        response.statusCode,
+      );
+    } on SocketException catch (e) {
+      // Handle cancelled requests gracefully (happens during navigation)
+      if (e.message.contains('cancelled') || e.message.contains('Connection attempt cancelled')) {
+        throw ApiException('Request cancelled', null);
+      }
+      throw ApiException('Network error: ${e.message}', null);
+    } on http.ClientException catch (e) {
+      // Handle HTTP client exceptions (including cancelled requests)
+      if (e.message.contains('cancelled') || e.message.contains('Connection attempt cancelled')) {
+        throw ApiException('Request cancelled', null);
+      }
+      throw ApiException('Client error: ${e.message}', null);
     }
-
-    final response = await _client.get(
-      Uri.parse('$baseUrl$endpoint'),
-      headers: headers.isEmpty ? null : headers,
-    );
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    }
-
-    throw ApiException(
-      'GET $endpoint failed',
-      response.statusCode,
-    );
   }
 
   /// Generic POST request that returns decoded JSON
   Future<dynamic> _post(String endpoint, Map<String, dynamic> body,
       {Map<String, String>? queryParams, String? apiKey}) async {
-    var uri = Uri.parse('$baseUrl$endpoint');
-    if (queryParams != null && queryParams.isNotEmpty) {
-      uri = uri.replace(queryParameters: queryParams);
+    try {
+      var uri = Uri.parse('$baseUrl$endpoint');
+      if (queryParams != null && queryParams.isNotEmpty) {
+        uri = uri.replace(queryParameters: queryParams);
+      }
+
+      final headers = {'Content-Type': 'application/json'};
+      if (apiKey != null) {
+        headers['X-API-Key'] = apiKey;
+      }
+
+      final response = await _client.post(
+        uri,
+        headers: headers,
+        body: jsonEncode(body),
+      );
+
+      // Accept 200 OK and 201 Created
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body);
+      }
+
+      throw ApiException(
+        'POST $endpoint failed: ${response.body}',
+        response.statusCode,
+      );
+    } on SocketException catch (e) {
+      // Handle cancelled requests gracefully (happens during navigation)
+      if (e.message.contains('cancelled') || e.message.contains('Connection attempt cancelled')) {
+        throw ApiException('Request cancelled', null);
+      }
+      throw ApiException('Network error: ${e.message}', null);
+    } on http.ClientException catch (e) {
+      // Handle HTTP client exceptions (including cancelled requests)
+      if (e.message.contains('cancelled') || e.message.contains('Connection attempt cancelled')) {
+        throw ApiException('Request cancelled', null);
+      }
+      throw ApiException('Client error: ${e.message}', null);
     }
-
-    final headers = {'Content-Type': 'application/json'};
-    if (apiKey != null) {
-      headers['X-API-Key'] = apiKey;
-    }
-
-    final response = await _client.post(
-      uri,
-      headers: headers,
-      body: jsonEncode(body),
-    );
-
-    // Accept 200 OK and 201 Created
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      return jsonDecode(response.body);
-    }
-
-    throw ApiException(
-      'POST $endpoint failed: ${response.body}',
-      response.statusCode,
-    );
   }
 
   /// Generic DELETE request that returns decoded JSON
   Future<dynamic> _delete(String endpoint, {String? apiKey}) async {
-    final headers = <String, String>{};
-    if (apiKey != null) {
-      headers['X-API-Key'] = apiKey;
-    }
-
-    final response = await _client.delete(
-      Uri.parse('$baseUrl$endpoint'),
-      headers: headers.isEmpty ? null : headers,
-    );
-
-    // Accept 200 OK and 204 No Content
-    if (response.statusCode == 200 || response.statusCode == 204) {
-      if (response.body.isEmpty) {
-        return {'message': 'Success'};
+    try {
+      final headers = <String, String>{};
+      if (apiKey != null) {
+        headers['X-API-Key'] = apiKey;
       }
-      return jsonDecode(response.body);
-    }
 
-    throw ApiException(
-      'DELETE $endpoint failed: ${response.body}',
-      response.statusCode,
-    );
+      final response = await _client.delete(
+        Uri.parse('$baseUrl$endpoint'),
+        headers: headers.isEmpty ? null : headers,
+      );
+
+      // Accept 200 OK and 204 No Content
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        if (response.body.isEmpty) {
+          return {'message': 'Success'};
+        }
+        return jsonDecode(response.body);
+      }
+
+      throw ApiException(
+        'DELETE $endpoint failed: ${response.body}',
+        response.statusCode,
+      );
+    } on SocketException catch (e) {
+      // Handle cancelled requests gracefully (happens during navigation)
+      if (e.message.contains('cancelled') || e.message.contains('Connection attempt cancelled')) {
+        throw ApiException('Request cancelled', null);
+      }
+      throw ApiException('Network error: ${e.message}', null);
+    } on http.ClientException catch (e) {
+      // Handle HTTP client exceptions (including cancelled requests)
+      if (e.message.contains('cancelled') || e.message.contains('Connection attempt cancelled')) {
+        throw ApiException('Request cancelled', null);
+      }
+      throw ApiException('Client error: ${e.message}', null);
+    }
   }
 
   /// Fetches all currently free games
@@ -351,6 +394,12 @@ class ApiService {
     return subscriptions
         .map((e) => PushSubscriptionInfo.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  /// Fetches all available tags/labels for games
+  Future<List<Map<String, dynamic>>> getTags() async {
+    final data = await _get('/tags') as List<dynamic>;
+    return data.cast<Map<String, dynamic>>();
   }
 
   /// Disposes the HTTP client

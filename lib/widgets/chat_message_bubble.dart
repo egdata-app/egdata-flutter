@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:shimmer/shimmer.dart';
 import '../main.dart';
 import '../models/chat_message.dart';
+import 'animated_streaming_text.dart';
 
 /// Tool call status indicator
 enum ToolCallStatus { executing, complete, error }
@@ -40,6 +42,8 @@ class ToolCallIndicator {
         return '🆕';
       case 'search_sellers':
         return '🏢';
+      case 'get_tags':
+        return '🏷️';
       default:
         return '🔧';
     }
@@ -65,6 +69,8 @@ class ToolCallIndicator {
         return 'Latest Releases';
       case 'search_sellers':
         return 'Search Publishers';
+      case 'get_tags':
+        return 'Get Tags';
       default:
         return toolName;
     }
@@ -93,47 +99,53 @@ class ParsedMessage {
   ParsedMessage({required this.displayText, required this.toolCalls});
 }
 
-class ChatMessageBubble extends StatelessWidget {
+class ChatMessageBubble extends HookWidget {
   final ChatMessage message;
 
-  const ChatMessageBubble({
-    super.key,
-    required this.message,
-  });
+  const ChatMessageBubble({super.key, required this.message});
 
   @override
   Widget build(BuildContext context) {
     // Parse tool calls and answer sections
     final parsedMessage = _parseMessage(message.content);
 
+    // Check if any tools are still executing
+    final hasExecutingTools = parsedMessage.toolCalls.any(
+      (tool) => tool.status == ToolCallStatus.executing,
+    );
+
+    // Manual override state
+    final manualExpandOverride = useState<bool?>(null);
+
+    // Determine if should be expanded: auto-expand if executing, or use manual override
+    final isExpanded = manualExpandOverride.value ?? hasExecutingTools;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Row(
         mainAxisAlignment: message.isUser
             ? MainAxisAlignment.end
             : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Message content (no bubble for AI, bubble for user)
+          // Message content
           Flexible(
             child: message.isUser
                 ? Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 14,
+                    ),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: AppColors.primary.withValues(alpha: 0.3),
-                        width: 1,
-                      ),
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       message.content,
                       style: TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 15,
-                        height: 1.4,
+                        height: 1.5,
                       ),
                     ),
                   )
@@ -142,63 +154,87 @@ class ChatMessageBubble extends StatelessWidget {
                     children: [
                       // Tool call indicators
                       if (parsedMessage.toolCalls.isNotEmpty) ...[
-                        Wrap(
-                          children: parsedMessage.toolCalls
-                              .map((tool) => _buildToolCallChip(context, tool))
-                              .toList(),
+                        _buildToolCallsSection(
+                          context,
+                          parsedMessage.toolCalls,
+                          isExpanded,
+                          () {
+                            // Toggle manual override
+                            manualExpandOverride.value = !isExpanded;
+                          },
                         ),
                         const SizedBox(height: 12),
                       ],
 
                       // Answer text
                       if (parsedMessage.displayText.isNotEmpty)
-                        RichText(
-                          text: _buildFormattedText(parsedMessage.displayText),
+                        AnimatedStreamingText(
+                          text: parsedMessage.displayText,
+                          textBuilder: _buildFormattedText,
+                          isStreaming: message.isStreaming,
                         ),
 
-                      // Streaming indicator - show when:
-                      // 1. No tools and no text yet (initial thinking), OR
-                      // 2. Tools are complete but no text yet (waiting for final answer)
+                      // Streaming indicator
                       if (message.isStreaming &&
                           parsedMessage.displayText.isEmpty &&
                           (parsedMessage.toolCalls.isEmpty ||
                               parsedMessage.toolCalls.every(
-                                  (t) => t.status != ToolCallStatus.executing))) ...[
+                                (t) => t.status != ToolCallStatus.executing,
+                              ))) ...[
                         Shimmer.fromColors(
                           baseColor: AppColors.textMuted,
-                          highlightColor: AppColors.accent.withValues(alpha: 0.5),
+                          highlightColor: AppColors.accent.withValues(
+                            alpha: 0.5,
+                          ),
                           period: const Duration(milliseconds: 1500),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.auto_awesome,
-                                size: 14,
-                                color: AppColors.textMuted,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Thinking...',
-                                style: TextStyle(
-                                  color: AppColors.textMuted,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  fontStyle: FontStyle.italic,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface.withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: AppColors.borderGlass.withValues(
+                                  alpha: 0.5,
                                 ),
+                                width: 1,
                               ),
-                            ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.auto_awesome,
+                                  size: 14,
+                                  color: AppColors.textMuted,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Thinking...',
+                                  style: TextStyle(
+                                    color: AppColors.textMuted,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
 
                       // Timestamp
                       if (!message.isStreaming && !message.isUser) ...[
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 8),
                         Text(
                           _formatTime(message.timestamp),
                           style: TextStyle(
-                            color: AppColors.textMuted,
+                            color: AppColors.textMuted.withValues(alpha: 0.6),
                             fontSize: 11,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
@@ -210,121 +246,177 @@ class ChatMessageBubble extends StatelessWidget {
     );
   }
 
-  /// Build a tool call chip widget
-  Widget _buildToolCallChip(BuildContext context, ToolCallIndicator tool) {
+  /// Build tool calls section (collapsed or expanded)
+  Widget _buildToolCallsSection(
+    BuildContext context,
+    List<ToolCallIndicator> toolCalls,
+    bool isExpanded,
+    VoidCallback onToggle,
+  ) {
+    if (isExpanded) {
+      // Expanded view - chips morph into full size
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: toolCalls.asMap().entries.map((entry) {
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: _buildMorphingToolChip(
+                context,
+                entry.value,
+                isExpanded: true,
+              ),
+            );
+          }).toList(),
+        ),
+      );
+    } else {
+      // Collapsed view - chips morph into circles
+      return GestureDetector(
+        onTap: onToggle,
+        child: SizedBox(
+          height: 36,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: toolCalls.asMap().entries.map((entry) {
+              final index = entry.key;
+              final tool = entry.value;
+              return AnimatedPositioned(
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeOutCubic,
+                left: index * 24.0,
+                top: 0,
+                child: _buildMorphingToolChip(context, tool, isExpanded: false),
+              );
+            }).toList(),
+          ),
+        ),
+      );
+    }
+  }
+
+  /// Build a morphing tool chip that animates between expanded and collapsed
+  Widget _buildMorphingToolChip(
+    BuildContext context,
+    ToolCallIndicator tool, {
+    required bool isExpanded,
+  }) {
     Color chipColor;
     Color textColor;
+    Color borderColor;
 
     switch (tool.status) {
       case ToolCallStatus.executing:
-        chipColor = AppColors.accent.withValues(alpha: 0.2);
+        chipColor = AppColors.accent.withValues(alpha: 0.6);
         textColor = AppColors.accent;
+        borderColor = AppColors.accent.withValues(alpha: 0.5);
         break;
       case ToolCallStatus.complete:
-        chipColor = Colors.green.withValues(alpha: 0.2);
-        textColor = Colors.green;
+        chipColor = Colors.green.withValues(alpha: 0.6);
+        textColor = Colors.green.shade400;
+        borderColor = Colors.green.withValues(alpha: 0.4);
         break;
       case ToolCallStatus.error:
-        chipColor = Colors.red.withValues(alpha: 0.2);
-        textColor = Colors.red;
+        chipColor = Colors.red.withValues(alpha: 0.6);
+        textColor = Colors.red.shade400;
+        borderColor = Colors.red.withValues(alpha: 0.4);
         break;
     }
 
-    final chipWidget = Container(
-      margin: const EdgeInsets.only(right: 8, bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+      width: isExpanded ? null : 36,
+      height: isExpanded ? null : 36,
+      constraints: isExpanded ? const BoxConstraints(maxWidth: 300) : null,
+      padding: isExpanded
+          ? const EdgeInsets.symmetric(horizontal: 14, vertical: 8)
+          : EdgeInsets.zero,
       decoration: BoxDecoration(
-        color: chipColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: textColor.withValues(alpha: 0.3)),
+        // Solid background with gradient overlay for depth
+        color: AppColors.surface,
+        gradient: LinearGradient(
+          colors: [
+            chipColor,
+            chipColor.withValues(alpha: chipColor.a * 0.6),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(isExpanded ? 16 : 18),
+        border: Border.all(color: borderColor, width: isExpanded ? 1 : 2),
+        boxShadow: tool.status == ToolCallStatus.executing
+            ? [
+                BoxShadow(
+                  color: textColor.withValues(alpha: isExpanded ? 0.2 : 0.4),
+                  blurRadius: isExpanded ? 8 : 10,
+                  spreadRadius: isExpanded ? 0 : 1,
+                ),
+              ]
+            : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Icon
-          Text(tool.icon, style: const TextStyle(fontSize: 14)),
-          const SizedBox(width: 6),
-
-          // Tool name
-          Text(
-            tool.displayName,
-            style: TextStyle(
-              color: textColor,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-
-          // Loading spinner for executing status
-          if (tool.status == ToolCallStatus.executing) ...[
+          // Icon - always visible, centered when collapsed
+          if (!isExpanded)
+            Expanded(
+              child: Center(
+                child: Text(tool.icon, style: const TextStyle(fontSize: 14)),
+              ),
+            )
+          else ...[
+            // Expanded content
+            Text(tool.icon, style: const TextStyle(fontSize: 15)),
             const SizedBox(width: 8),
-            SizedBox(
-              width: 12,
-              height: 12,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: textColor,
+            Flexible(
+              child: Text(
+                tool.displayName,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-          ],
 
-          // Status text
-          if (tool.statusText.isNotEmpty) ...[
-            const SizedBox(width: 6),
-            Text(
-              tool.statusText,
-              style: TextStyle(
-                color: textColor.withValues(alpha: 0.8),
-                fontSize: 11,
+            // Loading spinner or status
+            if (tool.status == ToolCallStatus.executing) ...[
+              const SizedBox(width: 10),
+              SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: textColor,
+                ),
               ),
-            ),
+            ],
+
+            // Status text
+            if (tool.statusText.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Text(
+                tool.statusText,
+                style: TextStyle(
+                  color: textColor.withValues(alpha: 0.9),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ],
         ],
       ),
     );
-
-    // Wrap with Tooltip if params exist
-    if (tool.params != null && tool.params!.isNotEmpty) {
-      return Tooltip(
-        message: _formatParams(tool.params!),
-        preferBelow: false,
-        padding: const EdgeInsets.all(8),
-        textStyle: const TextStyle(
-          fontSize: 11,
-          color: Colors.white,
-          fontFamily: 'monospace',
-        ),
-        decoration: BoxDecoration(
-          color: Colors.black87,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: chipWidget,
-      );
-    }
-
-    return chipWidget;
-  }
-
-  /// Format parameters for display
-  String _formatParams(Map<String, dynamic> params) {
-    final buffer = StringBuffer();
-    params.forEach((key, value) {
-      buffer.write('$key: ');
-      if (value is List) {
-        buffer.write('[${value.join(', ')}]');
-      } else if (value is Map) {
-        buffer.write(jsonEncode(value));
-      } else {
-        buffer.write(value);
-      }
-      buffer.write('\n');
-    });
-    return buffer.toString().trim();
   }
 
   /// Parse message content to extract tool calls and display text
-  ParsedMessage _parseMessage(String content) {
-    final toolCallsMap = <String, ToolCallIndicator>{}; // Use map to deduplicate by tool name
+  static ParsedMessage _parseMessage(String content) {
+    final toolCallsMap =
+        <String, ToolCallIndicator>{}; // Use map to deduplicate by tool name
     final displayTextBuffer = StringBuffer();
 
     // Regex: <tool:name:status:count:params> or <tool:name:status:params> or <tool:name:status>
@@ -347,8 +439,8 @@ class ChatMessageBubble extends StatelessWidget {
       final status = statusStr == 'executing'
           ? ToolCallStatus.executing
           : statusStr == 'error'
-              ? ToolCallStatus.error
-              : ToolCallStatus.complete;
+          ? ToolCallStatus.error
+          : ToolCallStatus.complete;
 
       final count = countStr != null ? int.tryParse(countStr) : null;
 
@@ -391,7 +483,7 @@ class ChatMessageBubble extends StatelessWidget {
   }
 
   // Simple markdown-to-TextSpan converter
-  TextSpan _buildFormattedText(String text) {
+  static TextSpan _buildFormattedText(String text) {
     final spans = <InlineSpan>[];
     final lines = text.split('\n');
 
@@ -415,24 +507,28 @@ class ChatMessageBubble extends StatelessWidget {
       for (final match in matches) {
         // Add text before the match
         if (match.start > currentPos) {
-          lineSpans.add(TextSpan(
-            text: line.substring(currentPos, match.start),
-          ));
+          lineSpans.add(
+            TextSpan(text: line.substring(currentPos, match.start)),
+          );
         }
 
         // Add formatted text
         if (match.group(1) != null) {
           // Bold text
-          lineSpans.add(TextSpan(
-            text: match.group(1),
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ));
+          lineSpans.add(
+            TextSpan(
+              text: match.group(1),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          );
         } else if (match.group(2) != null) {
           // Strikethrough text
-          lineSpans.add(TextSpan(
-            text: match.group(2),
-            style: const TextStyle(decoration: TextDecoration.lineThrough),
-          ));
+          lineSpans.add(
+            TextSpan(
+              text: match.group(2),
+              style: const TextStyle(decoration: TextDecoration.lineThrough),
+            ),
+          );
         }
 
         currentPos = match.end;
@@ -440,9 +536,7 @@ class ChatMessageBubble extends StatelessWidget {
 
       // Add remaining text
       if (currentPos < line.length) {
-        lineSpans.add(TextSpan(
-          text: line.substring(currentPos),
-        ));
+        lineSpans.add(TextSpan(text: line.substring(currentPos)));
       }
 
       // Add the line to spans
@@ -456,15 +550,11 @@ class ChatMessageBubble extends StatelessWidget {
 
     return TextSpan(
       children: spans,
-      style: TextStyle(
-        color: AppColors.textPrimary,
-        fontSize: 15,
-        height: 1.4,
-      ),
+      style: TextStyle(color: AppColors.textPrimary, fontSize: 15, height: 1.4),
     );
   }
 
-  String _formatTime(DateTime time) {
+  static String _formatTime(DateTime time) {
     final now = DateTime.now();
     final diff = now.difference(time);
 
