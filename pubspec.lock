@@ -301,10 +301,10 @@ packages:
     dependency: "direct main"
     description:
       name: firebase_ai
-      sha256: f2037222b3658aafe461044a954fc6b1dea4d3598b3b46ada2f45465ed35f1ef
+      sha256: "97b6a6d642f2f0ef1b19a1ebbe294d8e3d04fbcd092e4d4be77f21713b91e5c1"
       url: "https://pub.dev"
     source: hosted
-    version: "3.6.1"
+    version: "3.4.0"
   firebase_analytics:
     dependency: "direct main"
     description:
@@ -470,6 +470,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.4.1"
+  flutter_dotenv:
+    dependency: "direct main"
+    description:
+      name: flutter_dotenv
+      sha256: b7c7be5cd9f6ef7a78429cabd2774d3c4af50e79cb2b7593e3d5d763ef95c61b
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.2.1"
   flutter_hooks:
     dependency: "direct main"
     description:
@@ -696,6 +704,30 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.9.0"
+  langchain:
+    dependency: "direct main"
+    description:
+      name: langchain
+      sha256: b7035e0903953cb065734499296e66d9fa0f6e15934aa2f57389b9fb6b001aab
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.8.1"
+  langchain_core:
+    dependency: transitive
+    description:
+      name: langchain_core
+      sha256: fce3cd0e31dcbac80d209f6361207936a58b05506b800f13227cbe83f6e3e721
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.4.1"
+  langchain_firebase:
+    dependency: "direct main"
+    description:
+      name: langchain_firebase
+      sha256: bdcfd570d958555a07d0703fd6daf5e2387747477fb3f34846354f02208f0f75
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.2"
   launch_at_startup:
     dependency: "direct main"
     description:
@@ -1064,6 +1096,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.1"
+  shimmer:
+    dependency: "direct main"
+    description:
+      name: shimmer
+      sha256: "5f88c883a22e9f9f299e5ba0e4f7e6054857224976a5d9f839d4ebdc94a14ac9"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.0.0"
   shortid:
     dependency: transitive
     description:

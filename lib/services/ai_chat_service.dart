@@ -1,330 +1,564 @@
 import 'dart:async';
-import 'package:firebase_ai/firebase_ai.dart';
+import 'dart:convert';
+import 'package:langchain/langchain.dart';
+import 'package:langchain_firebase/langchain_firebase.dart';
 import 'package:flutter/foundation.dart';
 import 'api_service.dart';
 
-/// Service for managing AI chat conversations using Firebase Vertex AI (Gemini)
-/// with function calling for EGData API integration
+/// Service for managing AI chat conversations using LangChain with Gemini
+/// with tool calling for EGData API integration
 class AIChatService {
   final ApiService _apiService;
   final String _country;
-  GenerativeModel? _model;
-  ChatSession? _chatSession;
+  ChatFirebaseVertexAI? _chatModel;
+  SystemChatMessage? _systemMessage;
+  List<Tool> _tools = [];
+  List<ChatMessage> _chatHistory = [];
 
   AIChatService({required ApiService apiService, required String country})
     : _apiService = apiService,
       _country = country;
 
-  /// Initialize the generative model with EGData tools
+  /// Initialize the chat model with EGData tools
   void initialize() {
-    if (_model != null) return;
+    if (_chatModel != null) return;
 
-    // Define the tools following the Discord bot pattern
-    final tools = [
-      Tool.functionDeclarations([
-        _createSearchOffersTool(),
-        _createGetOfferDetailsTool(),
-        _createGetOfferPriceTool(),
-        _createGetFreeGamesTool(),
-        _createGetTopSellersTool(),
-        _createGetTopWishlistedTool(),
-        _createGetUpcomingGamesTool(),
-        _createGetLatestReleasesTool(),
-        _createSearchSellersTool(),
-      ]),
-    ];
+    debugPrint('🔧 Initializing AIChatService...');
 
-    // Configure thinking to enhance reasoning capabilities
-    final thinkingConfig = ThinkingConfig(
-      thinkingBudget: -1, // Dynamic thinking - model determines optimal allocation
-      includeThoughts: true, // Include thought summaries in responses
+    debugPrint('📱 Creating ChatFirebaseVertexAI...');
+    _chatModel = ChatFirebaseVertexAI(
+      defaultOptions: const ChatFirebaseVertexAIOptions(
+        model: 'gemini-2.5-pro',
+        temperature: 0.7,
+      ),
     );
+    debugPrint('✅ Model created');
 
-    final generationConfig = GenerationConfig(
-      thinkingConfig: thinkingConfig,
-    );
-
-    // Create the generative model with tools
-    // Using Gemini 2.5 Flash because Gemini 3 requires thought_signature support
-    // which is not yet fully implemented in firebase_ai SDK for streaming function calls
-    _model = FirebaseAI.googleAI().generativeModel(
-      model: 'gemini-2.5-flash',
-      tools: tools,
-      generationConfig: generationConfig,
-      systemInstruction: Content.text(
+    debugPrint('📝 Creating system message...');
+    final systemInstructionText =
         'You are EGData AI, an Epic Games Store assistant. '
-        'Current user country: $_country\n\n'
-
+        'User\'s default country: $_country\n\n'
         '## Core Behavior\n'
         '- **Helpful & Smart**: Use reasoning and knowledge to answer questions. You know about games, developers, genres, and gaming history.\n'
         '- **Tools for Live Data**: Use tools ONLY for current prices, availability, and store data. Your knowledge covers game info, recommendations, and riddles.\n'
         '- **Be Concise**: Direct answers. No narration ("Let me search..."). Just answer.\n\n'
-
         '## When to Use Tools vs Knowledge\n\n'
         '**Use Tools For:**\n'
         '• Current prices, sales, discounts (get_offer_price, search_offers with onSale)\n'
         '• What\'s available NOW on Epic Store (search_offers)\n'
         '• Active free games (get_free_games)\n'
         '• Specific offer details (get_offer_details)\n\n'
-
         '**Use Your Knowledge For:**\n'
         '• Game recommendations by genre, theme, developer\n'
         '• Riddles, clues, trivia about games\n'
         '• Developer/publisher info (country of origin, history)\n'
         '• Game mechanics, story summaries, comparisons\n'
         '• "Games like X" suggestions\n\n'
-
         '## Output Format\n'
         '- **Game titles**: **Bold**\n'
-        '- **Prices**: **\$14.99** ~~\$59.99~~ (-75%) — discount first, original with strikethrough\n'
+        '- **Prices**: **\$40.19** ~~\$59.99~~ (-33%) — discount first, original with strikethrough, percentage in parentheses\n'
         '- **Dates**: Clear format (e.g., "January 8, 2026")\n'
         '- **Lists**: Bullet points (•) for games, features\n'
         '- **Structure**: Short paragraphs, scannable\n\n'
-
         '## Tool Usage\n'
-        '- **search_offers**: Find games with filters (offerType, tags, onSale, price range, seller)\n'
-        '- **get_offer_price**: Current pricing (always pass country "$_country")\n'
+        '- **search_offers**: Find games with filters (offerType, tags, onSale, price range, seller). Uses user\'s country ($_country) for pricing.\n'
+        '- **get_offer_price**: Get pricing for ANY country. Pass country code (e.g., "ES" for Spain, "US" for United States) or omit for user\'s default ($_country).\n'
         '- **get_offer_details**: Description, release date, requirements\n'
         '- **get_free_games**: Active giveaways with end dates\n'
         '- **get_top_sellers / get_top_wishlisted**: Popular games\n\n'
-
+        '## Pricing & Countries\n'
+        '- You CAN provide prices for ANY country when asked (use get_offer_price with country parameter)\n'
+        '- Common country codes: US, UK, ES (Spain), DE (Germany), FR (France), IT (Italy), CA (Canada), AU (Australia), JP (Japan)\n'
+        '- When user asks "in [country]", use the appropriate country code\n'
+        '- Default to user\'s country ($_country) only when no specific country is mentioned\n\n'
         '## Rules\n'
         '1. For riddles/recommendations: Use knowledge first, optionally search to verify availability\n'
-        '2. For prices/sales: ALWAYS use tools with country "$_country"\n'
+        '2. For prices: Use get_offer_price with appropriate country code (default to "$_country" if not specified)\n'
         '3. Show 5-7 results unless asked for more\n'
-        '4. Keep responses focused and scannable',
-      ),
-    );
+        '4. Keep responses focused and scannable';
 
-    // Start a new chat session
-    _chatSession = _model!.startChat();
+    _systemMessage = SystemChatMessage(content: systemInstructionText);
+    debugPrint('✅ System message created');
+
+    debugPrint('🔨 Creating tools...');
+    try {
+      debugPrint('  Creating search_offers tool...');
+      final tool1 = _createSearchOffersTool();
+      debugPrint('  ✅ search_offers created');
+
+      debugPrint('  Creating get_offer_details tool...');
+      final tool2 = _createGetOfferDetailsTool();
+      debugPrint('  ✅ get_offer_details created');
+
+      debugPrint('  Creating get_offer_price tool...');
+      final tool3 = _createGetOfferPriceTool();
+      debugPrint('  ✅ get_offer_price created');
+
+      debugPrint('  Creating get_free_games tool...');
+      final tool4 = _createGetFreeGamesTool();
+      debugPrint('  ✅ get_free_games created');
+
+      debugPrint('  Creating get_top_sellers tool...');
+      final tool5 = _createGetTopSellersTool();
+      debugPrint('  ✅ get_top_sellers created');
+
+      debugPrint('  Creating get_top_wishlisted tool...');
+      final tool6 = _createGetTopWishlistedTool();
+      debugPrint('  ✅ get_top_wishlisted created');
+
+      debugPrint('  Creating get_upcoming_games tool...');
+      final tool7 = _createGetUpcomingGamesTool();
+      debugPrint('  ✅ get_upcoming_games created');
+
+      debugPrint('  Creating get_latest_releases tool...');
+      final tool8 = _createGetLatestReleasesTool();
+      debugPrint('  ✅ get_latest_releases created');
+
+      debugPrint('  Creating search_sellers tool...');
+      final tool9 = _createSearchSellersTool();
+      debugPrint('  ✅ search_sellers created');
+
+      _tools = [tool1, tool2, tool3, tool4, tool5, tool6, tool7, tool8, tool9];
+      debugPrint('✅ All tools created and added to list');
+    } catch (e) {
+      debugPrint('❌ Error creating tools: $e');
+      rethrow;
+    }
+
+    _chatHistory = [];
+    debugPrint('✅ AIChatService initialization complete');
   }
 
   /// Create search_offers tool
-  FunctionDeclaration _createSearchOffersTool() {
-    return FunctionDeclaration(
-      'search_offers',
-      'Search games with filters (offerType, seller, tags, price range, discounts). Returns game titles and IDs.',
-      parameters: {
-        'query': Schema.string(
-          description: 'Search query for game titles',
-        ),
-        'offerType': Schema.string(
-          description: 'Type: BASE_GAME, DLC, BUNDLE, EDITION, DEMO, etc.',
-        ),
-        'tags': Schema.array(
-          items: Schema.string(),
-          description: 'Genre/category tags (e.g., ["RPG", "Action"])',
-        ),
-        'onSale': Schema.boolean(
-          description: 'Filter for games currently on sale',
-        ),
-        'priceMin': Schema.integer(
-          description: 'Minimum price in cents (e.g., 1000 for \$10)',
-        ),
-        'priceMax': Schema.integer(
-          description: 'Maximum price in cents (e.g., 2000 for \$20)',
-        ),
-        'limit': Schema.integer(
-          description: 'Max results (default: 10, max: 10)',
-        ),
+  Tool _createSearchOffersTool() {
+    return Tool.fromFunction<Map<String, dynamic>, Map<String, dynamic>>(
+      name: 'search_offers',
+      description:
+          'Search games with filters (offerType, seller, tags, price range, discounts). Returns game titles and IDs.',
+      inputJsonSchema: <String, dynamic>{
+        'type': 'object',
+        'properties': <String, dynamic>{
+          'query': <String, dynamic>{
+            'type': 'string',
+            'description': 'Search query for game titles',
+          },
+          'offerType': <String, dynamic>{
+            'type': 'string',
+            'description': 'Type: BASE_GAME, DLC, BUNDLE, EDITION, DEMO, etc.',
+          },
+          'tags': <String, dynamic>{
+            'type': 'array',
+            'items': <String, dynamic>{'type': 'string'},
+            'description': 'Genre/category tags (e.g., ["RPG", "Action"])',
+          },
+          'onSale': <String, dynamic>{
+            'type': 'boolean',
+            'description': 'Filter for games currently on sale',
+          },
+          'priceMin': <String, dynamic>{
+            'type': 'integer',
+            'description': 'Minimum price in cents (e.g., 1000 for \$10)',
+          },
+          'priceMax': <String, dynamic>{
+            'type': 'integer',
+            'description': 'Maximum price in cents (e.g., 2000 for \$20)',
+          },
+          'limit': <String, dynamic>{
+            'type': 'integer',
+            'description': 'Max results (default: 10, max: 10)',
+          },
+        },
       },
+      func: (toolInput) async => await _searchOffers(toolInput),
     );
   }
 
   /// Create get_offer_details tool
-  FunctionDeclaration _createGetOfferDetailsTool() {
-    return FunctionDeclaration(
-      'get_offer_details',
-      'Get full details for a single game including description, release date, seller, tags, and requirements.',
-      parameters: {
-        'offerId': Schema.string(
-          description: 'The offer ID from search results',
-        ),
+  Tool _createGetOfferDetailsTool() {
+    return Tool.fromFunction<Map<String, dynamic>, Map<String, dynamic>>(
+      name: 'get_offer_details',
+      description:
+          'Get full details for a single game including description, release date, seller, tags, and requirements.',
+      inputJsonSchema: <String, dynamic>{
+        'type': 'object',
+        'properties': <String, dynamic>{
+          'offerId': <String, dynamic>{
+            'type': 'string',
+            'description': 'The offer ID from search results',
+          },
+        },
+        'required': ['offerId'],
       },
+      func: (toolInput) async => await _getOfferDetails(toolInput),
     );
   }
 
   /// Create get_offer_price tool
-  FunctionDeclaration _createGetOfferPriceTool() {
-    return FunctionDeclaration(
-      'get_offer_price',
-      'Get current pricing for a single game with original price, discount price, and discount percentage.',
-      parameters: {'offerId': Schema.string(description: 'The offer ID')},
+  Tool _createGetOfferPriceTool() {
+    return Tool.fromFunction<Map<String, dynamic>, Map<String, dynamic>>(
+      name: 'get_offer_price',
+      description:
+          'Get current pricing for a single game with original price, discount price, and discount percentage. Can fetch prices for any country.',
+      inputJsonSchema: <String, dynamic>{
+        'type': 'object',
+        'properties': <String, dynamic>{
+          'offerId': <String, dynamic>{
+            'type': 'string',
+            'description': 'The offer ID',
+          },
+          'country': <String, dynamic>{
+            'type': 'string',
+            'description':
+                'Two-letter country code (e.g., "US", "ES", "UK", "DE"). Defaults to user\'s country ($_country) if not specified.',
+          },
+        },
+        'required': ['offerId'],
+      },
+      func: (toolInput) async => await _getOfferPrice(toolInput),
     );
   }
 
   /// Create get_free_games tool
-  FunctionDeclaration _createGetFreeGamesTool() {
-    return FunctionDeclaration(
-      'get_free_games',
-      'Get currently active free game giveaways from Epic Games Store.',
-      parameters: {},
+  Tool _createGetFreeGamesTool() {
+    return Tool.fromFunction<Map<String, dynamic>, Map<String, dynamic>>(
+      name: 'get_free_games',
+      description:
+          'Get currently active free game giveaways from Epic Games Store.',
+      inputJsonSchema: <String, dynamic>{
+        'type': 'object',
+        'properties': <String, dynamic>{},
+      },
+      func: (toolInput) async => await _getFreeGames(),
     );
   }
 
   /// Create get_top_sellers tool
-  FunctionDeclaration _createGetTopSellersTool() {
-    return FunctionDeclaration(
-      'get_top_sellers',
-      'Get best-selling games (returns titles and IDs only, use get_offer_price for pricing).',
-      parameters: {
-        'count': Schema.integer(
-          description: 'Number of results (max: 50)',
-        ),
+  Tool _createGetTopSellersTool() {
+    return Tool.fromFunction<Map<String, dynamic>, Map<String, dynamic>>(
+      name: 'get_top_sellers',
+      description:
+          'Get best-selling games (returns titles and IDs only, use get_offer_price for pricing).',
+      inputJsonSchema: <String, dynamic>{
+        'type': 'object',
+        'properties': <String, dynamic>{
+          'count': <String, dynamic>{
+            'type': 'integer',
+            'description': 'Number of results (max: 50)',
+          },
+        },
       },
+      func: (toolInput) async => await _getTopSellers(toolInput),
     );
   }
 
   /// Create get_top_wishlisted tool
-  FunctionDeclaration _createGetTopWishlistedTool() {
-    return FunctionDeclaration(
-      'get_top_wishlisted',
-      'Get most-wishlisted games (returns titles and IDs only, use get_offer_price for pricing).',
-      parameters: {
-        'count': Schema.integer(
-          description: 'Number of results (max: 50)',
-        ),
+  Tool _createGetTopWishlistedTool() {
+    return Tool.fromFunction<Map<String, dynamic>, Map<String, dynamic>>(
+      name: 'get_top_wishlisted',
+      description:
+          'Get most-wishlisted games (returns titles and IDs only, use get_offer_price for pricing).',
+      inputJsonSchema: <String, dynamic>{
+        'type': 'object',
+        'properties': <String, dynamic>{
+          'count': <String, dynamic>{
+            'type': 'integer',
+            'description': 'Number of results (max: 50)',
+          },
+        },
       },
+      func: (toolInput) async => await _getTopWishlisted(toolInput),
     );
   }
 
   /// Create get_upcoming_games tool
-  FunctionDeclaration _createGetUpcomingGamesTool() {
-    return FunctionDeclaration(
-      'get_upcoming_games',
-      'Get upcoming game releases with release dates.',
-      parameters: {
-        'limit': Schema.integer(
-          description: 'Number of results per page',
-        ),
+  Tool _createGetUpcomingGamesTool() {
+    return Tool.fromFunction<Map<String, dynamic>, Map<String, dynamic>>(
+      name: 'get_upcoming_games',
+      description: 'Get upcoming game releases with release dates.',
+      inputJsonSchema: <String, dynamic>{
+        'type': 'object',
+        'properties': <String, dynamic>{
+          'limit': <String, dynamic>{
+            'type': 'integer',
+            'description': 'Number of results per page',
+          },
+        },
       },
+      func: (toolInput) async => await _getUpcomingGames(toolInput),
     );
   }
 
   /// Create get_latest_releases tool
-  FunctionDeclaration _createGetLatestReleasesTool() {
-    return FunctionDeclaration(
-      'get_latest_releases',
-      'Get recently released games.',
-      parameters: {
-        'limit': Schema.integer(
-          description: 'Number of results per page',
-        ),
+  Tool _createGetLatestReleasesTool() {
+    return Tool.fromFunction<Map<String, dynamic>, Map<String, dynamic>>(
+      name: 'get_latest_releases',
+      description: 'Get recently released games.',
+      inputJsonSchema: <String, dynamic>{
+        'type': 'object',
+        'properties': <String, dynamic>{
+          'limit': <String, dynamic>{
+            'type': 'integer',
+            'description': 'Number of results per page',
+          },
+        },
       },
+      func: (toolInput) async => await _getLatestReleases(toolInput),
     );
   }
 
   /// Create search_sellers tool
-  FunctionDeclaration _createSearchSellersTool() {
-    return FunctionDeclaration(
-      'search_sellers',
-      'Find publishers/developers by name to get seller IDs for filtering.',
-      parameters: {
-        'query': Schema.string(
-          description: 'Publisher or developer name to search for',
-        ),
+  Tool _createSearchSellersTool() {
+    return Tool.fromFunction<Map<String, dynamic>, Map<String, dynamic>>(
+      name: 'search_sellers',
+      description:
+          'Find publishers/developers by name to get seller IDs for filtering.',
+      inputJsonSchema: <String, dynamic>{
+        'type': 'object',
+        'properties': <String, dynamic>{
+          'query': <String, dynamic>{
+            'type': 'string',
+            'description': 'Publisher or developer name to search for',
+          },
+        },
+        'required': ['query'],
       },
+      func: (toolInput) async => await _searchSellers(toolInput),
     );
   }
 
-  /// Send a message and get streaming response with function calling and thinking
+  /// Send a message and get streaming response with tool calling
   Stream<String> sendMessage(String userMessage) async* {
-    if (_model == null || _chatSession == null) {
+    if (_chatModel == null || _systemMessage == null) {
       initialize();
     }
 
     try {
-      final response = _chatSession!.sendMessageStream(
-        Content.text(userMessage),
+      debugPrint('📤 Sending message: $userMessage');
+
+      // Add user message to history
+      final userMsg = HumanChatMessage(
+        content: ChatMessageContent.text(userMessage),
       );
+      _chatHistory.add(userMsg);
+      debugPrint('✅ Added user message to history');
 
-      var hasYieldedThoughts = false;
+      // Build prompt with system message + history
+      debugPrint('🔨 Building prompt with ${_chatHistory.length} messages');
+      final prompt = PromptValue.chat([_systemMessage!, ..._chatHistory]);
+      debugPrint('✅ Prompt built successfully');
 
-      await for (final chunk in response) {
-        // Stream thought summaries if available
-        final thoughtSummary = chunk.thoughtSummary;
-        if (thoughtSummary != null && thoughtSummary.isNotEmpty) {
-          if (!hasYieldedThoughts) {
-            yield '<thinking>\n';
-            hasYieldedThoughts = true;
-          }
-          yield thoughtSummary;
-        }
+      // FIRST REQUEST: Get model response (may include tool calls)
+      debugPrint('🚀 Starting stream with ${_tools.length} tools');
 
-        // Check if Gemini wants to call functions
-        final functionCalls = chunk.functionCalls.toList();
-        if (functionCalls.isNotEmpty) {
-          // Execute each function call and send response back
-          for (final functionCall in functionCalls) {
-            debugPrint('AI calling function: ${functionCall.name}');
+      // Create options with tools
+      debugPrint('🔧 Creating ChatFirebaseVertexAIOptions...');
+      late final ChatFirebaseVertexAIOptions options;
+      try {
+        options = ChatFirebaseVertexAIOptions(tools: _tools);
+        debugPrint('✅ Options created');
+      } catch (e) {
+        debugPrint('❌ Error creating options: $e');
+        debugPrint('❌ Error stack: ${StackTrace.current}');
+        rethrow;
+      }
 
-            try {
-              final result = await _executeTool(
-                functionCall.name,
-                functionCall.args,
-              );
+      debugPrint('🌊 Calling stream...');
+      final stream = _chatModel!.stream(prompt, options: options);
+      debugPrint('✅ Stream created');
 
-              // Send function response back to the model
-              final followUpResponse = _chatSession!.sendMessageStream(
-                Content.functionResponse(functionCall.name, result),
-              );
+      bool hasToolCalls = false;
+      final toolCallsToExecute = <AIChatMessageToolCall>[];
+      final contentBuffer = StringBuffer();
 
-              // Stream the model's response after receiving function result
-              await for (final followUpChunk in followUpResponse) {
-                // Stream thought summaries from follow-up response
-                final followUpThought = followUpChunk.thoughtSummary;
-                if (followUpThought != null && followUpThought.isNotEmpty) {
-                  if (!hasYieldedThoughts) {
-                    yield '<thinking>\n';
-                    hasYieldedThoughts = true;
-                  }
-                  yield followUpThought;
-                }
+      debugPrint('📥 Starting to process stream chunks...');
+      await for (final chunk in stream) {
+        debugPrint('📦 Received chunk');
+        try {
+          final aiMessage = chunk.output;
+          debugPrint('✅ Got aiMessage from chunk');
 
-                final text = followUpChunk.text;
-                if (text != null && text.isNotEmpty) {
-                  // Close thinking tag before answer
-                  if (hasYieldedThoughts) {
-                    yield '\n</thinking>\n\n';
-                    hasYieldedThoughts = false;
-                  }
-                  yield text;
-                }
-              }
-            } catch (e) {
-              debugPrint('Error executing ${functionCall.name}: $e');
-              // Send error as function response
-              final errorResponse = _chatSession!.sendMessageStream(
-                Content.functionResponse(functionCall.name, {
-                  'error': 'Failed to execute: ${e.toString()}',
-                }),
-              );
+          // Check for tool calls in this chunk
+          if (aiMessage.toolCalls.isNotEmpty) {
+            hasToolCalls = true;
+            debugPrint('🔧 Found ${aiMessage.toolCalls.length} tool calls');
 
-              await for (final errorChunk in errorResponse) {
-                final text = errorChunk.text;
-                if (text != null && text.isNotEmpty) {
-                  yield text;
-                }
-              }
+            for (final toolCall in aiMessage.toolCalls) {
+              debugPrint('  Tool: ${toolCall.name}');
+              // NEW TOOL CALL - yield executing indicator with params
+              final paramsJson = _convertToStringMap(toolCall.arguments);
+              final paramsEncoded = Uri.encodeComponent(jsonEncode(paramsJson));
+              yield '<tool:${toolCall.name}:executing:$paramsEncoded>';
+              toolCallsToExecute.add(toolCall);
             }
           }
-        } else {
-          // Regular text response
-          final text = chunk.text;
+
+          // Stream text content if present
+          final content = aiMessage.content;
+          String? text;
+          if (content is ChatMessageContentText) {
+            text = (content as ChatMessageContentText).text;
+          } else if (content is String) {
+            text = content;
+          }
+
           if (text != null && text.isNotEmpty) {
-            // Close thinking tag before answer
-            if (hasYieldedThoughts) {
-              yield '\n</thinking>\n\n';
-              hasYieldedThoughts = false;
-            }
+            debugPrint('📝 Text content: ${text.length} chars');
+            contentBuffer.write(text);
             yield text;
+          } else {
+            debugPrint(
+              '⚠️  Content type: ${content.runtimeType}, no text to yield',
+            );
+          }
+        } catch (e) {
+          debugPrint('Error processing chunk: $e');
+          debugPrint('Chunk type: ${chunk.runtimeType}');
+          debugPrint('Output type: ${chunk.output.runtimeType}');
+          debugPrint('Content type: ${chunk.output.content.runtimeType}');
+          rethrow;
+        }
+      }
+
+      // EXECUTE TOOLS if any were called
+      if (hasToolCalls) {
+        debugPrint('🛠️  Executing ${toolCallsToExecute.length} tools...');
+        // Execute all tools
+        for (final toolCall in toolCallsToExecute) {
+          try {
+            debugPrint('  Executing: ${toolCall.name}');
+            final result = await _executeTool(
+              toolCall.name,
+              _convertToStringMap(toolCall.arguments),
+            );
+
+            // Calculate result count (for "Found X games" display)
+            final resultCount = _extractResultCount(toolCall.name, result);
+            debugPrint(
+              '  ✅ Tool ${toolCall.name} completed (count: $resultCount)',
+            );
+
+            // Yield completion indicator with params
+            final paramsJson = _convertToStringMap(toolCall.arguments);
+            final paramsEncoded = Uri.encodeComponent(jsonEncode(paramsJson));
+            yield '<tool:${toolCall.name}:complete:$resultCount:$paramsEncoded>';
+
+            // Add tool result to history immediately
+            _chatHistory.add(
+              ToolChatMessage(
+                toolCallId: toolCall.id,
+                content: result.toString(),
+              ),
+            );
+          } catch (e) {
+            debugPrint('Error executing ${toolCall.name}: $e');
+
+            final paramsJson = _convertToStringMap(toolCall.arguments);
+            final paramsEncoded = Uri.encodeComponent(jsonEncode(paramsJson));
+            yield '<tool:${toolCall.name}:error:0:$paramsEncoded>';
+
+            // Add error result to history
+            _chatHistory.add(
+              ToolChatMessage(
+                toolCallId: toolCall.id,
+                content: 'Error: ${e.toString()}',
+              ),
+            );
           }
         }
+
+        // Add AI message with tool calls to history BEFORE tool results
+        _chatHistory.insert(
+          _chatHistory.length - toolCallsToExecute.length,
+          AIChatMessage(
+            content: contentBuffer.toString(),
+            toolCalls: toolCallsToExecute,
+          ),
+        );
+
+        // SECOND REQUEST: Get final answer after tools executed
+        debugPrint('🔄 Making second request for final answer...');
+        final finalPrompt = PromptValue.chat([
+          _systemMessage!,
+          ..._chatHistory,
+        ]);
+
+        final finalStream = _chatModel!.stream(finalPrompt);
+        debugPrint('🌊 Processing final stream...');
+
+        await for (final chunk in finalStream) {
+          debugPrint('📦 Received final chunk');
+          final content = chunk.output.content;
+
+          // Handle both ChatMessageContentText and plain String content
+          String? text;
+          if (content is ChatMessageContentText) {
+            text = (content as ChatMessageContentText).text;
+          } else if (content is String) {
+            text = content;
+          }
+
+          if (text != null && text.isNotEmpty) {
+            debugPrint('📝 Final text: ${text.length} chars');
+            yield text;
+          } else {
+            debugPrint(
+              '⚠️ No text in chunk, content type: ${content.runtimeType}',
+            );
+          }
+        }
+        debugPrint('✅ Final stream complete');
+      }
+
+      // Add final AI message to history
+      if (!hasToolCalls && contentBuffer.isNotEmpty) {
+        _chatHistory.add(AIChatMessage(content: contentBuffer.toString()));
       }
     } catch (e) {
       debugPrint('Error in sendMessage: $e');
       yield 'Sorry, I encountered an error: ${e.toString()}';
+    }
+  }
+
+  /// Convert dynamic map to properly typed Map with String keys and dynamic values
+  Map<String, dynamic> _convertToStringMap(dynamic map) {
+    if (map == null) return {};
+    if (map is Map<String, dynamic>) return map;
+
+    final result = <String, dynamic>{};
+    if (map is Map) {
+      map.forEach((key, value) {
+        if (value is Map) {
+          result[key.toString()] = _convertToStringMap(value);
+        } else if (value is List) {
+          result[key.toString()] = value.map((e) {
+            if (e is Map) return _convertToStringMap(e);
+            return e;
+          }).toList();
+        } else {
+          result[key.toString()] = value;
+        }
+      });
+    }
+    return result;
+  }
+
+  /// Extract result count from tool response for display
+  int _extractResultCount(String toolName, Map<String, dynamic> result) {
+    switch (toolName) {
+      case 'search_offers':
+      case 'get_free_games':
+        return (result['count'] as int?) ?? 0;
+      case 'get_top_sellers':
+      case 'get_top_wishlisted':
+      case 'get_upcoming_games':
+      case 'get_latest_releases':
+        final games = result['games'] as List?;
+        return games?.length ?? 0;
+      case 'search_sellers':
+        final sellers = result['sellers'] as List?;
+        return sellers?.length ?? 0;
+      default:
+        return 0; // get_offer_details, get_offer_price return single item
     }
   }
 
@@ -460,9 +694,10 @@ class AIChatService {
   Future<Map<String, dynamic>> _getOfferPrice(Map<String, dynamic> args) async {
     try {
       final offerId = args['offerId'] as String;
+      final country = (args['country'] as String?) ?? _country;
       final priceData = await _apiService.getOfferPrice(
         offerId,
-        country: _country,
+        country: country,
       );
 
       if (priceData == null) {
@@ -664,14 +899,14 @@ class AIChatService {
 
   /// Clear chat history and start fresh
   void clearChat() {
-    if (_model != null) {
-      _chatSession = _model!.startChat();
-    }
+    _chatHistory = [];
   }
 
   /// Dispose resources
   void dispose() {
-    _chatSession = null;
-    _model = null;
+    _chatHistory = [];
+    _chatModel = null;
+    _systemMessage = null;
+    _tools = [];
   }
 }

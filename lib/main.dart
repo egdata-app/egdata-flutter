@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_in_app_messaging/firebase_in_app_messaging.dart';
 import 'package:fluquery/fluquery.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'app_shell.dart';
 import 'utils/platform_utils.dart';
 import 'services/analytics_service.dart';
@@ -13,10 +14,17 @@ import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:windows_single_instance/windows_single_instance.dart';
 
 // App version - keep in sync with pubspec.yaml
-const String appVersion = '1.0.18';
+const String appVersion = '1.0.20';
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load environment variables (currently not used, but kept for future configuration)
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (e) {
+    debugPrint('Warning: .env file not found (optional).');
+  }
 
   // Initialize Firebase for mobile platforms (required for push notifications and analytics)
   // Firebase configuration files (google-services.json / GoogleService-Info.plist) are optional

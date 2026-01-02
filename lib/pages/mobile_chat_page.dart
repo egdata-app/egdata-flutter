@@ -45,10 +45,18 @@ class MobileChatPage extends HookWidget {
     }).toList();
   }
 
+  /// Strip tool call tags from content for cleaner database storage
+  String _stripToolTags(String content) {
+    return content.replaceAll(
+      RegExp(r'<tool:[^>]+>', multiLine: true),
+      '',
+    ).trim();
+  }
+
   Future<void> _saveChatMessage(ChatMessage message) async {
     final entry = ChatMessageEntry()
       ..messageId = message.id
-      ..content = message.content
+      ..content = _stripToolTags(message.content)  // Clean content for DB
       ..isUser = message.isUser
       ..timestamp = message.timestamp
       ..gameResultsJson = message.gameResultsJsonString;

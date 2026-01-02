@@ -1,8 +1,99 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shimmer/shimmer.dart';
 import '../main.dart';
 import '../models/chat_message.dart';
 
-class ChatMessageBubble extends StatefulWidget {
+/// Tool call status indicator
+enum ToolCallStatus { executing, complete, error }
+
+/// Represents a single tool call indicator in the chat
+class ToolCallIndicator {
+  final String toolName;
+  final ToolCallStatus status;
+  final int? resultCount;
+  final Map<String, dynamic>? params;
+
+  ToolCallIndicator({
+    required this.toolName,
+    required this.status,
+    this.resultCount,
+    this.params,
+  });
+
+  String get icon {
+    switch (toolName) {
+      case 'search_offers':
+        return '🔍';
+      case 'get_offer_price':
+        return '💰';
+      case 'get_free_games':
+        return '🎮';
+      case 'get_offer_details':
+        return '📋';
+      case 'get_top_sellers':
+      case 'get_top_wishlisted':
+        return '⭐';
+      case 'get_upcoming_games':
+        return '🗓️';
+      case 'get_latest_releases':
+        return '🆕';
+      case 'search_sellers':
+        return '🏢';
+      default:
+        return '🔧';
+    }
+  }
+
+  String get displayName {
+    switch (toolName) {
+      case 'search_offers':
+        return 'Search Offers';
+      case 'get_offer_price':
+        return 'Get Pricing';
+      case 'get_free_games':
+        return 'Free Games';
+      case 'get_offer_details':
+        return 'Game Details';
+      case 'get_top_sellers':
+        return 'Top Sellers';
+      case 'get_top_wishlisted':
+        return 'Most Wishlisted';
+      case 'get_upcoming_games':
+        return 'Upcoming Games';
+      case 'get_latest_releases':
+        return 'Latest Releases';
+      case 'search_sellers':
+        return 'Search Publishers';
+      default:
+        return toolName;
+    }
+  }
+
+  String get statusText {
+    switch (status) {
+      case ToolCallStatus.executing:
+        return '';
+      case ToolCallStatus.complete:
+        if (resultCount != null && resultCount! > 0) {
+          return '✓ Found $resultCount ${resultCount == 1 ? "result" : "results"}';
+        }
+        return '✓ Complete';
+      case ToolCallStatus.error:
+        return '✗ Error';
+    }
+  }
+}
+
+/// Parsed message with separated display text and tool calls
+class ParsedMessage {
+  final String displayText;
+  final List<ToolCallIndicator> toolCalls;
+
+  ParsedMessage({required this.displayText, required this.toolCalls});
+}
+
+class ChatMessageBubble extends StatelessWidget {
   final ChatMessage message;
 
   const ChatMessageBubble({
@@ -11,58 +102,21 @@ class ChatMessageBubble extends StatefulWidget {
   });
 
   @override
-  State<ChatMessageBubble> createState() => _ChatMessageBubbleState();
-}
-
-class _ChatMessageBubbleState extends State<ChatMessageBubble>
-    with SingleTickerProviderStateMixin {
-  bool _isThinkingExpanded = false;
-  AnimationController? _shimmerController;
-  Animation<double>? _shimmerAnimation;
-  DateTime? _thinkingStartTime;
-
-  @override
-  void initState() {
-    super.initState();
-    _shimmerController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat();
-    _shimmerAnimation = Tween<double>(begin: -2, end: 2).animate(
-      CurvedAnimation(parent: _shimmerController!, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _shimmerController?.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    // Parse thinking and answer sections
-    final parsedMessage = _parseMessage(widget.message.content);
-
-    // Track thinking start time
-    if (widget.message.isStreaming &&
-        parsedMessage['thinking'] != null &&
-        parsedMessage['answer'] == null &&
-        _thinkingStartTime == null) {
-      _thinkingStartTime = DateTime.now();
-    }
+    // Parse tool calls and answer sections
+    final parsedMessage = _parseMessage(message.content);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
-        mainAxisAlignment: widget.message.isUser
+        mainAxisAlignment: message.isUser
             ? MainAxisAlignment.end
             : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Message content (no bubble for AI, bubble for user)
           Flexible(
-            child: widget.message.isUser
+            child: message.isUser
                 ? Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -75,7 +129,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble>
                       ),
                     ),
                     child: Text(
-                      widget.message.content,
+                      message.content,
                       style: TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 15,
@@ -84,220 +138,256 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble>
                     ),
                   )
                 : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Thinking section (collapsible)
-                  if (parsedMessage['thinking'] != null) ...[
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _isThinkingExpanded = !_isThinkingExpanded;
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Tool call indicators
+                      if (parsedMessage.toolCalls.isNotEmpty) ...[
+                        Wrap(
+                          children: parsedMessage.toolCalls
+                              .map((tool) => _buildToolCallChip(context, tool))
+                              .toList(),
                         ),
-                        decoration: BoxDecoration(
-                          color: AppColors.background.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(8),
+                        const SizedBox(height: 12),
+                      ],
+
+                      // Answer text
+                      if (parsedMessage.displayText.isNotEmpty)
+                        RichText(
+                          text: _buildFormattedText(parsedMessage.displayText),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                // Apply shimmer only to text when thinking
-                                if (widget.message.isStreaming &&
-                                    parsedMessage['answer'] == null &&
-                                    _shimmerAnimation != null)
-                                  AnimatedBuilder(
-                                    animation: _shimmerAnimation!,
-                                    builder: (context, child) {
-                                      return ShaderMask(
-                                        blendMode: BlendMode.srcIn,
-                                        shaderCallback: (bounds) {
-                                          return LinearGradient(
-                                            begin: Alignment(
-                                                _shimmerAnimation!.value, 0),
-                                            end: Alignment(
-                                                _shimmerAnimation!.value + 1, 0),
-                                            colors: [
-                                              AppColors.textMuted,
-                                              AppColors.accent,
-                                              AppColors.textMuted,
-                                            ],
-                                            stops: const [0.0, 0.5, 1.0],
-                                          ).createShader(bounds);
-                                        },
-                                        child: Text(
-                                          _getThinkingLabel(parsedMessage),
-                                          style: TextStyle(
-                                            color: AppColors.textMuted,
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  )
-                                else
-                                  Text(
-                                    _getThinkingLabel(parsedMessage),
-                                    style: TextStyle(
-                                      color: AppColors.textMuted,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                const SizedBox(width: 4),
-                                Icon(
-                                  _isThinkingExpanded
-                                      ? Icons.expand_less
-                                      : Icons.chevron_right,
-                                  size: 16,
+
+                      // Streaming indicator - show when:
+                      // 1. No tools and no text yet (initial thinking), OR
+                      // 2. Tools are complete but no text yet (waiting for final answer)
+                      if (message.isStreaming &&
+                          parsedMessage.displayText.isEmpty &&
+                          (parsedMessage.toolCalls.isEmpty ||
+                              parsedMessage.toolCalls.every(
+                                  (t) => t.status != ToolCallStatus.executing))) ...[
+                        Shimmer.fromColors(
+                          baseColor: AppColors.textMuted,
+                          highlightColor: AppColors.accent.withValues(alpha: 0.5),
+                          period: const Duration(milliseconds: 1500),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.auto_awesome,
+                                size: 14,
+                                color: AppColors.textMuted,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Thinking...',
+                                style: TextStyle(
                                   color: AppColors.textMuted,
-                                ),
-                              ],
-                            ),
-                            if (_isThinkingExpanded) ...[
-                              const SizedBox(height: 8),
-                              RichText(
-                                text: TextSpan(
-                                  children: _buildFormattedText(
-                                    parsedMessage['thinking']!,
-                                  ).children,
-                                  style: TextStyle(
-                                    color: AppColors.textMuted
-                                        .withValues(alpha: 0.7),
-                                    fontSize: 14,
-                                    fontStyle: FontStyle.italic,
-                                    height: 1.4,
-                                  ),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  fontStyle: FontStyle.italic,
                                 ),
                               ),
                             ],
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  // Answer section (only show if there's an answer)
-                  if (parsedMessage['answer'] != null)
-                    RichText(
-                      text: _buildFormattedText(parsedMessage['answer']!),
-                    ),
-                  // Streaming indicator (only show if no thinking section)
-                  if (widget.message.isStreaming &&
-                      parsedMessage['thinking'] == null) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.accent,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Thinking...',
-                          style: TextStyle(
-                            color: AppColors.textMuted,
-                            fontSize: 12,
-                            fontStyle: FontStyle.italic,
                           ),
                         ),
                       ],
-                    ),
-                  ],
-                  // Timestamp
-                  if (!widget.message.isStreaming &&
-                      !widget.message.isUser) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      _formatTime(widget.message.timestamp),
-                      style: TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+
+                      // Timestamp
+                      if (!message.isStreaming && !message.isUser) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          _formatTime(message.timestamp),
+                          style: TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
           ),
         ],
       ),
     );
   }
 
-  String _getThinkingLabel(Map<String, String?> parsedMessage) {
-    final isStreaming =
-        widget.message.isStreaming && parsedMessage['answer'] == null;
+  /// Build a tool call chip widget
+  Widget _buildToolCallChip(BuildContext context, ToolCallIndicator tool) {
+    Color chipColor;
+    Color textColor;
 
-    if (isStreaming) {
-      return 'Thinking';
-    } else {
-      // Calculate thinking time
-      if (_thinkingStartTime != null) {
-        final thinkingDuration =
-            widget.message.timestamp.difference(_thinkingStartTime!);
-        final seconds = thinkingDuration.inSeconds;
-        return 'Thought for ${seconds}s';
-      }
-      return 'Thought';
+    switch (tool.status) {
+      case ToolCallStatus.executing:
+        chipColor = AppColors.accent.withValues(alpha: 0.2);
+        textColor = AppColors.accent;
+        break;
+      case ToolCallStatus.complete:
+        chipColor = Colors.green.withValues(alpha: 0.2);
+        textColor = Colors.green;
+        break;
+      case ToolCallStatus.error:
+        chipColor = Colors.red.withValues(alpha: 0.2);
+        textColor = Colors.red;
+        break;
     }
+
+    final chipWidget = Container(
+      margin: const EdgeInsets.only(right: 8, bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: chipColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: textColor.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Icon
+          Text(tool.icon, style: const TextStyle(fontSize: 14)),
+          const SizedBox(width: 6),
+
+          // Tool name
+          Text(
+            tool.displayName,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+
+          // Loading spinner for executing status
+          if (tool.status == ToolCallStatus.executing) ...[
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: textColor,
+              ),
+            ),
+          ],
+
+          // Status text
+          if (tool.statusText.isNotEmpty) ...[
+            const SizedBox(width: 6),
+            Text(
+              tool.statusText,
+              style: TextStyle(
+                color: textColor.withValues(alpha: 0.8),
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    // Wrap with Tooltip if params exist
+    if (tool.params != null && tool.params!.isNotEmpty) {
+      return Tooltip(
+        message: _formatParams(tool.params!),
+        preferBelow: false,
+        padding: const EdgeInsets.all(8),
+        textStyle: const TextStyle(
+          fontSize: 11,
+          color: Colors.white,
+          fontFamily: 'monospace',
+        ),
+        decoration: BoxDecoration(
+          color: Colors.black87,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: chipWidget,
+      );
+    }
+
+    return chipWidget;
   }
 
-  Map<String, String?> _parseMessage(String content) {
-    // Check if message contains thinking tags
-    final thinkingStartIndex = content.indexOf('<thinking>');
-    final thinkingEndIndex = content.indexOf('</thinking>');
-
-    if (thinkingStartIndex != -1) {
-      String? thinkingContent;
-      String? answerContent;
-
-      if (thinkingEndIndex != -1) {
-        // Complete thinking section - extract thinking and answer
-        thinkingContent = content
-            .substring(
-              thinkingStartIndex + '<thinking>'.length,
-              thinkingEndIndex,
-            )
-            .trim();
-
-        // Everything after </thinking> is the answer
-        answerContent = content
-            .substring(thinkingEndIndex + '</thinking>'.length)
-            .trim();
+  /// Format parameters for display
+  String _formatParams(Map<String, dynamic> params) {
+    final buffer = StringBuffer();
+    params.forEach((key, value) {
+      buffer.write('$key: ');
+      if (value is List) {
+        buffer.write('[${value.join(', ')}]');
+      } else if (value is Map) {
+        buffer.write(jsonEncode(value));
       } else {
-        // Incomplete thinking section (still streaming)
-        thinkingContent = content
-            .substring(thinkingStartIndex + '<thinking>'.length)
-            .trim();
-        answerContent = null;
+        buffer.write(value);
+      }
+      buffer.write('\n');
+    });
+    return buffer.toString().trim();
+  }
+
+  /// Parse message content to extract tool calls and display text
+  ParsedMessage _parseMessage(String content) {
+    final toolCallsMap = <String, ToolCallIndicator>{}; // Use map to deduplicate by tool name
+    final displayTextBuffer = StringBuffer();
+
+    // Regex: <tool:name:status:count:params> or <tool:name:status:params> or <tool:name:status>
+    final toolPattern = RegExp(
+      r'<tool:([^:]+):([^:>]+)(?::(\d+))?(?::([^>]+))?>',
+      multiLine: true,
+    );
+
+    int lastIndex = 0;
+
+    for (final match in toolPattern.allMatches(content)) {
+      // Add text before this tag
+      displayTextBuffer.write(content.substring(lastIndex, match.start));
+
+      final toolName = match.group(1)!;
+      final statusStr = match.group(2)!;
+      final countStr = match.group(3);
+      final paramsEncoded = match.group(4);
+
+      final status = statusStr == 'executing'
+          ? ToolCallStatus.executing
+          : statusStr == 'error'
+              ? ToolCallStatus.error
+              : ToolCallStatus.complete;
+
+      final count = countStr != null ? int.tryParse(countStr) : null;
+
+      // Decode params if present
+      Map<String, dynamic>? params;
+      if (paramsEncoded != null && paramsEncoded.isNotEmpty) {
+        try {
+          final decoded = Uri.decodeComponent(paramsEncoded);
+          params = jsonDecode(decoded) as Map<String, dynamic>;
+        } catch (e) {
+          // Ignore parsing errors
+        }
       }
 
-      return {
-        'thinking': thinkingContent.isNotEmpty ? thinkingContent : null,
-        'answer': answerContent != null && answerContent.isNotEmpty
-            ? answerContent
-            : null,
-      };
+      final indicator = ToolCallIndicator(
+        toolName: toolName,
+        status: status,
+        resultCount: count,
+        params: params,
+      );
+
+      // Only keep the latest status for each tool (complete/error overrides executing)
+      final existing = toolCallsMap[toolName];
+      if (existing == null ||
+          existing.status == ToolCallStatus.executing ||
+          status != ToolCallStatus.executing) {
+        toolCallsMap[toolName] = indicator;
+      }
+
+      lastIndex = match.end;
     }
 
-    // No thinking section found - entire content is answer
-    return {
-      'thinking': null,
-      'answer': content,
-    };
+    // Add remaining text
+    displayTextBuffer.write(content.substring(lastIndex));
+
+    return ParsedMessage(
+      displayText: displayTextBuffer.toString().trim(),
+      toolCalls: toolCallsMap.values.toList(),
+    );
   }
 
   // Simple markdown-to-TextSpan converter
