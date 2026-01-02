@@ -14,6 +14,8 @@ import '../widgets/notification_topic_selector.dart';
 import '../widgets/progressive_image.dart';
 import '../widgets/price_history_widget.dart';
 import '../widgets/mobile_offer_detail_header.dart';
+import '../widgets/offer_ratings_card.dart';
+import '../widgets/base_game_banner.dart';
 
 class MobileOfferDetailPage extends StatefulWidget {
   final String offerId;
@@ -49,6 +51,9 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
   OfferHltb? _hltb;
   OfferMedia? _media;
   List<Offer>? _relatedOffers;
+  OfferRatings? _ratings;
+  OfferTops? _tops;
+  Offer? _baseGame;
 
   // Loading state
   bool _isLoadingOffer = true;
@@ -230,6 +235,7 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
     }
 
     // Load additional details in parallel
+    // Note: base game requires the offer's namespace, so we load it separately
     try {
       final results = await Future.wait([
         _apiService
@@ -246,6 +252,8 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
         _apiService
             .getOfferRelated(widget.offerId)
             .catchError((_) => <Offer>[]),
+        _apiService.getOfferRatings(widget.offerId).catchError((_) => null),
+        _apiService.getOfferTops(widget.offerId).catchError((_) => null),
       ]);
 
       if (mounted) {
@@ -255,7 +263,26 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
           _hltb = results[2] as OfferHltb?;
           _media = results[3] as OfferMedia?;
           _relatedOffers = results[4] as List<Offer>;
+          _ratings = results[5] as OfferRatings?;
+          _tops = results[6] as OfferTops?;
         });
+      }
+
+      // Load base game using the offer's sandbox/namespace (only if not already a base game)
+      if (_offer != null && _offer!.offerType != 'BASE_GAME') {
+        try {
+          final baseGame = await _apiService
+              .getBaseGameBySandbox(_offer!.namespace)
+              .catchError((_) => null);
+
+          if (mounted && baseGame != null && baseGame.id != _offer!.id) {
+            setState(() {
+              _baseGame = baseGame;
+            });
+          }
+        } catch (e) {
+          // Ignore - base game is optional
+        }
       }
     } catch (e) {
       // Ignore errors loading additional details - main offer is already shown
@@ -306,6 +333,25 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     }
+  }
+
+  void _navigateToBaseGame(Offer baseGame) {
+    // Cache the thumbnail URL for the base game
+    final thumbnailUrl = _getThumbnailUrl(baseGame);
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MobileOfferDetailPage(
+          offerId: baseGame.id,
+          followService: widget.followService,
+          pushService: widget.pushService,
+          initialTitle: baseGame.title,
+          initialImageUrl: thumbnailUrl,
+          country: widget.country,
+        ),
+      ),
+    );
   }
 
   @override
@@ -411,6 +457,22 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
           // Action buttons row
           _buildActionButtons(),
           const SizedBox(height: 24),
+
+          // Base game banner (for DLC/Add-ons)
+          if (_baseGame != null) ...[
+            BaseGameBanner(
+              baseGame: _baseGame!,
+              onTap: () => _navigateToBaseGame(_baseGame!),
+            ),
+            const SizedBox(height: 24),
+          ],
+
+          // Ratings card
+          OfferRatingsCard(
+            ratings: _ratings,
+            tops: _tops,
+          ),
+          if (_ratings != null || _tops != null) const SizedBox(height: 24),
 
           // Price history (includes current price)
           if (_price != null) ...[

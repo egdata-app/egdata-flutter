@@ -26,7 +26,8 @@
       "WebFetch(domain:firebase.google.com)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:ai.google.dev)",
-      "WebFetch(domain:langchaindart.dev)"
+      "WebFetch(domain:langchaindart.dev)",
+      "WebFetch(domain:egdata.app)"
     ]
   }
 }

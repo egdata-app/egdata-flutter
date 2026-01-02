@@ -7,3 +7,6 @@ export 'search.dart';
 export 'stats.dart';
 export 'region.dart';
 export 'price_history.dart';
+export 'offer_ratings.dart';
+export 'offer_polls.dart';
+export 'offer_tops.dart';

@@ -223,6 +223,55 @@ class ApiService {
         .toList();
   }
 
+  /// Fetches Epic ratings for an offer
+  Future<OfferRatings?> getOfferRatings(String offerId) async {
+    try {
+      final data = await _get('/offers/$offerId/ratings') as Map<String, dynamic>;
+      return OfferRatings.fromJson(data);
+    } on ApiException catch (e) {
+      // Ratings may not exist for all offers
+      if (e.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
+  /// Fetches poll data for an offer
+  Future<OfferPolls?> getOfferPolls(String offerId) async {
+    try {
+      final data = await _get('/offers/$offerId/polls') as Map<String, dynamic>;
+      return OfferPolls.fromJson(data);
+    } on ApiException catch (e) {
+      // Polls may not exist for all offers
+      if (e.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
+  /// Fetches top rankings for an offer
+  Future<OfferTops?> getOfferTops(String offerId) async {
+    try {
+      final data = await _get('/offers/$offerId/tops') as Map<String, dynamic>;
+      return OfferTops.fromJson(data);
+    } on ApiException catch (e) {
+      // Tops may not exist for all offers
+      if (e.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
+  /// Fetches the base game for a DLC/add-on using sandbox/namespace
+  /// Returns null if this offer doesn't have a base game (i.e., it IS the base game)
+  Future<Offer?> getBaseGameBySandbox(String namespace) async {
+    try {
+      final data = await _get('/sandboxes/$namespace/base-game') as Map<String, dynamic>;
+      return Offer.fromJson(data);
+    } on ApiException catch (e) {
+      // No base game means this offer IS the base game or error
+      if (e.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
   /// Fetches item metadata
   Future<Item> getItem(String catalogItemId) async {
     final data = await _get('/items/$catalogItemId') as Map<String, dynamic>;
