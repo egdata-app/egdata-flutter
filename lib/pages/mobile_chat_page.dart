@@ -9,6 +9,7 @@ import '../models/chat_session.dart';
 import '../models/settings.dart';
 import '../services/chat_session_service.dart';
 import '../services/chat_websocket_service.dart';
+import '../services/user_service.dart';
 import '../widgets/chat_message_bubble.dart';
 import '../widgets/chat_suggested_prompts.dart';
 
@@ -92,10 +93,10 @@ class MobileChatPage extends HookWidget {
           final history = await _loadChatHistory(session.id);
           messages.value = history;
 
-          // Connect to WebSocket
-          // TODO: Replace 'user123' with actual user ID from settings/auth
+          // Get persistent user ID and connect to WebSocket
+          final userId = await UserService.getUserId();
           await wsService.connect(
-            userId: 'user123',
+            userId: userId,
             sessionId: session.id,
           );
           isConnected.value = true;

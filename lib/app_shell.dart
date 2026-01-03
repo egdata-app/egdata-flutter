@@ -32,6 +32,7 @@ import 'pages/mobile_browse_page.dart';
 import 'pages/mobile_dashboard_page.dart';
 import 'pages/mobile_chat_sessions_page.dart';
 import 'services/chat_session_service.dart';
+import 'services/user_service.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -138,8 +139,9 @@ class _AppShellState extends State<AppShell> {
       );
       await _pushService!.init();
 
-      // TODO: Replace 'user123' with actual user ID from settings/auth
-      _chatSessionService = ChatSessionService(userId: 'user123');
+      // Get or create persistent user ID
+      final userId = await UserService.getUserId();
+      _chatSessionService = ChatSessionService(userId: userId);
     }
 
     await _loadSettings();
