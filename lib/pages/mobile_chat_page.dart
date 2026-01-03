@@ -7,6 +7,7 @@ import '../database/database_service.dart';
 import '../models/chat_message.dart';
 import '../models/chat_session.dart';
 import '../models/settings.dart';
+import '../services/api_service.dart';
 import '../services/chat_session_service.dart';
 import '../services/chat_websocket_service.dart';
 import '../services/follow_service.dart';
@@ -19,6 +20,7 @@ const _uuid = Uuid();
 
 class MobileChatPage extends HookWidget {
   final AppSettings settings;
+  final ApiService apiService;
   final ChatSessionService chatService;
   final ChatSession session;
   final FollowService followService;
@@ -28,6 +30,7 @@ class MobileChatPage extends HookWidget {
   const MobileChatPage({
     super.key,
     required this.settings,
+    required this.apiService,
     required this.chatService,
     required this.session,
     required this.followService,
@@ -389,6 +392,7 @@ class MobileChatPage extends HookWidget {
                           final message = messages.value[index];
                           return ChatMessageBubble(
                             message: message,
+                            apiService: apiService,
                             followService: followService,
                             pushService: pushService,
                           );

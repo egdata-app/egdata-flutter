@@ -11,6 +11,7 @@ import 'models/game_info.dart';
 import 'models/notification_topics.dart';
 import 'models/settings.dart';
 import 'models/upload_status.dart';
+import 'services/api_service.dart';
 import 'services/follow_service.dart';
 import 'services/manifest_scanner.dart';
 import 'services/notification_service.dart';
@@ -58,6 +59,7 @@ class _AppShellState extends State<AppShell> {
   // Universal services
   final SettingsService _settingsService = SettingsService();
   final NotificationService _notificationService = NotificationService();
+  final ApiService _apiService = ApiService();
 
   // Desktop-only services (null on mobile)
   ManifestScanner? _scanner;
@@ -530,6 +532,7 @@ class _AppShellState extends State<AppShell> {
                 ),
                 MobileChatSessionsPage(
                   settings: _settings,
+                  apiService: _apiService,
                   chatService: _chatSessionService!,
                   followService: _followService!,
                   pushService: _pushService,
@@ -625,6 +628,7 @@ class _AppShellState extends State<AppShell> {
         // Mobile only: AI chat sessions list
         return MobileChatSessionsPage(
           settings: _settings,
+          apiService: _apiService,
           chatService: _chatSessionService!,
           followService: _followService!,
           pushService: _pushService,

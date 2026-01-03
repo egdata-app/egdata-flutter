@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:intl/intl.dart';
 import '../models/chat_session.dart';
 import '../models/settings.dart';
+import '../services/api_service.dart';
 import '../services/chat_session_service.dart';
 import '../services/follow_service.dart';
 import '../services/push_service.dart';
@@ -11,6 +12,7 @@ import 'mobile_chat_page.dart';
 
 class MobileChatSessionsPage extends HookWidget {
   final AppSettings settings;
+  final ApiService apiService;
   final ChatSessionService chatService;
   final FollowService followService;
   final PushService? pushService;
@@ -18,6 +20,7 @@ class MobileChatSessionsPage extends HookWidget {
   const MobileChatSessionsPage({
     super.key,
     required this.settings,
+    required this.apiService,
     required this.chatService,
     required this.followService,
     this.pushService,
@@ -73,6 +76,7 @@ class MobileChatSessionsPage extends HookWidget {
             MaterialPageRoute(
               builder: (context) => MobileChatPage(
                 settings: settings,
+                apiService: apiService,
                 chatService: chatService,
                 session: newSession,
                 followService: followService,
@@ -210,6 +214,7 @@ class MobileChatSessionsPage extends HookWidget {
                               MaterialPageRoute(
                                 builder: (context) => MobileChatPage(
                                   settings: settings,
+                                  apiService: apiService,
                                   chatService: chatService,
                                   session: session,
                                   followService: followService,

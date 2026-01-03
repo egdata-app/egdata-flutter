@@ -5,18 +5,21 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:intl/intl.dart';
 import '../main.dart';
 import '../models/chat_message.dart';
+import '../services/api_service.dart';
 import '../services/follow_service.dart';
 import '../services/push_service.dart';
 import 'chat_referenced_offers.dart';
 
 class ChatMessageBubble extends HookWidget {
   final ChatMessage message;
+  final ApiService apiService;
   final FollowService followService;
   final PushService? pushService;
 
   const ChatMessageBubble({
     super.key,
     required this.message,
+    required this.apiService,
     required this.followService,
     this.pushService,
   });
@@ -250,6 +253,7 @@ class ChatMessageBubble extends HookWidget {
                           !message.isStreaming)
                         ChatReferencedOffers(
                           offers: message.referencedOffers!,
+                          apiService: apiService,
                           followService: followService,
                           pushService: pushService,
                         ),
