@@ -1,211 +1,252 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:uuid/uuid.dart';
 import '../main.dart';
 import '../database/database_service.dart';
 import '../models/chat_message.dart';
+import '../models/chat_session.dart';
 import '../models/settings.dart';
-import '../services/ai_chat_service.dart';
-import '../services/api_service.dart';
+import '../services/chat_session_service.dart';
+import '../services/chat_websocket_service.dart';
 import '../widgets/chat_message_bubble.dart';
 import '../widgets/chat_suggested_prompts.dart';
 
+const _uuid = Uuid();
+
 class MobileChatPage extends HookWidget {
   final AppSettings settings;
-  final DatabaseService db;
+  final ChatSessionService chatService;
+  final ChatSession session;
+  final VoidCallback? onSessionUpdated;
 
   const MobileChatPage({
     super.key,
     required this.settings,
-    required this.db,
+    required this.chatService,
+    required this.session,
+    this.onSessionUpdated,
   });
 
-  Future<List<ChatMessage>> _loadChatHistory() async {
-    final entries = await db.getAllChatMessages();
+  Future<List<ChatMessage>> _loadChatHistory(String sessionId) async {
+    final db = await DatabaseService.getInstance();
+    final entries = await db.getChatMessagesForSession(sessionId);
     return entries.map((entry) {
-      List<Offer>? gameResults;
-      if (entry.gameResultsJson != null) {
-        try {
-          final List<dynamic> resultsList = jsonDecode(entry.gameResultsJson!);
-          gameResults =
-              resultsList.map((e) => Offer.fromJson(e)).toList();
-        } catch (e) {
-          // Failed to parse game results, continue without them
-        }
-      }
-
       return ChatMessage(
         id: entry.messageId,
+        sessionId: entry.sessionId,
+        role: entry.role,
         content: entry.content,
-        isUser: entry.isUser,
         timestamp: entry.timestamp,
-        gameResults: gameResults,
       );
     }).toList();
   }
 
-  /// Strip tool call tags from content for cleaner database storage
-  String _stripToolTags(String content) {
-    return content.replaceAll(
-      RegExp(r'<tool:[^>]+>', multiLine: true),
-      '',
-    ).trim();
-  }
-
   Future<void> _saveChatMessage(ChatMessage message) async {
+    final db = await DatabaseService.getInstance();
     final entry = ChatMessageEntry()
       ..messageId = message.id
-      ..content = _stripToolTags(message.content)  // Clean content for DB
-      ..isUser = message.isUser
-      ..timestamp = message.timestamp
-      ..gameResultsJson = message.gameResultsJsonString;
+      ..sessionId = message.sessionId
+      ..role = message.role
+      ..content = message.content
+      ..timestamp = message.timestamp;
 
     await db.saveChatMessage(entry);
   }
 
   @override
   Widget build(BuildContext context) {
-    // Chat service
-    final chatService = useMemoized(
-      () => AIChatService(
-        apiService: ApiService(),
-        country: settings.country,
-      ),
-      [settings.country],
-    );
-
-    // Initialize chat service on mount
-    useEffect(() {
-      chatService.initialize();
-      return chatService.dispose;
-    }, [chatService]);
+    // WebSocket service
+    final wsService = useMemoized(() => ChatWebSocketService(), []);
 
     // Chat messages state
     final messages = useState<List<ChatMessage>>([]);
     final isLoading = useState(true);
     final isSending = useState(false);
+    final isConnected = useState(false);
     final streamingMessageId = useState<String?>(null);
+    final currentToolName = useState<String?>(null);
 
     // Text input controller
     final textController = useTextEditingController();
     final scrollController = useScrollController();
+    final hasText = useState(false);
 
-    // Load chat history on mount
+    // Listen to text changes to enable/disable send button
     useEffect(() {
-      void loadHistory() async {
+      void listener() {
+        hasText.value = textController.text.trim().isNotEmpty;
+      }
+
+      textController.addListener(listener);
+      return () => textController.removeListener(listener);
+    }, [textController]);
+
+    // Connect to WebSocket on mount
+    useEffect(() {
+      StreamSubscription? subscription;
+
+      Future<void> connectAndLoadHistory() async {
         try {
-          final history = await _loadChatHistory();
+          // Load chat history first
+          final history = await _loadChatHistory(session.id);
           messages.value = history;
+
+          // Connect to WebSocket
+          // TODO: Replace 'user123' with actual user ID from settings/auth
+          await wsService.connect(
+            userId: 'user123',
+            sessionId: session.id,
+          );
+          isConnected.value = true;
+
+          // Listen to WebSocket events
+          subscription = wsService.events.listen((event) {
+            debugPrint('[Chat] Received event: ${event.runtimeType}');
+            if (event is ToolProgressEvent) {
+              // Update current tool being executed
+              debugPrint('[Chat] Tool progress: ${event.toolName}');
+              currentToolName.value = event.toolName;
+            } else if (event is TextDeltaEvent) {
+              // Append text delta to streaming message
+              debugPrint('[Chat] Text delta: ${event.delta.length} chars');
+              if (streamingMessageId.value != null) {
+                final currentMessages = messages.value;
+                final updatedMessages = currentMessages.map((m) {
+                  if (m.id == streamingMessageId.value) {
+                    return m.copyWith(
+                      content: m.content + event.delta,
+                    );
+                  }
+                  return m;
+                }).toList();
+                messages.value = updatedMessages;
+
+                // Auto-scroll to bottom
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (scrollController.hasClients) {
+                    scrollController.animateTo(
+                      scrollController.position.maxScrollExtent,
+                      duration: const Duration(milliseconds: 100),
+                      curve: Curves.easeOut,
+                    );
+                  }
+                });
+              }
+            } else if (event is CompleteEvent) {
+              // Finalize streaming message
+              debugPrint('[Chat] Complete event received');
+              if (streamingMessageId.value != null) {
+                final currentMessages = messages.value;
+                final finalMessages = currentMessages.map((m) {
+                  if (m.id == streamingMessageId.value) {
+                    final finalMessage = m.copyWith(isStreaming: false);
+                    _saveChatMessage(finalMessage);
+                    return finalMessage;
+                  }
+                  return m;
+                }).toList();
+                messages.value = finalMessages;
+                streamingMessageId.value = null;
+                currentToolName.value = null;
+                isSending.value = false;
+
+                // Notify parent to refresh session list
+                onSessionUpdated?.call();
+              }
+            } else if (event is ErrorEvent) {
+              // Handle error
+              debugPrint('WebSocket error: ${event.message}');
+              if (streamingMessageId.value != null) {
+                final currentMessages = messages.value;
+                final errorMessages = currentMessages.map((m) {
+                  if (m.id == streamingMessageId.value) {
+                    final errorMessage = m.copyWith(
+                      content: 'Sorry, an error occurred: ${event.message}',
+                      isStreaming: false,
+                    );
+                    _saveChatMessage(errorMessage);
+                    return errorMessage;
+                  }
+                  return m;
+                }).toList();
+                messages.value = errorMessages;
+                streamingMessageId.value = null;
+                currentToolName.value = null;
+                isSending.value = false;
+              }
+            }
+          });
         } catch (e) {
-          debugPrint('Error loading chat history: $e');
+          debugPrint('[Chat] Error connecting to WebSocket: $e');
         } finally {
           isLoading.value = false;
         }
       }
 
-      loadHistory();
-      return null;
-    }, []);
+      connectAndLoadHistory();
 
-    // Scroll to bottom when new messages arrive
-    useEffect(() {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (scrollController.hasClients) {
-          scrollController.animateTo(
-            scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      });
-      return null;
-    }, [messages.value.length]);
+      return () {
+        subscription?.cancel();
+        wsService.dispose();
+      };
+    }, []);
 
     // Send message function
     Future<void> sendMessage(String text) async {
-      if (text.trim().isEmpty || isSending.value) return;
+      if (text.trim().isEmpty || isSending.value || !isConnected.value) return;
 
       final messageText = text.trim();
+      debugPrint('[Chat] Sending message: $messageText');
       textController.clear();
       isSending.value = true;
 
       // Create user message
       final now = DateTime.now();
       final userMessage = ChatMessage(
-        id: 'user_${now.millisecondsSinceEpoch}',
+        id: _uuid.v4(),
+        sessionId: session.id,
+        role: 'user',
         content: messageText,
-        isUser: true,
         timestamp: now,
       );
 
       // Add user message to UI and save to DB
+      debugPrint('[Chat] Adding user message to UI');
       messages.value = [...messages.value, userMessage];
       await _saveChatMessage(userMessage);
+      debugPrint('[Chat] User message saved to DB');
 
       // Create AI message placeholder for streaming
-      final aiMessageId = 'ai_${now.millisecondsSinceEpoch}';
+      final aiMessageId = _uuid.v4();
       streamingMessageId.value = aiMessageId;
+      debugPrint('[Chat] Created AI message placeholder: $aiMessageId');
       final aiMessage = ChatMessage(
         id: aiMessageId,
+        sessionId: session.id,
+        role: 'assistant',
         content: '',
-        isUser: false,
         timestamp: DateTime.now(),
         isStreaming: true,
       );
       messages.value = [...messages.value, aiMessage];
 
-      // Send message to AI and handle streaming response
+      // Send message via WebSocket
       try {
-        final responseStream = chatService.sendMessage(messageText);
-        final buffer = StringBuffer();
-
-        await for (final chunk in responseStream) {
-          buffer.write(chunk);
-
-          // Update the AI message with accumulated content
-          final updatedMessages = messages.value.map((m) {
-            if (m.id == aiMessageId) {
-              return m.copyWith(
-                content: buffer.toString(),
-                isStreaming: true,
-              );
-            }
-            return m;
-          }).toList();
-
-          messages.value = updatedMessages;
-        }
-
-        // Finalize AI message
-        final finalMessage = ChatMessage(
-          id: aiMessageId,
-          content: buffer.toString(),
-          isUser: false,
-          timestamp: DateTime.now(),
-          isStreaming: false,
+        debugPrint('[Chat] Sending via WebSocket...');
+        await wsService.sendMessage(
+          message: messageText,
+          sessionId: session.id,
         );
-
-        final finalMessages = messages.value.map((m) {
-          if (m.id == aiMessageId) {
-            return finalMessage;
-          }
-          return m;
-        }).toList();
-
-        messages.value = finalMessages;
-
-        // Save final AI message to DB
-        await _saveChatMessage(finalMessage);
+        debugPrint('[Chat] Message sent via WebSocket');
       } catch (e) {
-        debugPrint('Error sending message: $e');
-
+        debugPrint('[Chat] Error sending message: $e');
         // Update message with error
         final errorMessage = ChatMessage(
           id: aiMessageId,
-          content:
-              'Sorry, I encountered an error. Please try again.',
-          isUser: false,
+          sessionId: session.id,
+          role: 'assistant',
+          content: 'Sorry, I encountered an error. Please try again.',
           timestamp: DateTime.now(),
           isStreaming: false,
         );
@@ -219,7 +260,6 @@ class MobileChatPage extends HookWidget {
 
         messages.value = errorMessages;
         await _saveChatMessage(errorMessage);
-      } finally {
         isSending.value = false;
         streamingMessageId.value = null;
       }
@@ -227,70 +267,72 @@ class MobileChatPage extends HookWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: messages.value.isNotEmpty
-          ? AppBar(
-              backgroundColor: AppColors.background,
-              elevation: 0,
-              centerTitle: false,
-              title: Text(
-                'AI Chat',
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        centerTitle: false,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              session.title,
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            if (!isConnected.value)
+              Text(
+                'Connecting...',
                 style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+                  color: AppColors.textMuted,
+                  fontSize: 12,
                 ),
               ),
-              actions: [
-                IconButton(
-                  icon: Icon(
-                    Icons.refresh_rounded,
-                    color: AppColors.textMuted,
+          ],
+        ),
+        actions: [
+          if (currentToolName.value != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
                   ),
-                  onPressed: () async {
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        backgroundColor: AppColors.surface,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.accent,
                         ),
-                        title: Text(
-                          'Clear chat?',
-                          style: TextStyle(color: AppColors.textPrimary),
-                        ),
-                        content: Text(
-                          'This will delete your conversation history.',
-                          style: TextStyle(color: AppColors.textMuted),
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: Text(
-                              'Cancel',
-                              style: TextStyle(color: AppColors.textMuted),
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: Text(
-                              'Clear',
-                              style: TextStyle(color: Colors.red),
-                            ),
-                          ),
-                        ],
                       ),
-                    );
-
-                    if (confirm == true) {
-                      await db.deleteChatHistory();
-                      chatService.clearChat();
-                      messages.value = [];
-                    }
-                  },
+                      const SizedBox(width: 8),
+                      Text(
+                        currentToolName.value!,
+                        style: TextStyle(
+                          color: AppColors.accent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            )
-          : null,
+              ),
+            ),
+        ],
+      ),
       body: Column(
         children: [
           // Messages area
@@ -321,90 +363,105 @@ class MobileChatPage extends HookWidget {
                       ),
           ),
 
-          // Input area
+          // Modern input area
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: AppColors.background,
-              border: Border(
-                top: BorderSide(
-                  color: AppColors.surface,
-                  width: 1,
-                ),
-              ),
             ),
             child: SafeArea(
               top: false,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  // Text input
-                  Expanded(
-                    child: Container(
-                      constraints: const BoxConstraints(maxHeight: 120),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(24),
-                      ),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(
+                    color: AppColors.surface.withValues(alpha: 0.5),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // Text input
+                    Expanded(
                       child: TextField(
                         controller: textController,
-                        enabled: !isSending.value,
+                        enabled: !isSending.value && isConnected.value,
                         style: TextStyle(
                           color: AppColors.textPrimary,
-                          fontSize: 15,
+                          fontSize: 16,
+                          height: 1.4,
                         ),
                         decoration: InputDecoration(
-                          hintText: 'Ask about games, prices, sales...',
+                          hintText: isConnected.value
+                              ? 'Message...'
+                              : 'Connecting...',
                           hintStyle: TextStyle(
-                            color: AppColors.textMuted.withValues(alpha: 0.6),
-                            fontSize: 15,
+                            color: AppColors.textMuted.withValues(alpha: 0.5),
+                            fontSize: 16,
                           ),
                           filled: false,
                           border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 14,
+                          contentPadding: const EdgeInsets.only(
+                            left: 20,
+                            right: 12,
+                            top: 14,
+                            bottom: 14,
                           ),
                         ),
                         maxLines: null,
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: (_) => sendMessage(textController.text),
+                        minLines: 1,
+                        maxLength: null,
+                        textInputAction: TextInputAction.newline,
+                        textCapitalization: TextCapitalization.sentences,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Send button
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: isSending.value
-                          ? null
-                          : LinearGradient(
-                              colors: [
-                                AppColors.accent,
-                                AppColors.primary,
-                              ],
-                            ),
-                      color: isSending.value
-                          ? AppColors.surface
-                          : null,
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: Icon(
-                        isSending.value
-                            ? Icons.hourglass_empty_rounded
-                            : Icons.arrow_upward_rounded,
-                        color: isSending.value
-                            ? AppColors.textMuted
-                            : Colors.white,
-                        size: 22,
+                    // Send button
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4, bottom: 4),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          gradient: !isSending.value &&
+                                  isConnected.value &&
+                                  hasText.value
+                              ? LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    AppColors.accent,
+                                    AppColors.primary,
+                                  ],
+                                )
+                              : null,
+                          color: AppColors.surface.withValues(alpha: 0.3),
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          icon: Icon(
+                            isSending.value
+                                ? Icons.more_horiz_rounded
+                                : Icons.arrow_upward_rounded,
+                            color: !isSending.value &&
+                                    isConnected.value &&
+                                    hasText.value
+                                ? Colors.white
+                                : AppColors.textMuted.withValues(alpha: 0.4),
+                            size: 20,
+                          ),
+                          onPressed: !isSending.value &&
+                                  isConnected.value &&
+                                  hasText.value
+                              ? () => sendMessage(textController.text)
+                              : null,
+                        ),
                       ),
-                      onPressed: isSending.value
-                          ? null
-                          : () => sendMessage(textController.text),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -423,7 +480,7 @@ class MobileChatPage extends HookWidget {
           children: [
             // Title
             Text(
-              'AI Chat',
+              session.title,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppColors.textPrimary,

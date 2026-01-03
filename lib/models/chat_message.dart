@@ -1,36 +1,37 @@
-import 'api/offer.dart';
-
 class ChatMessage {
   final String id;
+  final String sessionId;
+  final String role; // "user" or "assistant"
   final String content;
-  final bool isUser;
   final DateTime timestamp;
-  final List<Offer>? gameResults;
   final bool isStreaming;
 
   const ChatMessage({
     required this.id,
+    required this.sessionId,
+    required this.role,
     required this.content,
-    required this.isUser,
     required this.timestamp,
-    this.gameResults,
     this.isStreaming = false,
   });
 
+  /// Helper to check if message is from user
+  bool get isUser => role == 'user';
+
   ChatMessage copyWith({
     String? id,
+    String? sessionId,
+    String? role,
     String? content,
-    bool? isUser,
     DateTime? timestamp,
-    List<Offer>? gameResults,
     bool? isStreaming,
   }) {
     return ChatMessage(
       id: id ?? this.id,
+      sessionId: sessionId ?? this.sessionId,
+      role: role ?? this.role,
       content: content ?? this.content,
-      isUser: isUser ?? this.isUser,
       timestamp: timestamp ?? this.timestamp,
-      gameResults: gameResults ?? this.gameResults,
       isStreaming: isStreaming ?? this.isStreaming,
     );
   }
@@ -38,10 +39,10 @@ class ChatMessage {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'sessionId': sessionId,
+      'role': role,
       'content': content,
-      'isUser': isUser,
-      'timestamp': timestamp.toIso8601String(),
-      // Note: gameResults serialization skipped - too complex for now
+      'timestamp': timestamp.millisecondsSinceEpoch,
       'isStreaming': isStreaming,
     };
   }
@@ -49,20 +50,14 @@ class ChatMessage {
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
     return ChatMessage(
       id: json['id'] ?? '',
+      sessionId: json['sessionId'] ?? '',
+      role: json['role'] ?? 'user',
       content: json['content'] ?? '',
-      isUser: json['isUser'] ?? false,
       timestamp: json['timestamp'] != null
-          ? DateTime.parse(json['timestamp'])
+          ? DateTime.fromMillisecondsSinceEpoch(json['timestamp'])
           : DateTime.now(),
-      // Note: gameResults deserialization skipped for now
       isStreaming: json['isStreaming'] ?? false,
     );
-  }
-
-  /// Helper to serialize game results to JSON string for database storage
-  /// Note: Not implemented yet - would require Offer toJson() method
-  String? get gameResultsJsonString {
-    return null; // TODO: Implement when needed
   }
 
   @override

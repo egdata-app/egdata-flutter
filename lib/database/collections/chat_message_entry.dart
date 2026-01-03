@@ -9,12 +9,12 @@ class ChatMessageEntry {
   @Index()
   late String messageId;
 
-  late String content;
-  late bool isUser;
-  late DateTime timestamp;
+  @Index()
+  late String sessionId;
 
-  // JSON serialized game results (List<Offer>) for messages with search results
-  String? gameResultsJson;
+  late String role; // "user" or "assistant"
+  late String content;
+  late DateTime timestamp;
 
   ChatMessageEntry();
 }

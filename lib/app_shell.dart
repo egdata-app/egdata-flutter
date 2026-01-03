@@ -30,7 +30,8 @@ import 'pages/settings_page.dart';
 import 'pages/free_games_page.dart';
 import 'pages/mobile_browse_page.dart';
 import 'pages/mobile_dashboard_page.dart';
-import 'pages/mobile_chat_page.dart';
+import 'pages/mobile_chat_sessions_page.dart';
+import 'services/chat_session_service.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -68,6 +69,7 @@ class _AppShellState extends State<AppShell> {
   SyncService? _syncService;
   PlaytimeService? _playtimeService; // Desktop only
   PushService? _pushService; // Mobile only
+  ChatSessionService? _chatSessionService; // Mobile only
 
   // Shared state
   List<GameInfo> _games = [];
@@ -135,6 +137,9 @@ class _AppShellState extends State<AppShell> {
         notification: _notificationService,
       );
       await _pushService!.init();
+
+      // TODO: Replace 'user123' with actual user ID from settings/auth
+      _chatSessionService = ChatSessionService(userId: 'user123');
     }
 
     await _loadSettings();
@@ -521,9 +526,9 @@ class _AppShellState extends State<AppShell> {
                   followService: _followService!,
                   pushService: _pushService,
                 ),
-                MobileChatPage(
+                MobileChatSessionsPage(
                   settings: _settings,
-                  db: _db!,
+                  chatService: _chatSessionService!,
                 ),
                 FreeGamesPage(
                   followService: _followService!,
@@ -613,10 +618,10 @@ class _AppShellState extends State<AppShell> {
           pushService: _pushService,
         );
       case AppPage.chat:
-        // Mobile only: AI chat assistant
-        return MobileChatPage(
+        // Mobile only: AI chat sessions list
+        return MobileChatSessionsPage(
           settings: _settings,
-          db: _db!,
+          chatService: _chatSessionService!,
         );
       case AppPage.freeGames:
         // Mobile only: free games list

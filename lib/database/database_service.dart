@@ -12,6 +12,7 @@ import 'collections/playtime_session_entry.dart';
 import 'collections/game_process_cache_entry.dart';
 import 'collections/push_subscription_entry.dart';
 import 'collections/chat_message_entry.dart';
+import 'collections/chat_session_entry.dart';
 
 export 'collections/free_game_entry.dart';
 export 'collections/followed_game_entry.dart';
@@ -20,6 +21,7 @@ export 'collections/playtime_session_entry.dart';
 export 'collections/game_process_cache_entry.dart';
 export 'collections/push_subscription_entry.dart';
 export 'collections/chat_message_entry.dart';
+export 'collections/chat_session_entry.dart';
 
 class DatabaseService {
   static DatabaseService? _instance;
@@ -49,6 +51,7 @@ class DatabaseService {
         GameProcessCacheEntrySchema,
         PushSubscriptionEntrySchema,
         ChatMessageEntrySchema,
+        ChatSessionEntrySchema,
       ],
       directory: dir.path,
       name: 'egdata',
@@ -371,10 +374,57 @@ class DatabaseService {
     await _isar.writeTxn(() => _isar.pushSubscriptionEntrys.clear());
   }
 
-  // Chat Message operations
-  Future<List<ChatMessageEntry>> getAllChatMessages() async {
-    return _isar.chatMessageEntrys
+  // Chat Session operations
+  Future<List<ChatSessionEntry>> getAllChatSessions() async {
+    return _isar.chatSessionEntrys
         .where()
+        .sortByLastMessageAtDesc()
+        .findAll();
+  }
+
+  Future<ChatSessionEntry?> getChatSessionById(String sessionId) async {
+    return _isar.chatSessionEntrys
+        .filter()
+        .sessionIdEqualTo(sessionId)
+        .findFirst();
+  }
+
+  Future<void> saveChatSession(ChatSessionEntry entry) async {
+    await _isar.writeTxn(() => _isar.chatSessionEntrys.put(entry));
+  }
+
+  Future<void> saveChatSessions(List<ChatSessionEntry> entries) async {
+    await _isar.writeTxn(() => _isar.chatSessionEntrys.putAll(entries));
+  }
+
+  Future<bool> deleteChatSession(String sessionId) async {
+    return await _isar.writeTxn(() async {
+      // First delete all messages in this session
+      await _isar.chatMessageEntrys
+          .filter()
+          .sessionIdEqualTo(sessionId)
+          .deleteAll();
+
+      // Then delete the session itself
+      return await _isar.chatSessionEntrys
+          .filter()
+          .sessionIdEqualTo(sessionId)
+          .deleteFirst();
+    });
+  }
+
+  Future<void> deleteAllChatSessions() async {
+    await _isar.writeTxn(() async {
+      await _isar.chatMessageEntrys.clear();
+      await _isar.chatSessionEntrys.clear();
+    });
+  }
+
+  // Chat Message operations
+  Future<List<ChatMessageEntry>> getChatMessagesForSession(String sessionId) async {
+    return _isar.chatMessageEntrys
+        .filter()
+        .sessionIdEqualTo(sessionId)
         .sortByTimestamp()
         .findAll();
   }
@@ -394,8 +444,13 @@ class DatabaseService {
     await _isar.writeTxn(() => _isar.chatMessageEntrys.putAll(entries));
   }
 
-  Future<void> deleteChatHistory() async {
-    await _isar.writeTxn(() => _isar.chatMessageEntrys.clear());
+  Future<void> deleteChatMessagesForSession(String sessionId) async {
+    await _isar.writeTxn(() async {
+      await _isar.chatMessageEntrys
+          .filter()
+          .sessionIdEqualTo(sessionId)
+          .deleteAll();
+    });
   }
 
   Future<void> close() async {
