@@ -9,6 +9,8 @@ import '../models/chat_session.dart';
 import '../models/settings.dart';
 import '../services/chat_session_service.dart';
 import '../services/chat_websocket_service.dart';
+import '../services/follow_service.dart';
+import '../services/push_service.dart';
 import '../services/user_service.dart';
 import '../widgets/chat_message_bubble.dart';
 import '../widgets/chat_suggested_prompts.dart';
@@ -19,6 +21,8 @@ class MobileChatPage extends HookWidget {
   final AppSettings settings;
   final ChatSessionService chatService;
   final ChatSession session;
+  final FollowService followService;
+  final PushService? pushService;
   final VoidCallback? onSessionUpdated;
 
   const MobileChatPage({
@@ -26,6 +30,8 @@ class MobileChatPage extends HookWidget {
     required this.settings,
     required this.chatService,
     required this.session,
+    required this.followService,
+    this.pushService,
     this.onSessionUpdated,
   });
 
@@ -133,6 +139,28 @@ class MobileChatPage extends HookWidget {
                     );
                   }
                 });
+              }
+            } else if (event is ReferencedOffersEvent) {
+              // Add referenced offers to the last assistant message
+              debugPrint(
+                  '[Chat] Referenced offers: ${event.offers.length} offers');
+              final currentMessages = messages.value;
+              if (currentMessages.isNotEmpty) {
+                // Find the last assistant message
+                final lastIndex = currentMessages.lastIndexWhere(
+                    (m) => m.role == 'assistant');
+                if (lastIndex != -1) {
+                  final updatedMessages = List<ChatMessage>.from(currentMessages);
+                  updatedMessages[lastIndex] = updatedMessages[lastIndex]
+                      .copyWith(referencedOffers: event.offers);
+                  messages.value = updatedMessages;
+
+                  // Save the updated message to database
+                  _saveChatMessage(updatedMessages[lastIndex]);
+
+                  debugPrint(
+                      '[Chat] Updated last assistant message with ${event.offers.length} offers');
+                }
               }
             } else if (event is CompleteEvent) {
               // Finalize streaming message
@@ -359,7 +387,11 @@ class MobileChatPage extends HookWidget {
                         itemCount: messages.value.length,
                         itemBuilder: (context, index) {
                           final message = messages.value[index];
-                          return ChatMessageBubble(message: message);
+                          return ChatMessageBubble(
+                            message: message,
+                            followService: followService,
+                            pushService: pushService,
+                          );
                         },
                       ),
           ),

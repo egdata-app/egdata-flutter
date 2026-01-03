@@ -4,17 +4,23 @@ import 'package:intl/intl.dart';
 import '../models/chat_session.dart';
 import '../models/settings.dart';
 import '../services/chat_session_service.dart';
+import '../services/follow_service.dart';
+import '../services/push_service.dart';
 import '../database/database_service.dart';
 import 'mobile_chat_page.dart';
 
 class MobileChatSessionsPage extends HookWidget {
   final AppSettings settings;
   final ChatSessionService chatService;
+  final FollowService followService;
+  final PushService? pushService;
 
   const MobileChatSessionsPage({
     super.key,
     required this.settings,
     required this.chatService,
+    required this.followService,
+    this.pushService,
   });
 
   @override
@@ -69,6 +75,8 @@ class MobileChatSessionsPage extends HookWidget {
                 settings: settings,
                 chatService: chatService,
                 session: newSession,
+                followService: followService,
+                pushService: pushService,
                 onSessionUpdated: () async {
                   // Refresh sessions list
                   final updatedSessions = await chatService.listSessions();
@@ -204,6 +212,8 @@ class MobileChatSessionsPage extends HookWidget {
                                   settings: settings,
                                   chatService: chatService,
                                   session: session,
+                                  followService: followService,
+                                  pushService: pushService,
                                   onSessionUpdated: () async {
                                     final updatedSessions = await chatService.listSessions();
                                     sessions.value = updatedSessions;

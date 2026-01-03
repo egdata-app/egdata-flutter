@@ -18,6 +18,7 @@ EGData Client - A cross-platform Flutter application for Epic Games data. The ap
 - View game details, prices, and sales
 - Follow games for notifications (via push notifications)
 - View free games and deals
+- AI chat assistant for game recommendations and information
 - No local game scanning or playtime tracking (not applicable on mobile)
 
 **Dart SDK:** ^3.10.4
@@ -75,6 +76,7 @@ The app uses a custom Flutter title bar instead of the native Windows title bar 
 **Mobile (Bottom Navigation):**
 - **Dashboard** (`lib/pages/mobile_dashboard_page.dart`) - Free games, followed games, recently viewed
 - **Browse** (`lib/pages/mobile_browse_page.dart`) - Search catalog, filter by type/price/sale, infinite scroll
+- **Chat** (`lib/pages/mobile_chat_page.dart`) - AI assistant for game recommendations and information
 - **Settings** - Country selection, notification preferences
 
 ### Data Models (`lib/models/`)
@@ -83,6 +85,9 @@ The app uses a custom Flutter title bar instead of the native Windows title bar 
 - **playtime_stats.dart** - Weekly playtime statistics and most played game data (Desktop)
 - **settings.dart** - App settings (auto-sync, notifications, minimize to tray, country, etc.)
 - **upload_status.dart** - Manifest upload status tracking (Desktop)
+- **chat_session.dart** - Chat session metadata (id, title, lastMessageAt)
+- **chat_message.dart** - Chat message with content, role, timestamp, and optional referenced offers
+- **referenced_offer.dart** - Game offers referenced by AI in chat responses
 
 ### API Models (`lib/models/api/`)
 Typed models for EGData API responses. All `fromJson` methods are null-safe with sensible defaults.
@@ -114,6 +119,9 @@ Typed models for EGData API responses. All `fromJson` methods are null-safe with
 
 **Mobile Only:**
 - **push_service.dart** - Push notification subscription management via EGData API
+- **chat_websocket_service.dart** - WebSocket client for real-time AI chat streaming
+- **chat_session_service.dart** - Session management (create, list, delete, rename chats)
+- **ai_chat_service.dart** - HTTP fallback for chat API (when WebSocket unavailable)
 
 ### Database (`lib/database/`)
 - **database_service.dart** - Isar database for persistent storage (followed games, free games, changelogs, playtime sessions, process cache)
@@ -123,6 +131,9 @@ Typed models for EGData API responses. All `fromJson` methods are null-safe with
 - **custom_title_bar.dart** - Custom window title bar for Windows (replaces native title bar)
 - **follow_button.dart** - Button to follow/unfollow games for notifications
 - **weekly_stats_row.dart** - Weekly activity chart component
+- **chat_message_bubble.dart** - Chat message display with markdown rendering and referenced offers
+- **chat_referenced_offers.dart** - Collapsible section showing game offers mentioned by AI
+- **chat_suggested_prompts.dart** - Suggested prompts for starting conversations
 
 ### Key Dependencies
 - `http` - API requests
@@ -297,6 +308,15 @@ Base URL: `https://api.egdata.app`
 - **POST /push/topics/subscribe** - Subscribe to specific topics
 - **POST /push/topics/unsubscribe** - Unsubscribe from topics
 
+**AI Chat (Mobile):**
+- **WebSocket wss://ai.egdata.app/?agentId={userId}&sessionId={sessionId}** - Real-time chat streaming
+- **POST /api/chat** - HTTP fallback for chat (returns JSON with text and referencedOffers)
+- **GET /api/sessions?userId={userId}** - List all chat sessions
+- **POST /api/sessions** - Create new chat session
+- **GET /api/sessions/{id}?userId={userId}** - Get session with messages
+- **PATCH /api/sessions/{id}** - Rename session
+- **DELETE /api/sessions/{id}?userId={userId}** - Delete session
+
 ### Opening Games in Browser
 Use `https://egdata.app/offers/{offerId}` to link to game pages.
 
@@ -307,6 +327,82 @@ The app uses an Unreal Engine-inspired dark theme:
 - **Primary accent:** Cyan (#00D4FF)
 - **Glassmorphism:** Semi-transparent surfaces with subtle borders
 - **Cards:** Dark surfaces (#141414) with subtle borders
+
+## AI Chat Feature (Mobile)
+
+The mobile app includes an AI chat assistant powered by the EGData AI service at `ai.egdata.app`. Users can ask questions about games, get recommendations, and view pricing information.
+
+### Architecture
+
+**Chat Sessions:**
+- Multi-chat support with session management
+- Sessions stored locally in Isar database and synced with backend
+- Auto-generated titles from the first message
+- Sessions list page (`lib/pages/mobile_chat_sessions_page.dart`) shows all conversations
+
+**Real-time Communication:**
+- Primary: WebSocket connection (`wss://ai.egdata.app`) for streaming responses
+- Fallback: HTTP POST to `/api/chat` when WebSocket unavailable
+- Persistent user ID generated on first launch using `user_service.dart`
+
+**Event Types (WebSocket/SSE):**
+- `tool_progress` - AI is using a tool (e.g., searching games, fetching prices)
+- `text_delta` - Streaming text chunk from AI response
+- `referenced_offers` - Game offers mentioned in the AI response (sent after complete)
+- `complete` - Response finished, includes messageId for persistence
+- `error` - Error occurred during processing
+
+### Referenced Offers
+
+When the AI mentions games in its response, it sends a `referenced_offers` event with structured data about those games. The UI displays these as collapsible cards below the message.
+
+**ReferencedOffer Model (`lib/models/referenced_offer.dart`):**
+```dart
+class ReferencedOffer {
+  final String id;              // Offer ID
+  final String title;           // Game title
+  final String? price;          // Current price (e.g., "$19.99" or "Free")
+  final String? originalPrice;  // Original price (if on sale)
+  final int? discountPercentage; // Discount % (e.g., 50)
+  final String? thumbnail;      // Thumbnail image URL
+  final String? offerType;      // "BASE_GAME", "DLC", "ADD_ON", etc.
+  final int? releaseDate;       // Unix timestamp (milliseconds)
+  final String? seller;         // Publisher/seller name
+}
+```
+
+**Display Widget (`lib/widgets/chat_referenced_offers.dart`):**
+- Collapsible section with header showing count (e.g., "3 games referenced")
+- Each offer shown as a card with thumbnail, title, price, discount badge
+- Tap to navigate to offer details page
+- Discount badges highlighted in accent color
+- Free games highlighted in accent color
+
+**Integration Flow:**
+1. AI responds to user question about games
+2. WebSocket sends `text_delta` events to stream response text
+3. After response completes, WebSocket sends `referenced_offers` event with game data
+4. `MobileChatPage` handles event and updates message with `referencedOffers` list
+5. `ChatMessageBubble` displays `ChatReferencedOffers` widget if offers present
+6. User can tap any offer card to view full game details
+
+**Example WebSocket Flow:**
+```
+← {"type": "text_delta", "text": "Here are some great RPGs:\n\n"}
+← {"type": "tool_progress", "tool": "search", "status": "searching"}
+← {"type": "text_delta", "text": "1. **Elden Ring** - "}
+← {"type": "text_delta", "text": "From the creators of..."}
+← {"type": "complete", "messageId": "abc123"}
+← {"type": "referenced_offers", "offers": [
+     {"id": "offer123", "title": "Elden Ring", "price": "$59.99", ...},
+     {"id": "offer456", "title": "Baldur's Gate 3", "price": "$59.99", ...}
+   ]}
+```
+
+**Database Persistence:**
+- Messages stored in `chat_message_entry` with `referencedOffers` JSON field
+- Referenced offers persisted with each message for offline viewing
+- Sessions and messages synced between local database and backend
 
 ## Windows App Icon
 

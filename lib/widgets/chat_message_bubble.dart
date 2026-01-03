@@ -5,11 +5,21 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:intl/intl.dart';
 import '../main.dart';
 import '../models/chat_message.dart';
+import '../services/follow_service.dart';
+import '../services/push_service.dart';
+import 'chat_referenced_offers.dart';
 
 class ChatMessageBubble extends HookWidget {
   final ChatMessage message;
+  final FollowService followService;
+  final PushService? pushService;
 
-  const ChatMessageBubble({super.key, required this.message});
+  const ChatMessageBubble({
+    super.key,
+    required this.message,
+    required this.followService,
+    this.pushService,
+  });
 
   /// Format timestamp Discord-style (relative time)
   String _formatTimestamp(DateTime timestamp) {
@@ -232,6 +242,16 @@ class ChatMessageBubble extends HookWidget {
                               color: AppColors.textPrimary,
                             ),
                           ),
+                        ),
+
+                      // Referenced offers section
+                      if (message.referencedOffers != null &&
+                          message.referencedOffers!.isNotEmpty &&
+                          !message.isStreaming)
+                        ChatReferencedOffers(
+                          offers: message.referencedOffers!,
+                          followService: followService,
+                          pushService: pushService,
                         ),
 
                       // Timestamp for AI messages

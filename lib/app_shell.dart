@@ -531,6 +531,8 @@ class _AppShellState extends State<AppShell> {
                 MobileChatSessionsPage(
                   settings: _settings,
                   chatService: _chatSessionService!,
+                  followService: _followService!,
+                  pushService: _pushService,
                 ),
                 FreeGamesPage(
                   followService: _followService!,
@@ -624,6 +626,8 @@ class _AppShellState extends State<AppShell> {
         return MobileChatSessionsPage(
           settings: _settings,
           chatService: _chatSessionService!,
+          followService: _followService!,
+          pushService: _pushService,
         );
       case AppPage.freeGames:
         // Mobile only: free games list

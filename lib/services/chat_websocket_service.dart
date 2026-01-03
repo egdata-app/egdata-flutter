@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import '../models/referenced_offer.dart';
 
 /// Events that can be received from the WebSocket
 enum ChatEventType {
@@ -9,6 +10,7 @@ enum ChatEventType {
   textDelta,
   complete,
   error,
+  referencedOffers,
 }
 
 /// Base event class
@@ -47,6 +49,14 @@ class ErrorEvent extends ChatEvent {
   final String message;
 
   const ErrorEvent(this.message) : super(ChatEventType.error);
+}
+
+/// Referenced offers event (game offers mentioned in the AI response)
+class ReferencedOffersEvent extends ChatEvent {
+  final List<ReferencedOffer> offers;
+
+  const ReferencedOffersEvent(this.offers)
+      : super(ChatEventType.referencedOffers);
 }
 
 class ChatWebSocketService {
@@ -171,6 +181,14 @@ class ChatWebSocketService {
         final message = data['message'] ?? 'Unknown error';
         debugPrint('[WebSocket] Error: $message');
         return ErrorEvent(message);
+
+      case 'referenced_offers':
+        final offersData = data['offers'] as List<dynamic>? ?? [];
+        final offers = offersData
+            .map((offerJson) => ReferencedOffer.fromJson(offerJson))
+            .toList();
+        debugPrint('[WebSocket] Referenced offers: ${offers.length} offers');
+        return ReferencedOffersEvent(offers);
 
       default:
         debugPrint('[WebSocket] Unknown event type: $type');

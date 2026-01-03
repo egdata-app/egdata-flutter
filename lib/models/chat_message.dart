@@ -1,3 +1,5 @@
+import 'referenced_offer.dart';
+
 class ChatMessage {
   final String id;
   final String sessionId;
@@ -5,6 +7,7 @@ class ChatMessage {
   final String content;
   final DateTime timestamp;
   final bool isStreaming;
+  final List<ReferencedOffer>? referencedOffers;
 
   const ChatMessage({
     required this.id,
@@ -13,6 +16,7 @@ class ChatMessage {
     required this.content,
     required this.timestamp,
     this.isStreaming = false,
+    this.referencedOffers,
   });
 
   /// Helper to check if message is from user
@@ -25,6 +29,7 @@ class ChatMessage {
     String? content,
     DateTime? timestamp,
     bool? isStreaming,
+    List<ReferencedOffer>? referencedOffers,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -33,6 +38,7 @@ class ChatMessage {
       content: content ?? this.content,
       timestamp: timestamp ?? this.timestamp,
       isStreaming: isStreaming ?? this.isStreaming,
+      referencedOffers: referencedOffers ?? this.referencedOffers,
     );
   }
 
@@ -44,6 +50,8 @@ class ChatMessage {
       'content': content,
       'timestamp': timestamp.millisecondsSinceEpoch,
       'isStreaming': isStreaming,
+      'referencedOffers':
+          referencedOffers?.map((offer) => offer.toJson()).toList(),
     };
   }
 
@@ -57,6 +65,11 @@ class ChatMessage {
           ? DateTime.fromMillisecondsSinceEpoch(json['timestamp'])
           : DateTime.now(),
       isStreaming: json['isStreaming'] ?? false,
+      referencedOffers: json['referencedOffers'] != null
+          ? (json['referencedOffers'] as List<dynamic>)
+              .map((offerJson) => ReferencedOffer.fromJson(offerJson))
+              .toList()
+          : null,
     );
   }
 
