@@ -197,8 +197,28 @@ class AppColors {
   );
 }
 
-class EGDataApp extends StatelessWidget {
+class EGDataApp extends StatefulWidget {
   const EGDataApp({super.key});
+
+  @override
+  State<EGDataApp> createState() => _EGDataAppState();
+}
+
+class _EGDataAppState extends State<EGDataApp> {
+  // Create QueryClient once to persist cache across rebuilds and navigation
+  late final QueryClient _queryClient;
+
+  @override
+  void initState() {
+    super.initState();
+    _queryClient = QueryClient();
+  }
+
+  @override
+  void dispose() {
+    _queryClient.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -206,7 +226,7 @@ class EGDataApp extends StatelessWidget {
     final baseTextTheme = ThemeData.dark().textTheme.apply(fontFamily: 'Inter');
 
     return QueryClientProvider(
-      client: QueryClient(),
+      client: _queryClient,
       child: MaterialApp(
         title: 'EGData Client',
         debugShowCheckedModeBanner: false,

@@ -199,7 +199,7 @@ class MobileBrowsePage extends HookWidget {
         }
       },
       initialPageParam: 1,
-      getNextPageParam: (lastPage, allPages, _, __) {
+      getNextPageParam: (lastPage, allPages, lastPageParam, allPageParams) {
         // Calculate total loaded items from all pages
         final loadedCount = allPages.fold<int>(
           0,
@@ -211,6 +211,7 @@ class MobileBrowsePage extends HookWidget {
         }
         return null;
       },
+      // Cache data for 5 minutes - fluquery will automatically use cached data on navigation
       staleTime: StaleTime(const Duration(minutes: 5)),
     );
 
