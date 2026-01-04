@@ -2,4 +2,13 @@
 <resources>
     <color name="ic_launcher_background">#0A0A0A</color>
     <color name="splash_background">#0A0A0A</color>
+
+    <!-- Widget colors matching Unreal Engine glassmorphic theme -->
+    <color name="widget_background">#F20A0A0A</color> <!-- 95% opacity near-black -->
+    <color name="widget_surface">#141414</color> <!-- Dark card surface -->
+    <color name="widget_border">#1F1F1F</color> <!-- Border color -->
+    <color name="widget_primary">#00D4FF</color> <!-- Cyan accent -->
+    <color name="widget_text_primary">#FFFFFF</color> <!-- Primary text -->
+    <color name="widget_text_secondary">#888888</color> <!-- Secondary text -->
+    <color name="widget_badge_bg">#1A00D4FF</color> <!-- Badge background (cyan 10%) -->
 </resources>

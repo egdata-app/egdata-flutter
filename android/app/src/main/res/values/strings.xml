@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">egdata.app</string>
+    <string name="widget_name">Free Games</string>
+    <string name="widget_description">Epic Games Store free games</string>
+    <string name="widget_no_games">No free games</string>
+    <string name="widget_loading">Loading...</string>
+    <string name="widget_error">Unable to load</string>
+    <string name="widget_free">FREE</string>
+    <string name="widget_ends_today">Ends today</string>
+    <string name="widget_ends_tomorrow">Ends tomorrow</string>
+    <string name="widget_ends_in">Ends in %d days</string>
+    <string name="widget_multiple_games">%d Free Games</string>
+</resources>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Widget dimensions -->
+    <dimen name="widget_padding">12dp</dimen>
+    <dimen name="widget_corner_radius">12dp</dimen>
+    <dimen name="widget_border_width">1dp</dimen>
+
+    <!-- Small widget (2x2) -->
+    <dimen name="widget_small_image_size">80dp</dimen>
+
+    <!-- Medium widget (4x2) -->
+    <dimen name="widget_medium_image_width">90dp</dimen>
+    <dimen name="widget_medium_image_height">120dp</dimen>
+    <dimen name="widget_medium_spacing">8dp</dimen>
+
+    <!-- Large widget (4x4) -->
+    <dimen name="widget_large_image_size">100dp</dimen>
+    <dimen name="widget_large_spacing">12dp</dimen>
+
+    <!-- Text sizes -->
+    <dimen name="widget_text_title">12sp</dimen>
+    <dimen name="widget_text_subtitle">10sp</dimen>
+    <dimen name="widget_text_badge">10sp</dimen>
+    <dimen name="widget_text_count">16sp</dimen>
+</resources>

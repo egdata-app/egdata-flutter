@@ -4,9 +4,16 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_in_app_messaging/firebase_in_app_messaging.dart';
 import 'package:fluquery/fluquery.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/services.dart';
 import 'app_shell.dart';
 import 'utils/platform_utils.dart';
 import 'services/analytics_service.dart';
+import 'services/widget_service.dart';
+import 'services/follow_service.dart';
+import 'services/push_service.dart';
+import 'services/notification_service.dart';
+import 'database/database_service.dart';
+import 'pages/mobile_offer_detail_page.dart';
 
 // Desktop-only imports (conditionally used)
 import 'package:window_manager/window_manager.dart';
@@ -15,6 +22,9 @@ import 'package:windows_single_instance/windows_single_instance.dart';
 
 // App version - keep in sync with pubspec.yaml
 const String appVersion = '1.0.20';
+
+// Global key for navigation from the MethodChannel
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,19 +36,31 @@ void main(List<String> args) async {
     debugPrint('Warning: .env file not found (optional).');
   }
 
-  // Initialize Firebase for mobile platforms (required for push notifications and analytics)
-  // Firebase configuration files (google-services.json / GoogleService-Info.plist) are optional
+  // Initialize Database
+  final dbService = await DatabaseService.getInstance();
+
+  // Initialize Notification Service
+  final notificationService = NotificationService();
+  await notificationService.init();
+
+  // Initialize Firebase for mobile platforms
   if (PlatformUtils.isMobile) {
     try {
       await Firebase.initializeApp();
-      // Initialize Firebase Analytics
       await AnalyticsService().initialize();
-      // Initialize Firebase In-App Messaging
       FirebaseInAppMessaging.instance.setMessagesSuppressed(false);
     } catch (e) {
-      // Firebase not configured - push notifications and analytics will be disabled
       debugPrint('Firebase initialization failed: $e');
-      debugPrint('Push notifications and analytics will be disabled. To enable them, add Firebase configuration files.');
+    }
+
+    // Update Android widget with latest free games data
+    if (Platform.isAndroid) {
+      try {
+        final widgetService = WidgetService();
+        await widgetService.updateWidget();
+      } catch (e) {
+        debugPrint('Widget update failed: $e');
+      }
     }
   }
 
@@ -47,25 +69,25 @@ void main(List<String> args) async {
     await _initDesktop(args);
   }
 
-  runApp(const EGDataApp());
+  runApp(EGDataApp(
+    dbService: dbService,
+    notificationService: notificationService,
+  ));
 }
 
-/// Initialize desktop-specific features (window manager, single instance, etc.)
+/// Initialize desktop-specific features
 Future<void> _initDesktop(List<String> args) async {
-  // Ensure only one instance of the app runs on Windows
   if (PlatformUtils.isWindows) {
     await WindowsSingleInstance.ensureSingleInstance(
       args,
       'egdata_client_single_instance',
       onSecondWindow: (args) async {
-        // When a second instance is launched, bring this window to front
         await windowManager.show();
         await windowManager.focus();
       },
     );
   }
 
-  // Initialize window manager for desktop platforms
   await windowManager.ensureInitialized();
 
   const windowOptions = WindowOptions(
@@ -83,7 +105,6 @@ Future<void> _initDesktop(List<String> args) async {
     await windowManager.focus();
   });
 
-  // Initialize launch at startup (Windows only for now)
   if (PlatformUtils.isWindows) {
     launchAtStartup.setup(
       appName: 'EGData Client',
@@ -92,7 +113,6 @@ Future<void> _initDesktop(List<String> args) async {
   }
 }
 
-// Unreal Engine inspired color palette
 class AppColors {
   // Backgrounds
   static const Color background = Color(0xFF0A0A0A);
@@ -115,8 +135,8 @@ class AppColors {
   static const Color primaryMuted = Color(0xFF0891B2);
 
   // Secondary accents
-  static const Color accent = Color(0xFF8B5CF6); // Purple
-  static const Color accentPink = Color(0xFFEC4899); // Pink
+  static const Color accent = Color(0xFF8B5CF6);
+  static const Color accentPink = Color(0xFFEC4899);
 
   // Text
   static const Color textPrimary = Color(0xFFFFFFFF);
@@ -133,36 +153,20 @@ class AppColors {
   static const double radiusMedium = 12.0;
   static const double radiusLarge = 16.0;
 
-  // Glass decoration helper
-  static BoxDecoration get glassDecoration => BoxDecoration(
-    color: surfaceGlass,
-    borderRadius: BorderRadius.circular(radiusMedium),
-    border: Border.all(color: borderGlass),
-  );
-
-  // Glass decoration with custom radius
-  static BoxDecoration glassDecorationWithRadius(double radius) =>
-      BoxDecoration(
-        color: surfaceGlass,
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: borderGlass),
-      );
-
-  // Radial gradient background decoration (desktop)
+  // Background decorations
   static BoxDecoration get radialGradientBackground => const BoxDecoration(
     gradient: RadialGradient(
       center: Alignment(-0.5, -0.8),
       radius: 1.5,
       colors: [
-        Color(0xFF1A1A2E), // Subtle dark blue-purple tint
-        Color(0xFF0F0F14), // Darker transition
-        Color(0xFF0A0A0A), // Pure black (background)
+        Color(0xFF1A1A2E),
+        Color(0xFF0F0F14),
+        Color(0xFF0A0A0A),
       ],
       stops: [0.0, 0.4, 0.8],
     ),
   );
 
-  // Secondary radial gradient for accent glow (desktop)
   static BoxDecoration get accentGlowBackground => BoxDecoration(
     gradient: RadialGradient(
       center: const Alignment(0.8, 0.6),
@@ -172,21 +176,19 @@ class AppColors {
     ),
   );
 
-  // Mobile-optimized radial gradient (adjusted for portrait orientation)
   static BoxDecoration get mobileRadialGradientBackground => const BoxDecoration(
     gradient: RadialGradient(
       center: Alignment(0.0, -0.3),
       radius: 1.8,
       colors: [
-        Color(0xFF1A1A2E), // Subtle dark blue-purple tint
-        Color(0xFF0F0F14), // Darker transition
-        Color(0xFF0A0A0A), // Pure black (background)
+        Color(0xFF1A1A2E),
+        Color(0xFF0F0F14),
+        Color(0xFF0A0A0A),
       ],
       stops: [0.0, 0.35, 0.7],
     ),
   );
 
-  // Mobile-optimized accent glow (positioned at top-right corner)
   static BoxDecoration get mobileAccentGlowBackground => BoxDecoration(
     gradient: RadialGradient(
       center: const Alignment(0.6, -0.4),
@@ -198,20 +200,80 @@ class AppColors {
 }
 
 class EGDataApp extends StatefulWidget {
-  const EGDataApp({super.key});
+  final DatabaseService dbService;
+  final NotificationService notificationService;
+
+  const EGDataApp({
+    super.key,
+    required this.dbService,
+    required this.notificationService,
+  });
 
   @override
   State<EGDataApp> createState() => _EGDataAppState();
 }
 
 class _EGDataAppState extends State<EGDataApp> {
-  // Create QueryClient once to persist cache across rebuilds and navigation
   late final QueryClient _queryClient;
+  static const platform = MethodChannel('com.ignacioaldama.egdata/widget');
+  
+  // Services for detail page navigation
+  late final FollowService _followService;
+  late final PushService _pushService;
 
   @override
   void initState() {
     super.initState();
     _queryClient = QueryClient();
+    
+    // Initialize services with the shared instances
+    _followService = FollowService(db: widget.dbService);
+    _pushService = PushService(
+      db: widget.dbService,
+      notification: widget.notificationService,
+    );
+    
+    _initWidgetChannel();
+  }
+
+  void _initWidgetChannel() {
+    if (!Platform.isAndroid) return;
+
+    platform.setMethodCallHandler((call) async {
+      if (call.method == "onOfferSelected") {
+        final String? offerId = call.arguments as String?;
+        if (offerId != null) {
+          _navigateToOffer(offerId);
+        }
+      }
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkInitialWidgetClick();
+    });
+  }
+
+  Future<void> _checkInitialWidgetClick() async {
+    try {
+      final String? offerId = await platform.invokeMethod('getPendingOfferId');
+      if (offerId != null) {
+        _navigateToOffer(offerId);
+      }
+    } catch (e) {
+      debugPrint("Error checking initial widget click: $e");
+    }
+  }
+
+  void _navigateToOffer(String offerId) {
+    navigatorKey.currentState?.push(
+      MaterialPageRoute(
+        builder: (context) => MobileOfferDetailPage(
+          offerId: offerId,
+          followService: _followService,
+          pushService: _pushService,
+        ),
+      ),
+    );
   }
 
   @override
@@ -228,6 +290,7 @@ class _EGDataAppState extends State<EGDataApp> {
     return QueryClientProvider(
       client: _queryClient,
       child: MaterialApp(
+        navigatorKey: navigatorKey,
         title: 'EGData Client',
         debugShowCheckedModeBanner: false,
         themeMode: ThemeMode.dark,
@@ -236,182 +299,18 @@ class _EGDataAppState extends State<EGDataApp> {
             AnalyticsService().observer!,
         ],
         darkTheme: ThemeData(
-        brightness: Brightness.dark,
-        fontFamily: 'Inter',
-        colorScheme: const ColorScheme.dark(
-          surface: AppColors.surface,
-          primary: AppColors.primary,
-          secondary: AppColors.accent,
-          onSurface: AppColors.textPrimary,
-          outline: AppColors.border,
+          brightness: Brightness.dark,
+          fontFamily: 'Inter',
+          colorScheme: const ColorScheme.dark(
+            surface: AppColors.surface,
+            primary: AppColors.primary,
+            secondary: AppColors.accent,
+            onSurface: AppColors.textPrimary,
+            outline: AppColors.border,
+          ),
+          scaffoldBackgroundColor: AppColors.background,
+          textTheme: baseTextTheme,
         ),
-        scaffoldBackgroundColor: AppColors.background,
-        appBarTheme: AppBarTheme(
-          backgroundColor: AppColors.background,
-          elevation: 0,
-          centerTitle: false,
-          titleTextStyle: interTextStyle.copyWith(
-            color: AppColors.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        cardTheme: CardThemeData(
-          color: AppColors.surface,
-          elevation: 0,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppColors.radiusMedium),
-            side: const BorderSide(color: AppColors.border),
-          ),
-        ),
-        dividerColor: AppColors.border,
-        iconTheme: const IconThemeData(color: AppColors.textSecondary),
-        textTheme: baseTextTheme.copyWith(
-          headlineLarge: baseTextTheme.headlineLarge?.copyWith(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.w800,
-          ),
-          headlineMedium: baseTextTheme.headlineMedium?.copyWith(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.w700,
-          ),
-          titleLarge: baseTextTheme.titleLarge?.copyWith(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.w700,
-          ),
-          titleMedium: baseTextTheme.titleMedium?.copyWith(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.w600,
-          ),
-          bodyLarge: baseTextTheme.bodyLarge?.copyWith(
-            color: AppColors.textPrimary,
-          ),
-          bodyMedium: baseTextTheme.bodyMedium?.copyWith(
-            color: AppColors.textSecondary,
-          ),
-          bodySmall: baseTextTheme.bodySmall?.copyWith(
-            color: AppColors.textMuted,
-          ),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: AppColors.background,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppColors.radiusSmall),
-            ),
-            textStyle: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontFamily: 'Inter',
-            ),
-          ),
-        ),
-        outlinedButtonTheme: OutlinedButtonThemeData(
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.textPrimary,
-            side: const BorderSide(color: AppColors.borderLight),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppColors.radiusSmall),
-            ),
-            textStyle: const TextStyle(
-              fontWeight: FontWeight.w500,
-              fontFamily: 'Inter',
-            ),
-          ),
-        ),
-        textButtonTheme: TextButtonThemeData(
-          style: TextButton.styleFrom(
-            foregroundColor: AppColors.primary,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppColors.radiusSmall),
-            ),
-            textStyle: const TextStyle(
-              fontWeight: FontWeight.w500,
-              fontFamily: 'Inter',
-            ),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: AppColors.surface,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppColors.radiusSmall),
-            borderSide: const BorderSide(color: AppColors.border),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppColors.radiusSmall),
-            borderSide: const BorderSide(color: AppColors.border),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppColors.radiusSmall),
-            borderSide: const BorderSide(color: AppColors.primary, width: 2),
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 14,
-          ),
-          hintStyle: const TextStyle(color: AppColors.textMuted),
-        ),
-        chipTheme: ChipThemeData(
-          backgroundColor: Colors.transparent,
-          side: const BorderSide(color: AppColors.borderLight),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          labelStyle: const TextStyle(
-            color: AppColors.textSecondary,
-            fontWeight: FontWeight.w500,
-          ),
-          selectedColor: AppColors.primary.withValues(alpha: 0.15),
-        ),
-        scrollbarTheme: ScrollbarThemeData(
-          thumbColor: WidgetStateProperty.all(AppColors.borderLight),
-          radius: const Radius.circular(4),
-        ),
-        switchTheme: SwitchThemeData(
-          thumbColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.selected)) {
-              return AppColors.primary;
-            }
-            return AppColors.textMuted;
-          }),
-          trackColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.selected)) {
-              return AppColors.primary.withValues(alpha: 0.3);
-            }
-            return AppColors.border;
-          }),
-          trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
-        ),
-        dialogTheme: DialogThemeData(
-          backgroundColor: AppColors.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppColors.radiusLarge),
-          ),
-        ),
-        popupMenuTheme: PopupMenuThemeData(
-          color: AppColors.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppColors.radiusMedium),
-            side: const BorderSide(color: AppColors.border),
-          ),
-        ),
-        tooltipTheme: TooltipThemeData(
-          decoration: BoxDecoration(
-            color: AppColors.surfaceLight,
-            borderRadius: BorderRadius.circular(AppColors.radiusSmall),
-            border: Border.all(color: AppColors.border),
-          ),
-          textStyle: const TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 12,
-          ),
-        ),
-      ),
         home: const AppShell(),
       ),
     );

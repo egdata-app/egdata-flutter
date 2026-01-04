@@ -41,6 +41,7 @@ dependencies:
   flutter_dotenv: ^5.2.1
   shimmer: ^3.0.0
   iconsax_plus: ^1.0.0
+  home_widget: ^0.6.0
 
 dev_dependencies:
   flutter_test:
