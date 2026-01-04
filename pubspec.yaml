@@ -40,6 +40,7 @@ dependencies:
   firebase_ai: 3.4.0 # Pinned to exact version for langchain_firebase compatibility
   flutter_dotenv: ^5.2.1
   shimmer: ^3.0.0
+  iconsax_plus: ^1.0.0
 
 dev_dependencies:
   flutter_test:

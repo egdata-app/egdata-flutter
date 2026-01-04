@@ -23,7 +23,7 @@ import 'services/settings_service.dart';
 import 'services/tray_service.dart';
 import 'services/update_service.dart';
 import 'widgets/app_sidebar.dart';
-import 'widgets/mobile_bottom_nav.dart';
+import 'widgets/glassmorphic_bottom_nav.dart';
 import 'widgets/custom_title_bar.dart';
 import 'pages/dashboard_page.dart';
 import 'pages/library_page.dart';
@@ -511,64 +511,71 @@ class _AppShellState extends State<AppShell> {
           Container(decoration: AppColors.mobileRadialGradientBackground),
           // Mobile-optimized accent glow overlay
           Container(decoration: AppColors.mobileAccentGlowBackground),
-          // Main content with safe area - PageView for animations & state preservation
+          // Main content - PageView for animations & state preservation
           SafeArea(
+            bottom: false, // Allow content to extend behind navbar for blur effect
             child: PageView(
               controller: _mobilePageController,
               physics: const NeverScrollableScrollPhysics(), // Disable swipe
               children: [
-                MobileDashboardPage(
-                  followService: _followService!,
-                  syncService: _syncService!,
-                  db: _db!,
-                  settings: _settings,
-                  pushService: _pushService,
-                  onSettingsChanged: _onSettingsChanged,
-                ),
-                MobileBrowsePage(
-                  settings: _settings,
-                  followService: _followService!,
-                  pushService: _pushService,
-                ),
-                MobileChatSessionsPage(
-                  settings: _settings,
-                  apiService: _apiService,
-                  chatService: _chatSessionService!,
-                  followService: _followService!,
-                  pushService: _pushService,
-                ),
-                FreeGamesPage(
-                  followService: _followService!,
-                  syncService: _syncService!,
-                  db: _db!,
-                  pushService: _pushService,
-                ),
-                SettingsPage(
-                  settings: _settings,
-                  onSettingsChanged: _onSettingsChanged,
-                  onClearProcessCache: () => _db!.clearProcessCache(),
-                  pushService: _pushService,
-                ),
-              ],
+              MobileDashboardPage(
+                followService: _followService!,
+                syncService: _syncService!,
+                db: _db!,
+                settings: _settings,
+                pushService: _pushService,
+                onSettingsChanged: _onSettingsChanged,
+              ),
+              MobileBrowsePage(
+                settings: _settings,
+                followService: _followService!,
+                pushService: _pushService,
+              ),
+              MobileChatSessionsPage(
+                settings: _settings,
+                apiService: _apiService,
+                chatService: _chatSessionService!,
+                followService: _followService!,
+                pushService: _pushService,
+              ),
+              FreeGamesPage(
+                followService: _followService!,
+                syncService: _syncService!,
+                db: _db!,
+                pushService: _pushService,
+              ),
+              SettingsPage(
+                settings: _settings,
+                onSettingsChanged: _onSettingsChanged,
+                onClearProcessCache: () => _db!.clearProcessCache(),
+                pushService: _pushService,
+              ),
+            ],
+            ),
+          ),
+          // Glassmorphic bottom navbar - positioned at bottom of Stack
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: GlassmorphicBottomNav(
+              currentPage: _currentPage,
+              onPageSelected: (page) {
+                final targetIndex = _mobilePages.indexOf(page);
+                if (targetIndex != -1) {
+                  _mobilePageController.animateToPage(
+                    targetIndex,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOutCubic,
+                  );
+                }
+                setState(() {
+                  _currentPage = page;
+                });
+              },
             ),
           ),
         ],
-      ),
-      bottomNavigationBar: MobileBottomNav(
-        currentPage: _currentPage,
-        onPageSelected: (page) {
-          final targetIndex = _mobilePages.indexOf(page);
-          if (targetIndex != -1) {
-            _mobilePageController.animateToPage(
-              targetIndex,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOutCubic,
-            );
-          }
-          setState(() {
-            _currentPage = page;
-          });
-        },
       ),
     );
   }
