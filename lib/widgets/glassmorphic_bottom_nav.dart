@@ -1,6 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:iconsax_plus/iconsax_plus.dart';
 import '../main.dart';
 import 'app_sidebar.dart';
 
@@ -55,23 +54,23 @@ class GlassmorphicBottomNav extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     _buildNavItem(
-                      icon: IconsaxPlusBold.home_1,
+                      icon: Icons.home_rounded,
                       label: 'Home',
                       page: AppPage.dashboard,
                     ),
                     _buildNavItem(
-                      icon: IconsaxPlusBold.search_normal_1,
+                      icon: Icons.explore_rounded,
                       label: 'Browse',
                       page: AppPage.browse,
                     ),
                     _buildChatButton(),
                     _buildNavItem(
-                      icon: IconsaxPlusBold.gift,
+                      icon: Icons.card_giftcard_rounded,
                       label: 'Freebies',
                       page: AppPage.freeGames,
                     ),
                     _buildNavItem(
-                      icon: IconsaxPlusBold.setting_2,
+                      icon: Icons.settings_rounded,
                       label: 'Settings',
                       page: AppPage.settings,
                     ),
@@ -118,7 +117,7 @@ class GlassmorphicBottomNav extends StatelessWidget {
                 : null,
           ),
           child: Icon(
-            IconsaxPlusBold.message,
+            Icons.auto_awesome_rounded,
             size: 24,
             color: isActive
                 ? Colors.white

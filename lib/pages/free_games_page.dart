@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:fluquery/fluquery.dart';
 import '../main.dart';
 import '../database/database_service.dart';
-import '../models/settings.dart';
+import '../services/api_service.dart';
 import '../services/follow_service.dart';
 import '../services/push_service.dart';
 import '../services/sync_service.dart';
 import '../widgets/free_game_card.dart';
 import 'mobile_offer_detail_page.dart';
 
-class FreeGamesPage extends StatefulWidget {
+class FreeGamesPage extends HookWidget {
   final FollowService followService;
   final SyncService syncService;
   final DatabaseService db;
@@ -22,61 +24,46 @@ class FreeGamesPage extends StatefulWidget {
     this.pushService,
   });
 
-  @override
-  State<FreeGamesPage> createState() => _FreeGamesPageState();
-}
+  Future<List<FreeGameEntry>> _fetchFreeGames() async {
+    final apiService = ApiService();
+    final allGames = await apiService.getFreeGames();
 
-class _FreeGamesPageState extends State<FreeGamesPage>
-    with AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
+    // Convert FreeGame API models to FreeGameEntry for the card widget
+    return allGames.map((game) {
+      // Find thumbnail from key images
+      String? thumbnail;
+      for (final type in ['OfferImageWide', 'DieselStoreFrontWide', 'DieselGameBoxTall']) {
+        final image = game.keyImages.where((img) => img.type == type).firstOrNull;
+        if (image != null) {
+          thumbnail = image.url;
+          break;
+        }
+      }
+      if (thumbnail == null && game.keyImages.isNotEmpty) {
+        thumbnail = game.keyImages.first.url;
+      }
 
-  List<FreeGameEntry> _activeGames = [];
-  List<FreeGameEntry> _upcomingGames = [];
-  bool _isLoading = true;
-  bool _isRefreshing = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadFreeGames();
+      return FreeGameEntry()
+        ..offerId = game.id
+        ..title = game.title
+        ..namespace = game.namespace
+        ..thumbnailUrl = thumbnail
+        ..startDate = game.giveaway?.startDate
+        ..endDate = game.giveaway?.endDate
+        ..platforms = ['epic'] // Default to Epic platform
+        ..syncedAt = DateTime.now()
+        ..notifiedNewGame = false;
+    }).toList();
   }
 
-  Future<void> _loadFreeGames() async {
-    setState(() => _isLoading = true);
-    try {
-      final allGames = await widget.db.getAllFreeGames();
-      setState(() {
-        _activeGames = allGames.where((g) => g.isActive).toList();
-        _upcomingGames = allGames.where((g) => g.isUpcoming).toList();
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _onRefresh() async {
-    setState(() => _isRefreshing = true);
-    try {
-      // Use performSync to sync free games from the API
-      await widget.syncService.performSync(
-        AppSettings(), // Use default settings for sync
-      );
-      await _loadFreeGames();
-    } finally {
-      setState(() => _isRefreshing = false);
-    }
-  }
-
-  void _navigateToOffer(FreeGameEntry game) {
+  void _navigateToOffer(BuildContext context, FreeGameEntry game) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => MobileOfferDetailPage(
           offerId: game.offerId,
-          followService: widget.followService,
-          pushService: widget.pushService,
+          followService: followService,
+          pushService: pushService,
           initialTitle: game.title,
           initialImageUrl: game.thumbnailUrl,
         ),
@@ -86,9 +73,29 @@ class _FreeGamesPageState extends State<FreeGamesPage>
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); // Required for AutomaticKeepAliveClientMixin
+    // Query for free games with 1-minute stale time and automatic refetch
+    final freeGamesQuery = useQuery<List<FreeGameEntry>, Object>(
+      queryKey: ['free-games-page'],
+      queryFn: (_) => _fetchFreeGames(),
+      staleTime: StaleTime(const Duration(minutes: 1)),
+      refetchInterval: const Duration(minutes: 1),
+    );
+
+    // Extract active and upcoming games
+    final allGames = freeGamesQuery.data ?? [];
+    final activeGames = useMemoized(
+      () => allGames.where((g) => g.isActive).toList(),
+      [allGames],
+    );
+    final upcomingGames = useMemoized(
+      () => allGames.where((g) => g.isUpcoming).toList(),
+      [allGames],
+    );
+
     return RefreshIndicator(
-      onRefresh: _onRefresh,
+      onRefresh: () async {
+        await freeGamesQuery.refetch();
+      },
       color: AppColors.primary,
       backgroundColor: AppColors.surface,
       child: CustomScrollView(
@@ -134,7 +141,7 @@ class _FreeGamesPageState extends State<FreeGamesPage>
                       ],
                     ),
                   ),
-                  if (_isRefreshing)
+                  if (freeGamesQuery.isFetching)
                     const SizedBox(
                       width: 20,
                       height: 20,
@@ -149,15 +156,47 @@ class _FreeGamesPageState extends State<FreeGamesPage>
           ),
 
           // Loading state
-          if (_isLoading)
+          if (freeGamesQuery.isLoading)
             const SliverFillRemaining(
               child: Center(
                 child: CircularProgressIndicator(color: AppColors.primary),
               ),
             )
+          else if (freeGamesQuery.isError)
+            SliverFillRemaining(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 64,
+                      color: AppColors.error,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Failed to load free games',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Pull down to retry',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
           else ...[
             // Active games section
-            if (_activeGames.isNotEmpty) ...[
+            if (activeGames.isNotEmpty) ...[
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
@@ -191,7 +230,7 @@ class _FreeGamesPageState extends State<FreeGamesPage>
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
-                          '${_activeGames.length}',
+                          '${activeGames.length}',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -207,24 +246,24 @@ class _FreeGamesPageState extends State<FreeGamesPage>
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate((context, index) {
-                    final game = _activeGames[index];
+                    final game = activeGames[index];
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: FreeGameCard(
                         game: game,
-                        followService: widget.followService,
-                        pushService: widget.pushService,
+                        followService: followService,
+                        pushService: pushService,
                         isActive: true,
-                        onTap: () => _navigateToOffer(game),
+                        onTap: () => _navigateToOffer(context, game),
                       ),
                     );
-                  }, childCount: _activeGames.length),
+                  }, childCount: activeGames.length),
                 ),
               ),
             ],
 
             // Upcoming games section
-            if (_upcomingGames.isNotEmpty) ...[
+            if (upcomingGames.isNotEmpty) ...[
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
@@ -258,7 +297,7 @@ class _FreeGamesPageState extends State<FreeGamesPage>
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
-                          '${_upcomingGames.length}',
+                          '${upcomingGames.length}',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -274,24 +313,24 @@ class _FreeGamesPageState extends State<FreeGamesPage>
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate((context, index) {
-                    final game = _upcomingGames[index];
+                    final game = upcomingGames[index];
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: FreeGameCard(
                         game: game,
-                        followService: widget.followService,
-                        pushService: widget.pushService,
+                        followService: followService,
+                        pushService: pushService,
                         isActive: false,
-                        onTap: () => _navigateToOffer(game),
+                        onTap: () => _navigateToOffer(context, game),
                       ),
                     );
-                  }, childCount: _upcomingGames.length),
+                  }, childCount: upcomingGames.length),
                 ),
               ),
             ],
 
             // Empty state
-            if (_activeGames.isEmpty && _upcomingGames.isEmpty)
+            if (activeGames.isEmpty && upcomingGames.isEmpty)
               SliverFillRemaining(
                 child: Center(
                   child: Column(
