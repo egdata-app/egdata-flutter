@@ -122,6 +122,7 @@ Typed models for EGData API responses. All `fromJson` methods are null-safe with
 - **chat_websocket_service.dart** - WebSocket client for real-time AI chat streaming
 - **chat_session_service.dart** - Session management (create, list, delete, rename chats)
 - **ai_chat_service.dart** - HTTP fallback for chat API (when WebSocket unavailable)
+- **widget_service.dart** - Updates Android home screen widget with current free games (Android only)
 
 ### Database (`lib/database/`)
 - **database_service.dart** - Isar database for persistent storage (followed games, free games, changelogs, playtime sessions, process cache)
@@ -407,3 +408,163 @@ class ReferencedOffer {
 ## Windows App Icon
 
 The app icon at `windows/runner/resources/app_icon.ico` must contain multiple resolutions (16, 24, 32, 48, 64, 128, 256) for crisp display in taskbar/titlebar. Generate from a 512x512 PNG source.
+
+## Android Home Screen Widget (Mobile)
+
+The Android app includes a home screen widget that displays current free Epic Games Store games. The widget uses Android's RemoteViews architecture with a ListView for efficient scrolling.
+
+### Architecture
+
+**Data Flow:**
+```
+Flutter (lib/services/widget_service.dart)
+    ↓ JSON via SharedPreferences
+Android Widget Provider (FreeGamesWidgetProvider.kt)
+    ↓ RemoteViews + RemoteViewsService
+ListView with WidgetService.kt
+    ↓ Glide for image loading
+Home Screen Widget Display
+```
+
+### Key Components
+
+**Flutter Side:**
+- **lib/models/widget_data.dart** - Data models (`WidgetFreeGame`, `WidgetData`) for serialization
+- **lib/services/widget_service.dart** - Fetches free games and updates widget via SharedPreferences
+- Called from `lib/main.dart` on app startup to update widget data
+
+**Android Side:**
+- **FreeGamesWidgetProvider.kt** - Main widget provider that creates RemoteViews
+  - Handles widget updates and size changes
+  - Routes to appropriate layout based on widget dimensions
+  - Sets up click intents to open app
+- **WidgetService.kt** - RemoteViewsService for ListView adapter
+  - **WidgetFactory** - Provides views for each game in the list
+  - Loads thumbnails using Glide with rounded corners
+  - Formats end dates ("Ends MMM dd")
+  - Handles click intents for individual game cards
+
+### Widget Layouts
+
+**Small (< 180dp width, < 100dp height):**
+- Single game title display
+- Minimal design for compact spaces
+- Layout: `widget_small.xml`
+
+**Medium (≥ 180dp width, < 140dp height):**
+- Horizontal static layout
+- Shows 2-3 games side-by-side
+- Layout: `widget_medium.xml`
+
+**Large (≥ 250dp width OR ≥ 140dp height):**
+- Scrollable ListView of games
+- Header with app icon and "Free This Week" title
+- Each row shows: thumbnail (150×200), game title, end date
+- Layout: `widget_large.xml`
+- Row layout: `widget_game_row.xml`
+
+### RemoteViews Limitations
+
+Android widgets use RemoteViews which only support a specific subset of Android views. The following are **NOT** supported:
+- `<View>` (base class)
+- `<FrameLayout>`
+- Custom views
+
+**Supported views include:**
+- `LinearLayout`, `RelativeLayout`
+- `TextView`, `ImageView`
+- `ListView`, `GridView`
+- `Button`, `ProgressBar`
+- See full list: https://developer.android.com/reference/kotlin/android/widget/RemoteViews
+
+**Important:** Always use concrete view types like `<ImageView>` instead of generic `<View>` tags in widget layouts.
+
+### Image Loading
+
+**Glide Configuration (WidgetService.kt:58-66):**
+```kotlin
+val bitmap = Glide.with(context.applicationContext)
+    .asBitmap()
+    .load(game.thumbnailUrl)
+    .override(150, 200)
+    .centerCrop()
+    .transform(RoundedCorners(radius))
+    .submit()
+    .get()
+```
+
+**Key Points:**
+- Images loaded synchronously in RemoteViewsFactory (required for widgets)
+- Size: 150×200 dp to balance quality and memory usage
+- Rounded corners for polished appearance
+- Error handling to prevent widget crashes on image load failures
+
+### Widget Updates
+
+**Automatic Updates:**
+- Widget data updated when app launches
+- WorkManager background updates every 6 hours (configured in MainActivity.kt)
+- Manual refresh via `HomeWidget.updateWidget()`
+
+**Update Flow:**
+1. Flutter fetches active free games from API
+2. Converts to `WidgetFreeGame` models (max 6 games)
+3. Serializes to JSON and saves to SharedPreferences
+4. Calls `HomeWidget.updateWidget()` to notify Android
+5. Widget provider reads JSON and recreates RemoteViews
+6. For large widgets, ListView adapter fetches data and loads images
+
+### Click Handling
+
+**Whole Widget Click:**
+- Opens app to mobile dashboard
+- Set on header section in all layouts
+
+**Individual Game Click (Large widget only):**
+- Opens app with specific offer ID
+- Uses fill-in intent pattern with PendingIntentTemplate
+- Intent action: `com.ignacioaldama.egdata.ACTION_OPEN_OFFER`
+- Extra: `offerId` string
+
+### Styling
+
+All widget layouts use the Unreal Engine glassmorphic dark theme:
+- Background: `@drawable/widget_glassmorphic_bg` - Semi-transparent dark (#F20A0A0A) with 16dp radius
+- Cards: `@drawable/widget_card_bg` - Dark surface (#E6000000) with 12dp radius
+- Accent color: `@color/widget_primary` (#00D4FF cyan)
+- Text gradient: `@drawable/widget_text_gradient` - Bottom-to-top fade for readability
+
+### Dependencies
+
+**pubspec.yaml:**
+```yaml
+dependencies:
+  home_widget: ^0.6.0  # Flutter-to-native widget communication
+```
+
+**android/app/build.gradle.kts:**
+```kotlin
+dependencies:
+    implementation("androidx.work:work-runtime-ktx:2.9.0")  // Background updates
+    implementation("com.github.bumptech.glide:glide:4.16.0")  // Image loading
+}
+```
+
+### Manifest Configuration
+
+**android/app/src/main/AndroidManifest.xml:**
+```xml
+<receiver android:name=".FreeGamesWidgetProvider" android:exported="false">
+  <intent-filter>
+    <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+  </intent-filter>
+  <meta-data
+      android:name="android.appwidget.provider"
+      android:resource="@xml/widget_info" />
+</receiver>
+
+<service
+    android:name=".WidgetService"
+    android:permission="android.permission.BIND_REMOTEVIEWS"
+    android:exported="false" />
+```
