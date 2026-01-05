@@ -41,7 +41,12 @@ void main(List<String> args) async {
 
   // Initialize Notification Service
   final notificationService = NotificationService();
-  await notificationService.init();
+  try {
+    await notificationService.init();
+  } catch (e) {
+    debugPrint('Notification service initialization failed: $e');
+    // Non-fatal - continue app initialization
+  }
 
   // Initialize Firebase for mobile platforms
   if (PlatformUtils.isMobile) {
@@ -53,14 +58,12 @@ void main(List<String> args) async {
       debugPrint('Firebase initialization failed: $e');
     }
 
-    // Update Android widget with latest free games data
+    // Update Android widget with latest free games data (non-blocking)
     if (Platform.isAndroid) {
-      try {
-        final widgetService = WidgetService();
-        await widgetService.updateWidget();
-      } catch (e) {
+      // Fire and forget - don't block app startup
+      WidgetService().updateWidget().catchError((e) {
         debugPrint('Widget update failed: $e');
-      }
+      });
     }
   }
 

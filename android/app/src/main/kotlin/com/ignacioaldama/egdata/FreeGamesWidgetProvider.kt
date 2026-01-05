@@ -34,11 +34,11 @@ class FreeGamesWidgetProvider : AppWidgetProvider() {
             val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
             val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
 
-            val layout = when {
-                minHeight < 100 && minWidth < 180 -> R.layout.widget_small
-                minWidth >= 250 && minHeight < 140 -> R.layout.widget_medium
-                else -> R.layout.widget_large
-            }
+            Log.d("FreeGamesWidget", "Widget $widgetId size: ${minWidth}x${minHeight} dp")
+
+            // Always use the large layout with ListView for all sizes
+            val layout = R.layout.widget_large
+            Log.d("FreeGamesWidget", "Using layout: large (ListView)")
 
             val views = RemoteViews(context.packageName, layout)
 
@@ -62,11 +62,8 @@ class FreeGamesWidgetProvider : AppWidgetProvider() {
             )
             views.setOnClickPendingIntent(R.id.header, pendingIntent)
 
-            if (layout == R.layout.widget_large) {
-                setupListView(context, views, widgetId)
-            } else {
-                updateStaticWidget(context, views, layout)
-            }
+            // Setup ListView for all widget sizes
+            setupListView(context, views, widgetId)
 
             appWidgetManager.updateAppWidget(widgetId, views)
         } catch (e: Exception) {
@@ -91,9 +88,12 @@ class FreeGamesWidgetProvider : AppWidgetProvider() {
         val games = parseWidgetData(widgetDataJson).games
         if (games.isEmpty()) return
 
-        if (layout == R.layout.widget_small) {
-            views.setTextViewText(R.id.game_count, games.first().title)
+        // Both small and medium widgets use game_count TextView
+        val text = when {
+            games.size == 1 -> games.first().title
+            else -> "${games.size} Free Games"
         }
+        views.setTextViewText(R.id.game_count, text)
     }
 
     private fun parseWidgetData(jsonString: String): WidgetDataContainer {

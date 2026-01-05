@@ -16,7 +16,7 @@ import java.util.*
 
 /**
  * WorkManager worker for updating widget data in background
- * Runs every 6 hours to fetch latest free games
+ * Runs every 15 minutes to fetch latest free games
  */
 class WidgetUpdateWorker(
     context: Context,

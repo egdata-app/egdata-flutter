@@ -503,7 +503,7 @@ val bitmap = Glide.with(context.applicationContext)
 
 **Automatic Updates:**
 - Widget data updated when app launches
-- WorkManager background updates every 6 hours (configured in MainActivity.kt)
+- WorkManager background updates every 15 minutes (configured in MainActivity.kt)
 - Manual refresh via `HomeWidget.updateWidget()`
 
 **Update Flow:**

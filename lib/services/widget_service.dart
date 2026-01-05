@@ -54,8 +54,9 @@ class WidgetService {
   /// Fetch active free games from API (or DB on failure)
   Future<List<FreeGame>> _fetchActiveFreeGames() async {
     try {
-      // Try API first
-      final allGames = await _api.getFreeGames();
+      // Try API first with timeout to prevent hanging
+      final allGames = await _api.getFreeGames()
+          .timeout(const Duration(seconds: 10));
       return _filterActiveGames(allGames);
     } catch (e) {
       debugPrint('API fetch failed, falling back to database: $e');

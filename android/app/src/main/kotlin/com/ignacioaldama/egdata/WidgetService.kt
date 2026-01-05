@@ -61,6 +61,8 @@ class WidgetFactory(private val context: Context) : RemoteViewsService.RemoteVie
                     .override(150, 200)
                     .centerCrop()
                     .transform(RoundedCorners(radius))
+                    .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.RESOURCE)
+                    .signature(com.bumptech.glide.signature.ObjectKey("rounded_$radius"))
                     .submit()
                     .get()
                 views.setImageViewBitmap(R.id.game_thumbnail, bitmap)

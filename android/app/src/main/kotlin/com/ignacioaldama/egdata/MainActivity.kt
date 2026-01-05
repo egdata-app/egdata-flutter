@@ -62,7 +62,7 @@ class MainActivity : FlutterActivity() {
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
-        val updateRequest = PeriodicWorkRequestBuilder<WidgetUpdateWorker>(6, TimeUnit.HOURS)
+        val updateRequest = PeriodicWorkRequestBuilder<WidgetUpdateWorker>(15, TimeUnit.MINUTES)
             .setConstraints(constraints)
             .build()
 
