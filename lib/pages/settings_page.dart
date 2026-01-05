@@ -240,7 +240,7 @@ class _SettingsPageState extends State<SettingsPage>
           _buildHeader(),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(28, 8, 28, 28),
+              padding: const EdgeInsets.fromLTRB(28, 8, 28, 100),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

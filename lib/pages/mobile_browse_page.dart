@@ -611,7 +611,7 @@ class MobileBrowsePage extends HookWidget {
 
     return ListView.builder(
       controller: scrollController,
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
       itemCount: offers.length + (query.isFetchingNextPage ? 1 : 0),
       itemBuilder: (context, index) {
         if (index >= offers.length) {

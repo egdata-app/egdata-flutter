@@ -363,8 +363,8 @@ class FreeGamesPage extends HookWidget {
                 ),
               ),
 
-            // Bottom padding
-            const SliverToBoxAdapter(child: SizedBox(height: 20)),
+            // Bottom padding for bottom navigation bar
+            const SliverToBoxAdapter(child: SizedBox(height: 100)),
           ],
         ],
       ),
