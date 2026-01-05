@@ -25,21 +25,27 @@ class WidgetFreeGame {
     );
   }
 
-  /// Extract thumbnail URL with priority: Thumbnail > DieselGameBoxTall > first image
+  /// Extract thumbnail URL with priority: OfferImageTall > DieselGameBoxTall > Thumbnail > first image
   static String? _extractThumbnailUrl(FreeGame game) {
     if (game.keyImages.isEmpty) return null;
 
-    // Priority 1: Thumbnail type
-    final thumbnail = game.keyImages
-        .where((img) => img.type == 'Thumbnail')
+    // Priority 1: OfferImageTall - 3:4 portrait (1200x1600) - perfect for widget
+    final offerTall = game.keyImages
+        .where((img) => img.type == 'OfferImageTall')
         .firstOrNull;
-    if (thumbnail != null) return thumbnail.url;
+    if (offerTall != null) return offerTall.url;
 
-    // Priority 2: DieselGameBoxTall type
+    // Priority 2: DieselGameBoxTall - vertical box art
     final boxTall = game.keyImages
         .where((img) => img.type == 'DieselGameBoxTall')
         .firstOrNull;
     if (boxTall != null) return boxTall.url;
+
+    // Priority 3: Thumbnail
+    final thumbnail = game.keyImages
+        .where((img) => img.type == 'Thumbnail')
+        .firstOrNull;
+    if (thumbnail != null) return thumbnail.url;
 
     // Fallback: First available image
     return game.keyImages.first.url;
