@@ -160,31 +160,31 @@ class FreeGamesWidgetProvider : AppWidgetProvider() {
 
     /** Creates a Material You themed blurred gradient background using colored blobs */
     private fun createMaterialYouBackground(context: Context, width: Int, height: Int): Bitmap {
-        val primaryColor = getMaterialYouPrimaryColor(context)
+        // 1. Get multiple tones from Material You (API 31+)
+        val primary = getSystemColor(context, android.R.color.system_accent1_200, Color.CYAN)
+        val secondary = getSystemColor(context, android.R.color.system_accent2_500, Color.MAGENTA)
+        val neutralBase = getSystemColor(context, android.R.color.system_neutral1_900, Color.BLACK)
 
-        // Create bitmap
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
-        // 1. Draw solid dark base
-        canvas.drawColor(Color.parseColor("#0A0A0A"))
+        // 2. Draw the dynamic system-aware dark base
+        canvas.drawColor(neutralBase)
 
-        // 2. Draw "Blurred" Blobs using RadialGradient
-        // We increase the radius significantly to simulate the blur spread
-        val baseRadius = width.coerceAtLeast(height) * 0.6f
+        val baseRadius = width.coerceAtLeast(height) * 0.7f
 
-        // Helper to draw a gradient blob
-        fun drawGradientBlob(centerX: Float, centerY: Float, color: Int, radius: Float) {
+        // Improved Helper with multiple tones
+        fun drawDynamicBlob(centerX: Float, centerY: Float, color: Int, radius: Float) {
             val paint =
                     Paint().apply {
                         isAntiAlias = true
-                        // Gradient from Color -> Transparent mimics a blur
                         shader =
                                 android.graphics.RadialGradient(
                                         centerX,
                                         centerY,
                                         radius,
-                                        intArrayOf(adjustAlpha(color, 0.3f), Color.TRANSPARENT),
+                                        // Using very low alpha (0.12f) for subtle Material You tint
+                                        intArrayOf(adjustAlpha(color, 0.06f), Color.TRANSPARENT),
                                         floatArrayOf(0f, 1f),
                                         Shader.TileMode.CLAMP
                                 )
@@ -192,38 +192,28 @@ class FreeGamesWidgetProvider : AppWidgetProvider() {
             canvas.drawCircle(centerX, centerY, radius, paint)
         }
 
-        // Top-left (Lighter)
-        drawGradientBlob(0f, 0f, lightenColor(primaryColor, 0.3f), baseRadius)
+        // Top-Left: Light Accent
+        drawDynamicBlob(0f, 0f, primary, baseRadius)
 
-        // Bottom-right (Darker)
-        drawGradientBlob(
-                width.toFloat(),
-                height.toFloat(),
-                darkenColor(primaryColor, 0.3f),
-                baseRadius
-        )
+        // Bottom-Right: Deep Accent
+        drawDynamicBlob(width.toFloat(), height.toFloat(), secondary, baseRadius * 1.2f)
 
-        // Center (Primary)
-        drawGradientBlob(width * 0.5f, height * 0.5f, primaryColor, baseRadius * 0.8f)
+        // Center: Subtle Glow
+        drawDynamicBlob(width * 0.5f, height * 0.5f, primary, baseRadius * 0.5f)
 
-        // Note: No corner clipping here. Let the RemoteViews/System handle corners
-        // or apply a clip path if strictly necessary.
         return bitmap
     }
 
-    /** Get Material You primary color (Android 12+) or fallback to default */
-    private fun getMaterialYouPrimaryColor(context: Context): Int {
+    /** Access specific system tokens safely */
+    private fun getSystemColor(context: Context, colorId: Int, fallback: Int): Int {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            // Material You dynamic color
             try {
-                context.getColor(android.R.color.system_accent1_600)
+                context.getColor(colorId)
             } catch (e: Exception) {
-                // Fallback to app's primary color
-                Color.parseColor("#00D4FF")
+                fallback
             }
         } else {
-            // Pre-Android 12: use app's cyan color
-            Color.parseColor("#00D4FF")
+            fallback
         }
     }
 
