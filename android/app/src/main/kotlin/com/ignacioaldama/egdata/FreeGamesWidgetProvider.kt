@@ -5,24 +5,51 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Shader
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.renderscript.Allocation
+import android.renderscript.Element
+import android.renderscript.RenderScript
+import android.renderscript.ScriptIntrinsicBlur
 import android.util.Log
-import android.view.View
 import android.widget.RemoteViews
 import org.json.JSONObject
 
 class FreeGamesWidgetProvider : AppWidgetProvider() {
 
-    override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
+    override fun onUpdate(
+            context: Context,
+            appWidgetManager: AppWidgetManager,
+            appWidgetIds: IntArray
+    ) {
         for (widgetId in appWidgetIds) {
-            updateWidget(context, appWidgetManager, widgetId)
-            appWidgetManager.notifyAppWidgetViewDataChanged(widgetId, R.id.game_list)
+            // Go async to allow bitmap generation without blocking
+            val pendingResult = goAsync()
+
+            // Run in a coroutine or background thread
+            Thread {
+                        try {
+                            updateWidget(context, appWidgetManager, widgetId)
+                        } finally {
+                            pendingResult.finish()
+                        }
+                    }
+                    .start()
         }
-        super.onUpdate(context, appWidgetManager, appWidgetIds)
     }
 
-    override fun onAppWidgetOptionsChanged(context: Context, appWidgetManager: AppWidgetManager, widgetId: Int, newOptions: Bundle) {
+    override fun onAppWidgetOptionsChanged(
+            context: Context,
+            appWidgetManager: AppWidgetManager,
+            widgetId: Int,
+            newOptions: Bundle
+    ) {
         updateWidget(context, appWidgetManager, widgetId)
         appWidgetManager.notifyAppWidgetViewDataChanged(widgetId, R.id.game_list)
         super.onAppWidgetOptionsChanged(context, appWidgetManager, widgetId, newOptions)
@@ -42,24 +69,39 @@ class FreeGamesWidgetProvider : AppWidgetProvider() {
 
             val views = RemoteViews(context.packageName, layout)
 
+            // Generate and apply Material You dynamic background
+            val density = context.resources.displayMetrics.density
+            val widthPx = (minWidth * density).toInt()
+            val heightPx = (minHeight * density).toInt()
+            val backgroundBitmap = createMaterialYouBackground(context, widthPx, heightPx)
+            views.setImageViewBitmap(R.id.widget_background, backgroundBitmap)
+
             // 1. Template for individual item clicks (ListView)
-            val clickIntent = Intent(context, MainActivity::class.java).apply {
-                action = "com.ignacioaldama.egdata.ACTION_OPEN_OFFER"
-            }
-            val clickPendingIntent = PendingIntent.getActivity(
-                context, 0, clickIntent,
-                PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
+            val clickIntent =
+                    Intent(context, MainActivity::class.java).apply {
+                        action = "com.ignacioaldama.egdata.ACTION_OPEN_OFFER"
+                    }
+            val clickPendingIntent =
+                    PendingIntent.getActivity(
+                            context,
+                            0,
+                            clickIntent,
+                            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                    )
             views.setPendingIntentTemplate(R.id.game_list, clickPendingIntent)
 
             // 2. Default click for the whole widget (fallback)
-            val intent = Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            }
-            val pendingIntent = PendingIntent.getActivity(
-                context, 1, intent,
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
+            val intent =
+                    Intent(context, MainActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    }
+            val pendingIntent =
+                    PendingIntent.getActivity(
+                            context,
+                            1,
+                            intent,
+                            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                    )
             views.setOnClickPendingIntent(R.id.header, pendingIntent)
 
             // Setup ListView for all widget sizes
@@ -72,10 +114,11 @@ class FreeGamesWidgetProvider : AppWidgetProvider() {
     }
 
     private fun setupListView(context: Context, views: RemoteViews, widgetId: Int) {
-        val serviceIntent = Intent(context, WidgetService::class.java).apply {
-            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
-            data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
-        }
+        val serviceIntent =
+                Intent(context, WidgetService::class.java).apply {
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                    data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
+                }
         views.setRemoteAdapter(R.id.game_list, serviceIntent)
         views.setEmptyView(R.id.game_list, R.id.empty_text)
     }
@@ -89,10 +132,11 @@ class FreeGamesWidgetProvider : AppWidgetProvider() {
         if (games.isEmpty()) return
 
         // Both small and medium widgets use game_count TextView
-        val text = when {
-            games.size == 1 -> games.first().title
-            else -> "${games.size} Free Games"
-        }
+        val text =
+                when {
+                    games.size == 1 -> games.first().title
+                    else -> "${games.size} Free Games"
+                }
         views.setTextViewText(R.id.game_count, text)
     }
 
@@ -102,16 +146,157 @@ class FreeGamesWidgetProvider : AppWidgetProvider() {
         val games = mutableListOf<GameData>()
         for (i in 0 until gamesArray.length()) {
             val gameJson = gamesArray.getJSONObject(i)
-            games.add(GameData(
-                id = gameJson.getString("id"),
-                title = gameJson.getString("title"),
-                thumbnailUrl = gameJson.optString("thumbnailUrl", null),
-                endDate = gameJson.getString("endDate")
-            ))
+            games.add(
+                    GameData(
+                            id = gameJson.getString("id"),
+                            title = gameJson.getString("title"),
+                            thumbnailUrl = gameJson.optString("thumbnailUrl", null),
+                            endDate = gameJson.getString("endDate")
+                    )
+            )
         }
         return WidgetDataContainer(games, json.getString("lastUpdate"))
     }
 
+    /** Creates a Material You themed blurred gradient background using colored blobs */
+    private fun createMaterialYouBackground(context: Context, width: Int, height: Int): Bitmap {
+        val primaryColor = getMaterialYouPrimaryColor(context)
+
+        // Create bitmap
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+
+        // 1. Draw solid dark base
+        canvas.drawColor(Color.parseColor("#0A0A0A"))
+
+        // 2. Draw "Blurred" Blobs using RadialGradient
+        // We increase the radius significantly to simulate the blur spread
+        val baseRadius = width.coerceAtLeast(height) * 0.6f
+
+        // Helper to draw a gradient blob
+        fun drawGradientBlob(centerX: Float, centerY: Float, color: Int, radius: Float) {
+            val paint =
+                    Paint().apply {
+                        isAntiAlias = true
+                        // Gradient from Color -> Transparent mimics a blur
+                        shader =
+                                android.graphics.RadialGradient(
+                                        centerX,
+                                        centerY,
+                                        radius,
+                                        intArrayOf(adjustAlpha(color, 0.3f), Color.TRANSPARENT),
+                                        floatArrayOf(0f, 1f),
+                                        Shader.TileMode.CLAMP
+                                )
+                    }
+            canvas.drawCircle(centerX, centerY, radius, paint)
+        }
+
+        // Top-left (Lighter)
+        drawGradientBlob(0f, 0f, lightenColor(primaryColor, 0.3f), baseRadius)
+
+        // Bottom-right (Darker)
+        drawGradientBlob(
+                width.toFloat(),
+                height.toFloat(),
+                darkenColor(primaryColor, 0.3f),
+                baseRadius
+        )
+
+        // Center (Primary)
+        drawGradientBlob(width * 0.5f, height * 0.5f, primaryColor, baseRadius * 0.8f)
+
+        // Note: No corner clipping here. Let the RemoteViews/System handle corners
+        // or apply a clip path if strictly necessary.
+        return bitmap
+    }
+
+    /** Get Material You primary color (Android 12+) or fallback to default */
+    private fun getMaterialYouPrimaryColor(context: Context): Int {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // Material You dynamic color
+            try {
+                context.getColor(android.R.color.system_accent1_600)
+            } catch (e: Exception) {
+                // Fallback to app's primary color
+                Color.parseColor("#00D4FF")
+            }
+        } else {
+            // Pre-Android 12: use app's cyan color
+            Color.parseColor("#00D4FF")
+        }
+    }
+
+    /** Apply blur effect to bitmap using RenderScript */
+    private fun applyBlur(context: Context, bitmap: Bitmap, radius: Float): Bitmap {
+        val output =
+                Bitmap.createBitmap(
+                        bitmap.width,
+                        bitmap.height,
+                        bitmap.config ?: Bitmap.Config.ARGB_8888
+                )
+
+        try {
+            val rs = RenderScript.create(context)
+            val input = Allocation.createFromBitmap(rs, bitmap)
+            val outAlloc = Allocation.createFromBitmap(rs, output)
+
+            val script = ScriptIntrinsicBlur.create(rs, Element.U8_4(rs))
+            script.setRadius(radius.coerceIn(0f, 25f))
+            script.setInput(input)
+            script.forEach(outAlloc)
+
+            outAlloc.copyTo(output)
+
+            rs.destroy()
+        } catch (e: Exception) {
+            Log.e("FreeGamesWidget", "Blur failed, using original: ${e.message}")
+            return bitmap
+        }
+
+        return output
+    }
+
+    /** Darken a color by a factor */
+    private fun darkenColor(color: Int, factor: Float): Int {
+        val hsv = FloatArray(3)
+        Color.colorToHSV(color, hsv)
+        hsv[2] *= (1f - factor)
+        return Color.HSVToColor(hsv)
+    }
+
+    /** Lighten a color by a factor */
+    private fun lightenColor(color: Int, factor: Float): Int {
+        val hsv = FloatArray(3)
+        Color.colorToHSV(color, hsv)
+        hsv[2] = (hsv[2] + (1f - hsv[2]) * factor).coerceIn(0f, 1f)
+        return Color.HSVToColor(hsv)
+    }
+
+    /** Adjust alpha channel of a color */
+    private fun adjustAlpha(color: Int, alpha: Float): Int {
+        return Color.argb(
+                (alpha * 255).toInt(),
+                Color.red(color),
+                Color.green(color),
+                Color.blue(color)
+        )
+    }
+
+    /** Reduce overall opacity of a bitmap */
+    private fun adjustBitmapOpacity(bitmap: Bitmap, opacity: Float): Bitmap {
+        val output = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(output)
+        val paint = Paint().apply { alpha = (opacity * 255).toInt() }
+        canvas.drawBitmap(bitmap, 0f, 0f, paint)
+        return output
+    }
+
     data class WidgetDataContainer(val games: List<GameData>, val lastUpdate: String)
-    data class GameData(val id: String, val title: String, val thumbnailUrl: String?, val endDate: String)
+    data class GameData(
+            val id: String,
+            val title: String,
+            val thumbnailUrl: String?,
+            val endDate: String
+    )
 }
