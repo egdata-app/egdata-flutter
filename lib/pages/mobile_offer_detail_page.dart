@@ -21,6 +21,7 @@ import '../widgets/achievements_bottom_sheet.dart';
 import '../widgets/offer_giveaway_banner.dart';
 import '../widgets/age_rating_badge.dart';
 import '../widgets/offer_changelog_card.dart';
+import '../widgets/skeleton_loading.dart';
 
 class MobileOfferDetailPage extends StatefulWidget {
   final String offerId;
@@ -66,6 +67,7 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
 
   // Loading state
   bool _isLoadingOffer = true;
+  bool _isLoadingDetails = true; // For additional details (features, media, etc.)
   String? _error;
 
   // Scroll state for collapsing header - use ValueNotifier to avoid full rebuilds
@@ -296,6 +298,7 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
           final changelogResponse = results[9] as ChangelogResponse;
           _changelogPreview = changelogResponse.elements;
           _changelogTotal = changelogResponse.totalCount;
+          _isLoadingDetails = false;
         });
       }
 
@@ -416,14 +419,10 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
                 onOpenInBrowser: _openInBrowser,
               ),
               // Content
-              if (_isLoadingOffer)
-                const SliverFillRemaining(
-                  child: Center(
-                    child: CircularProgressIndicator(color: AppColors.primary),
-                  ),
-                )
-              else if (_error != null)
+              if (_error != null)
                 SliverFillRemaining(child: _buildErrorState())
+              else if (_isLoadingOffer)
+                const SliverToBoxAdapter(child: OfferDetailSkeleton())
               else
                 SliverToBoxAdapter(child: _buildContent()),
             ],
@@ -486,7 +485,10 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Action buttons row
-          _buildActionButtons(),
+          if (_isLoadingDetails)
+            const SkeletonActionButtons()
+          else
+            _buildActionButtons(),
           const SizedBox(height: 24),
 
           // Giveaway banner (shows if game was/is free)
@@ -505,11 +507,15 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
           ],
 
           // Ratings card
-          OfferRatingsCard(
-            ratings: _ratings,
-            tops: _tops,
-          ),
-          if (_ratings != null || _tops != null) const SizedBox(height: 24),
+          if (_isLoadingDetails)
+            const SkeletonRatingsCard()
+          else
+            OfferRatingsCard(
+              ratings: _ratings,
+              tops: _tops,
+            ),
+          if (_isLoadingDetails || _ratings != null || _tops != null)
+            const SizedBox(height: 24),
 
           // Age rating badge
           if (_ageRatings != null) ...[
@@ -521,11 +527,14 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
           ],
 
           // Price history (includes current price)
-          if (_price != null) ...[
-            PriceHistoryWidget(
-              offerId: widget.offerId,
-              country: widget.country,
-            ),
+          if (_isLoadingDetails || _price != null) ...[
+            if (_isLoadingDetails)
+              const SkeletonPriceHistory()
+            else
+              PriceHistoryWidget(
+                offerId: widget.offerId,
+                country: widget.country,
+              ),
             const SizedBox(height: 24),
           ],
 
@@ -536,10 +545,14 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
           ],
 
           // Features
-          if (_features != null &&
-              (_features!.features.isNotEmpty ||
-                  _features!.epicFeatures.isNotEmpty)) ...[
-            _buildSection('Features', _buildFeatures()),
+          if (_isLoadingDetails ||
+              (_features != null &&
+                  (_features!.features.isNotEmpty ||
+                      _features!.epicFeatures.isNotEmpty))) ...[
+            if (_isLoadingDetails)
+              _buildSection('Features', const SkeletonFeatures())
+            else
+              _buildSection('Features', _buildFeatures()),
             const SizedBox(height: 24),
           ],
 
@@ -556,14 +569,26 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
           ],
 
           // Screenshots
-          if (_media != null && _media!.images.isNotEmpty) ...[
-            _buildSection('Screenshots', _buildScreenshots()),
+          if (_isLoadingDetails || (_media != null && _media!.images.isNotEmpty)) ...[
+            if (_isLoadingDetails)
+              _buildSection(
+                'Screenshots',
+                const SkeletonHorizontalList(itemWidth: 320, itemHeight: 180),
+              )
+            else
+              _buildSection('Screenshots', _buildScreenshots()),
             const SizedBox(height: 24),
           ],
 
           // Related offers
-          if (_relatedOffers != null && _relatedOffers!.isNotEmpty) ...[
-            _buildSection('Related', _buildRelatedOffers()),
+          if (_isLoadingDetails || (_relatedOffers != null && _relatedOffers!.isNotEmpty)) ...[
+            if (_isLoadingDetails)
+              _buildSection(
+                'Related',
+                const SkeletonHorizontalList(itemWidth: 120, itemHeight: 160),
+              )
+            else
+              _buildSection('Related', _buildRelatedOffers()),
             const SizedBox(height: 24),
           ],
 
@@ -578,7 +603,10 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
           ],
 
           // Details
-          _buildSection('Details', _buildDetails()),
+          if (_isLoadingDetails)
+            _buildSection('Details', const SkeletonDetails())
+          else
+            _buildSection('Details', _buildDetails()),
           const SizedBox(height: 40),
         ],
       ),

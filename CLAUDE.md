@@ -411,7 +411,7 @@ The app icon at `windows/runner/resources/app_icon.ico` must contain multiple re
 
 ## Android Home Screen Widget (Mobile)
 
-The Android app includes a home screen widget that displays current free Epic Games Store games. The widget uses Android's RemoteViews architecture with a ListView for efficient scrolling.
+The Android app includes a home screen widget that displays current free Epic Games Store games. The widget uses **Jetpack Glance**, a modern Compose-based framework for building app widgets.
 
 ### Architecture
 
@@ -419,9 +419,8 @@ The Android app includes a home screen widget that displays current free Epic Ga
 ```
 Flutter (lib/services/widget_service.dart)
     ↓ JSON via SharedPreferences
-Android Widget Provider (FreeGamesWidgetProvider.kt)
-    ↓ RemoteViews + RemoteViewsService
-ListView with WidgetService.kt
+Android Glance Widget (FreeGamesGlanceWidget.kt)
+    ↓ @Composable functions with Glance components
     ↓ Glide for image loading
 Home Screen Widget Display
 ```
@@ -433,106 +432,117 @@ Home Screen Widget Display
 - **lib/services/widget_service.dart** - Fetches free games and updates widget via SharedPreferences
 - Called from `lib/main.dart` on app startup to update widget data
 
-**Android Side:**
-- **FreeGamesWidgetProvider.kt** - Main widget provider that creates RemoteViews
-  - Handles widget updates and size changes
-  - Routes to appropriate layout based on widget dimensions
-  - Sets up click intents to open app
-- **WidgetService.kt** - RemoteViewsService for ListView adapter
-  - **WidgetFactory** - Provides views for each game in the list
-  - Loads thumbnails using Glide with rounded corners
-  - Formats end dates ("Ends MMM dd")
-  - Handles click intents for individual game cards
+**Android Side - Jetpack Glance:**
+- **FreeGamesGlanceWidget.kt** - Main Glance widget extending `GlanceAppWidget`
+  - `provideGlance()` - Loads data and provides Composable UI content
+  - `providePreview()` - Provides live preview for Android 15+ widget picker
+  - `FreeGamesContent` - Main Composable UI with `LazyColumn` for scrollable game list
+  - `WidgetHeader` - Header with app icon and "Free This Week" title
+  - `GameCard` - Individual game card with thumbnail, title, end date, and "FREE" badge
+  - `EmptyState` - Placeholder UI when no games available
+- **FreeGamesGlanceReceiver.kt** - AppWidget receiver for system widget updates
 
-### Widget Layouts
+### Jetpack Glance Benefits
 
-**Small (< 180dp width, < 100dp height):**
-- Single game title display
-- Minimal design for compact spaces
-- Layout: `widget_small.xml`
+Glance replaces the old RemoteViews approach with a modern Compose-like API:
 
-**Medium (≥ 180dp width, < 140dp height):**
-- Horizontal static layout
-- Shows 2-3 games side-by-side
-- Layout: `widget_medium.xml`
+**Advantages:**
+- **Compose-style declarative UI** - Use `@Composable` functions instead of XML layouts
+- **Type-safe** - Kotlin DSL instead of runtime RemoteViews manipulation
+- **No RemoteViews limitations** - More flexible UI composition
+- **LazyColumn support** - Efficient scrolling without RemoteViewsService boilerplate
+- **Better performance** - Optimized rendering and updates
+- **Live previews** - Generate widget previews for Android 15+ picker
 
-**Large (≥ 250dp width OR ≥ 140dp height):**
-- Scrollable ListView of games
-- Header with app icon and "Free This Week" title
-- Each row shows: thumbnail (150×200), game title, end date
-- Layout: `widget_large.xml`
-- Row layout: `widget_game_row.xml`
-
-### RemoteViews Limitations
-
-Android widgets use RemoteViews which only support a specific subset of Android views. The following are **NOT** supported:
-- `<View>` (base class)
-- `<FrameLayout>`
-- Custom views
-
-**Supported views include:**
-- `LinearLayout`, `RelativeLayout`
-- `TextView`, `ImageView`
-- `ListView`, `GridView`
-- `Button`, `ProgressBar`
-- See full list: https://developer.android.com/reference/kotlin/android/widget/RemoteViews
-
-**Important:** Always use concrete view types like `<ImageView>` instead of generic `<View>` tags in widget layouts.
-
-### Image Loading
-
-**Glide Configuration (WidgetService.kt:58-66):**
+**Example Glance Code:**
 ```kotlin
-val bitmap = Glide.with(context.applicationContext)
-    .asBitmap()
-    .load(game.thumbnailUrl)
-    .override(150, 200)
-    .centerCrop()
-    .transform(RoundedCorners(radius))
-    .submit()
-    .get()
+@Composable
+fun GameCard(context: Context, game: GameData, bitmap: Bitmap?) {
+    Box(
+        modifier = GlanceModifier
+            .fillMaxWidth()
+            .height(150.dp)
+            .background(ColorProvider(Color(0xFF1A1A1A)))
+            .cornerRadius(12.dp)
+            .clickable(actionStartActivity(clickIntent))
+    ) {
+        if (bitmap != null) {
+            Image(
+                provider = ImageProvider(bitmap),
+                contentDescription = "Game cover",
+                contentScale = ContentScale.Crop
+            )
+        }
+        // Text overlay with title, end date, FREE badge
+    }
+}
+```
+
+### Image Loading with Custom Blur Effect
+
+**Glide with Stack Blur Algorithm:**
+```kotlin
+private fun loadGameThumbnail(context: Context, game: GameData): Bitmap? {
+    val originalBitmap = Glide.with(context.applicationContext)
+        .asBitmap()
+        .load(game.thumbnailUrl)
+        .override(1000, 563)
+        .centerCrop()
+        .submit()
+        .get()
+
+    return applyBottomBlurAndGradient(originalBitmap)
+}
+
+private fun applyBottomBlurAndGradient(original: Bitmap): Bitmap {
+    // Blur bottom 40% of image using fast Stack Blur algorithm
+    // Add dark gradient overlay for text readability
+    // Returns processed bitmap with cinematic effect
+}
 ```
 
 **Key Points:**
-- Images loaded synchronously in RemoteViewsFactory (required for widgets)
-- Size: 150×200 dp to balance quality and memory usage
-- Rounded corners for polished appearance
-- Error handling to prevent widget crashes on image load failures
+- Images loaded in IO dispatcher before rendering (`withContext(Dispatchers.IO)`)
+- Size: 1000×563 px for wide game covers
+- Custom blur effect applied to bottom 40% of thumbnails for text contrast
+- Stack Blur algorithm for performance (radius: 6)
+- Dark gradient overlay on blurred section for readability
+- All processing done before widget rendering to avoid UI thread blocking
 
 ### Widget Updates
 
 **Automatic Updates:**
 - Widget data updated when app launches
 - WorkManager background updates every 15 minutes (configured in MainActivity.kt)
-- Manual refresh via `HomeWidget.updateWidget()`
+- Manual refresh via `GlanceAppWidgetManager.updateAll()`
 
 **Update Flow:**
 1. Flutter fetches active free games from API
 2. Converts to `WidgetFreeGame` models (max 6 games)
 3. Serializes to JSON and saves to SharedPreferences
 4. Calls `HomeWidget.updateWidget()` to notify Android
-5. Widget provider reads JSON and recreates RemoteViews
-6. For large widgets, ListView adapter fetches data and loads images
+5. Glance widget reads JSON, loads/processes images in background
+6. Renders Composable UI with `LazyColumn` of game cards
 
 ### Click Handling
 
 **Whole Widget Click:**
 - Opens app to mobile dashboard
-- Set on header section in all layouts
+- Set on header section using `actionStartActivity()`
 
-**Individual Game Click (Large widget only):**
+**Individual Game Click:**
 - Opens app with specific offer ID
-- Uses fill-in intent pattern with PendingIntentTemplate
 - Intent action: `com.ignacioaldama.egdata.ACTION_OPEN_OFFER`
 - Extra: `offerId` string
+- Uses Glance's `clickable()` modifier with `actionStartActivity()`
 
 ### Styling
 
-All widget layouts use the Unreal Engine glassmorphic dark theme:
-- Background: `@drawable/widget_glassmorphic_bg` - Semi-transparent dark (#F20A0A0A) with 16dp radius
-- Cards: `@drawable/widget_card_bg` - Dark surface (#E6000000) with 12dp radius
-- Accent color: `@color/widget_primary` (#00D4FF cyan)
-- Text gradient: `@drawable/widget_text_gradient` - Bottom-to-top fade for readability
+All widget UI uses Jetpack Glance's declarative styling with Unreal Engine glassmorphic dark theme:
+- Background: `Color(0xFF0A0A0A)` - Near-black background
+- Cards: `Color(0xFF1A1A1A)` - Dark card surface with 12dp corner radius
+- Accent color: `Color(0xFF00D4FF)` - Cyan for branding and FREE badge
+- Text: White with semi-transparent variants for secondary text
 
 ### Dependencies
 
@@ -544,9 +554,29 @@ dependencies:
 
 **android/app/build.gradle.kts:**
 ```kotlin
-dependencies:
+plugins {
+    id("org.jetbrains.kotlin.plugin.compose") version "2.0.0"
+}
+
+android {
+    buildFeatures {
+        compose = true
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.14"
+    }
+}
+
+dependencies {
     implementation("androidx.work:work-runtime-ktx:2.9.0")  // Background updates
     implementation("com.github.bumptech.glide:glide:4.16.0")  // Image loading
+
+    // Jetpack Glance
+    val glanceVersion = "1.2.0-alpha01"
+    implementation("androidx.glance:glance:$glanceVersion")
+    implementation("androidx.glance:glance-appwidget:$glanceVersion")
+    implementation("androidx.glance:glance-material3:$glanceVersion")
+    debugImplementation("androidx.glance:glance-appwidget-preview:1.1.0")
 }
 ```
 
@@ -554,7 +584,7 @@ dependencies:
 
 **android/app/src/main/AndroidManifest.xml:**
 ```xml
-<receiver android:name=".FreeGamesWidgetProvider" android:exported="false">
+<receiver android:name=".FreeGamesGlanceReceiver" android:exported="false">
   <intent-filter>
     <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
   </intent-filter>
@@ -562,9 +592,4 @@ dependencies:
       android:name="android.appwidget.provider"
       android:resource="@xml/widget_info" />
 </receiver>
-
-<service
-    android:name=".WidgetService"
-    android:permission="android.permission.BIND_REMOTEVIEWS"
-    android:exported="false" />
 ```
