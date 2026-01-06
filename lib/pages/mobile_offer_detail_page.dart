@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../models/followed_game.dart';
@@ -51,7 +52,6 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
 
   // Data state
   Offer? _offer;
-  TotalPrice? _price;
   OfferFeatures? _features;
   List<AchievementSet>? _achievements;
   OfferHltb? _hltb;
@@ -215,15 +215,11 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
   Future<void> _loadData() async {
     // Load main offer data first
     try {
-      final results = await Future.wait([
-        _apiService.getOffer(widget.offerId),
-        _apiService.getOfferPrice(widget.offerId, country: widget.country),
-      ]);
+      final offer = await _apiService.getOffer(widget.offerId);
 
       if (mounted) {
         setState(() {
-          _offer = results[0] as Offer;
-          _price = results[1] as TotalPrice?;
+          _offer = offer;
           _isLoadingOffer = false;
         });
         _updateCachedImageUrls();
@@ -424,7 +420,12 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
               else if (_isLoadingOffer)
                 const SliverToBoxAdapter(child: OfferDetailSkeleton())
               else
-                SliverToBoxAdapter(child: _buildContent()),
+                SliverPadding(
+                  padding: const EdgeInsets.all(16),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate(_buildSliverChildren()),
+                  ),
+                ),
             ],
           ),
         ],
@@ -478,139 +479,133 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
     );
   }
 
-  Widget _buildContent() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Action buttons row
-          if (_isLoadingDetails)
-            const SkeletonActionButtons()
-          else
-            _buildActionButtons(),
-          const SizedBox(height: 24),
+  List<Widget> _buildSliverChildren() {
+    return [
+      // Action buttons row
+      if (_isLoadingDetails)
+        const SkeletonActionButtons()
+      else
+        _buildActionButtons(),
+      const SizedBox(height: 24),
 
-          // Giveaway banner (shows if game was/is free)
-          if (_giveaways != null && _giveaways!.isNotEmpty) ...[
-            OfferGiveawayBanner(giveaways: _giveaways!),
-            const SizedBox(height: 24),
-          ],
+      // Giveaway banner (shows if game was/is free)
+      if (_giveaways != null && _giveaways!.isNotEmpty) ...[
+        OfferGiveawayBanner(giveaways: _giveaways!),
+        const SizedBox(height: 24),
+      ],
 
-          // Base game banner (for DLC/Add-ons)
-          if (_baseGame != null) ...[
-            BaseGameBanner(
-              baseGame: _baseGame!,
-              onTap: () => _navigateToBaseGame(_baseGame!),
-            ),
-            const SizedBox(height: 24),
-          ],
+      // Base game banner (for DLC/Add-ons)
+      if (_baseGame != null) ...[
+        BaseGameBanner(
+          baseGame: _baseGame!,
+          onTap: () => _navigateToBaseGame(_baseGame!),
+        ),
+        const SizedBox(height: 24),
+      ],
 
-          // Ratings card
-          if (_isLoadingDetails)
-            const SkeletonRatingsCard()
-          else
-            OfferRatingsCard(
-              ratings: _ratings,
-              tops: _tops,
-            ),
-          if (_isLoadingDetails || _ratings != null || _tops != null)
-            const SizedBox(height: 24),
+      // Ratings card
+      if (_isLoadingDetails)
+        const SkeletonRatingsCard()
+      else
+        OfferRatingsCard(
+          ratings: _ratings,
+          tops: _tops,
+        ),
+      if (_isLoadingDetails || _ratings != null || _tops != null)
+        const SizedBox(height: 24),
 
-          // Age rating badge
-          if (_ageRatings != null) ...[
-            AgeRatingBadge(
-              ageRatings: _ageRatings!,
-              userCountry: widget.country,
-            ),
-            const SizedBox(height: 24),
-          ],
+      // Age rating badge
+      if (_ageRatings != null) ...[
+        AgeRatingBadge(
+          ageRatings: _ageRatings!,
+          userCountry: widget.country,
+        ),
+        const SizedBox(height: 24),
+      ],
 
-          // Price history (includes current price)
-          if (_isLoadingDetails || _price != null) ...[
-            if (_isLoadingDetails)
-              const SkeletonPriceHistory()
-            else
-              PriceHistoryWidget(
-                offerId: widget.offerId,
-                country: widget.country,
-              ),
-            const SizedBox(height: 24),
-          ],
+      // Price history (includes current price)
+      if (_isLoadingDetails)
+        const SkeletonPriceHistory()
+      else
+        PriceHistoryWidget(
+          offerId: widget.offerId,
+          country: widget.country,
+        ),
+      const SizedBox(height: 24),
 
-          // Description
-          if (_offer?.description.isNotEmpty == true) ...[
-            _buildSection('About', _buildDescription()),
-            const SizedBox(height: 24),
-          ],
+      // Description
+      if (_offer?.description.isNotEmpty == true) ...[
+        _buildSection('About', _buildDescription()),
+        const SizedBox(height: 24),
+      ],
 
-          // Features
-          if (_isLoadingDetails ||
-              (_features != null &&
-                  (_features!.features.isNotEmpty ||
-                      _features!.epicFeatures.isNotEmpty))) ...[
-            if (_isLoadingDetails)
-              _buildSection('Features', const SkeletonFeatures())
-            else
-              _buildSection('Features', _buildFeatures()),
-            const SizedBox(height: 24),
-          ],
+      // Features
+      if (_isLoadingDetails ||
+          (_features != null &&
+              (_features!.features.isNotEmpty ||
+                  _features!.epicFeatures.isNotEmpty))) ...[
+        if (_isLoadingDetails)
+          _buildSection('Features', const SkeletonFeatures())
+        else
+          _buildSection('Features', _buildFeatures()),
+        const SizedBox(height: 24),
+      ],
 
-          // How Long To Beat
-          if (_hltb != null && _hltb!.gameTimes.isNotEmpty) ...[
-            _buildSection('How Long To Beat', _buildHltb()),
-            const SizedBox(height: 24),
-          ],
+      // How Long To Beat
+      if (_hltb != null && _hltb!.gameTimes.isNotEmpty) ...[
+        _buildSection('How Long To Beat', _buildHltb()),
+        const SizedBox(height: 24),
+      ],
 
-          // Achievements
-          if (_achievements != null && _achievements!.isNotEmpty) ...[
-            _buildSection('Achievements', _buildAchievements()),
-            const SizedBox(height: 24),
-          ],
+      // Achievements
+      if (_achievements != null && _achievements!.isNotEmpty) ...[
+        _buildSection('Achievements', _buildAchievements()),
+        const SizedBox(height: 24),
+      ],
 
-          // Screenshots
-          if (_isLoadingDetails || (_media != null && _media!.images.isNotEmpty)) ...[
-            if (_isLoadingDetails)
-              _buildSection(
-                'Screenshots',
-                const SkeletonHorizontalList(itemWidth: 320, itemHeight: 180),
-              )
-            else
-              _buildSection('Screenshots', _buildScreenshots()),
-            const SizedBox(height: 24),
-          ],
+      // Screenshots
+      if (_isLoadingDetails ||
+          (_media != null && _media!.images.isNotEmpty)) ...[
+        if (_isLoadingDetails)
+          _buildSection(
+            'Screenshots',
+            const SkeletonHorizontalList(itemWidth: 320, itemHeight: 180),
+          )
+        else
+          _buildSection('Screenshots', _buildScreenshots()),
+        const SizedBox(height: 24),
+      ],
 
-          // Related offers
-          if (_isLoadingDetails || (_relatedOffers != null && _relatedOffers!.isNotEmpty)) ...[
-            if (_isLoadingDetails)
-              _buildSection(
-                'Related',
-                const SkeletonHorizontalList(itemWidth: 120, itemHeight: 160),
-              )
-            else
-              _buildSection('Related', _buildRelatedOffers()),
-            const SizedBox(height: 24),
-          ],
+      // Related offers
+      if (_isLoadingDetails ||
+          (_relatedOffers != null && _relatedOffers!.isNotEmpty)) ...[
+        if (_isLoadingDetails)
+          _buildSection(
+            'Related',
+            const SkeletonHorizontalList(itemWidth: 120, itemHeight: 160),
+          )
+        else
+          _buildSection('Related', _buildRelatedOffers()),
+        const SizedBox(height: 24),
+      ],
 
-          // Changelog
-          if (_changelogPreview != null && _changelogPreview!.isNotEmpty) ...[
-            OfferChangelogCard(
-              offerId: widget.offerId,
-              preview: _changelogPreview!,
-              totalCount: _changelogTotal,
-            ),
-            const SizedBox(height: 24),
-          ],
+      // Changelog
+      if (_changelogPreview != null && _changelogPreview!.isNotEmpty) ...[
+        OfferChangelogCard(
+          offerId: widget.offerId,
+          preview: _changelogPreview!,
+          totalCount: _changelogTotal,
+        ),
+        const SizedBox(height: 24),
+      ],
 
-          // Details
-          if (_isLoadingDetails)
-            _buildSection('Details', const SkeletonDetails())
-          else
-            _buildSection('Details', _buildDetails()),
-          const SizedBox(height: 40),
-        ],
-      ),
-    );
+      // Details
+      if (_isLoadingDetails)
+        _buildSection('Details', const SkeletonDetails())
+      else
+        _buildSection('Details', _buildDetails()),
+      const SizedBox(height: 40),
+    ];
   }
 
   Widget _buildActionButtons() {
@@ -1207,21 +1202,7 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
   }
 
   String _formatDate(DateTime date) {
-    final months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+    return DateFormat.yMMMd().format(date);
   }
 }
 
