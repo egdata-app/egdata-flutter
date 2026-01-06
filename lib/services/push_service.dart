@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -76,7 +77,22 @@ class PushService {
 
       // Don't request permission yet - wait until user opts in
       // Just set up message handlers for when permission is granted
-      _fcmToken = await _messaging!.getToken();
+
+      // On iOS, we need to wait for the APNS token before getting FCM token
+      // The APNS token is received asynchronously from Apple's servers
+      // Note: APNS tokens are NOT available on iOS simulators
+      if (Platform.isIOS) {
+        final apnsToken = await _messaging!.getAPNSToken();
+        if (apnsToken == null) {
+          // Likely running on simulator - APNS not available
+          debugPrint('PushService: APNS token not available (simulator or not configured)');
+          _fcmToken = null;
+        } else {
+          _fcmToken = await _messaging!.getToken();
+        }
+      } else {
+        _fcmToken = await _messaging!.getToken();
+      }
       debugPrint('PushService: FCM Token: $_fcmToken');
 
       // Listen for token refresh
@@ -163,7 +179,20 @@ class PushService {
       }
 
       // Get/refresh FCM token after permission is granted
-      _fcmToken = await _messaging!.getToken();
+      // On iOS, APNS tokens are not available on simulators
+      if (Platform.isIOS) {
+        final apnsToken = await _messaging!.getAPNSToken();
+        if (apnsToken == null) {
+          debugPrint('PushService: APNS token not available - push notifications require a real device');
+          return PushSubscriptionResult(
+            success: false,
+            error: 'Push notifications are not available on iOS Simulator. Please use a real device.',
+          );
+        }
+        _fcmToken = await _messaging!.getToken();
+      } else {
+        _fcmToken = await _messaging!.getToken();
+      }
       debugPrint('PushService: FCM Token after permission: $_fcmToken');
 
       // Generate a local subscription ID
