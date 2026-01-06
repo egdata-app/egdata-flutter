@@ -44,11 +44,10 @@ class MobileOfferDetailHeader extends StatelessWidget {
       flexibleSpace: ValueListenableBuilder<double>(
         valueListenable: scrollOffset,
         builder: (context, scrollValue, _) {
-          // Only show collapsed header when we've scrolled past the header range
-          // and are approaching the content area (Follow button section)
-          const contentPadding = 16.0; // Padding before Follow button
-          final collapseThreshold = scrollRange + contentPadding;
-          final transitionRange = 50.0; // Transition over 50px
+          // Start fading immediately when we hit the collapse point (pinned state)
+          // This ensures no visual gap and removes the delay from the original implementation
+          final transitionRange = 50.0;
+          final collapseThreshold = scrollRange;
 
           // Collapsed header fades in when approaching content
           final collapsedOpacity = Curves.easeOut.transform(
