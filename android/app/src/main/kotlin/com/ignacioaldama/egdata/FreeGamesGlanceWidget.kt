@@ -363,7 +363,7 @@ private fun applyBottomBlurAndGradient(original: Bitmap): Bitmap {
     val scaledSection = Bitmap.createScaledBitmap(bottomSection, smallWidth, smallHeight, true)
 
     // 3. APPLY REAL BLUR
-    val blurredSection = fastBlur(scaledSection, 3) ?: scaledSection
+    val blurredSection = fastBlur(scaledSection, 6) ?: scaledSection
 
     // 4. Scale back up
     val finalBlur = Bitmap.createScaledBitmap(blurredSection, width, sectionHeight, true)
