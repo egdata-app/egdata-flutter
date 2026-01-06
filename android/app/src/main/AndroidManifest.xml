@@ -50,9 +50,9 @@
                 android:resource="@xml/widget_info" />
         </receiver>
 
-        <!-- Small Free Games Widget Provider -->
+        <!-- Small Free Games Widget (Jetpack Glance) -->
         <receiver
-            android:name=".SmallFreeGamesWidgetProvider"
+            android:name=".SmallFreeGamesGlanceReceiver"
             android:exported="false"
             android:label="Free Games (Compact)">
             <intent-filter>

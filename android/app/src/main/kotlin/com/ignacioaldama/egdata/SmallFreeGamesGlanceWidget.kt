@@ -44,25 +44,24 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 /**
- * Small Jetpack Glance widget for displaying Epic Games free games
- * This replaces the old SmallFreeGamesWidgetProvider (RemoteViews)
+ * Small Jetpack Glance widget for displaying Epic Games free games.
+ * Mimics a carousel look with a clean, minimal UI.
  */
 class SmallFreeGamesGlanceWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        // Load only the first game for the small widget
-        val gameWithBitmap = withContext(Dispatchers.IO) {
+        val data = withContext(Dispatchers.IO) {
             val games = loadGamesFromPreferences(context)
             if (games.isNotEmpty()) {
                 val game = games[0]
                 val bitmap = loadGameThumbnail(context, game)
-                game to bitmap
+                Triple(game, bitmap, games.size)
             } else null
         }
 
         provideContent {
             GlanceTheme {
-                SmallWidgetContent(context, gameWithBitmap)
+                SmallWidgetContent(context, data)
             }
         }
     }
@@ -83,7 +82,11 @@ class SmallFreeGamesGlanceWidget : GlanceAppWidget() {
                 b.eraseColor(android.graphics.Color.DKGRAY)
                 b
             }
-            GameData("1", "Epic Game Title", null, "2024-12-31T23:59:59") to placeholderBitmap
+            Triple(
+                GameData("1", "Epic Game Title", null, "2024-12-31T23:59:59"),
+                placeholderBitmap,
+                3
+            )
         }
 
         provideContent {
@@ -105,7 +108,7 @@ class SmallFreeGamesGlanceWidget : GlanceAppWidget() {
 }
 
 @Composable
-fun SmallWidgetContent(context: Context, data: Pair<GameData, Bitmap?>?) {
+fun SmallWidgetContent(context: Context, data: Triple<GameData, Bitmap?, Int>?) {
     Box(
         modifier = GlanceModifier
             .fillMaxSize()
@@ -114,14 +117,14 @@ fun SmallWidgetContent(context: Context, data: Pair<GameData, Bitmap?>?) {
         if (data == null) {
             EmptySmallState()
         } else {
-            val (game, bitmap) = data
-            SmallGameCard(context, game, bitmap)
+            val (game, bitmap, totalCount) = data
+            SmallGameCard(context, game, bitmap, totalCount)
         }
     }
 }
 
 @Composable
-fun SmallGameCard(context: Context, game: GameData, bitmap: Bitmap?) {
+fun SmallGameCard(context: Context, game: GameData, bitmap: Bitmap?, totalCount: Int) {
     val clickIntent = Intent(context, MainActivity::class.java).apply {
         action = "com.ignacioaldama.egdata.ACTION_OPEN_OFFER"
         putExtra("offerId", game.id)
@@ -131,10 +134,9 @@ fun SmallGameCard(context: Context, game: GameData, bitmap: Bitmap?) {
     Box(
         modifier = GlanceModifier
             .fillMaxSize()
-            .clickable(actionStartActivity(clickIntent)),
-        contentAlignment = Alignment.BottomStart
+            .clickable(actionStartActivity(clickIntent))
     ) {
-        // Background Image
+        // 1. Background Image
         if (bitmap != null) {
             Image(
                 provider = ImageProvider(bitmap),
@@ -144,76 +146,80 @@ fun SmallGameCard(context: Context, game: GameData, bitmap: Bitmap?) {
             )
         }
 
-        // Dark Gradient Overlay
+        // 2. Dark Overlay
         Box(
             modifier = GlanceModifier
                 .fillMaxSize()
                 .background(ColorProvider(Color(0x99000000)))
         ) {}
 
-        // Content
-        Column(
-            modifier = GlanceModifier
-                .fillMaxWidth()
-                .padding(8.dp)
+        // 3. Badges & Indicators (Top Row)
+        Row(
+            modifier = GlanceModifier.fillMaxWidth().padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Image(
-                    provider = ImageProvider(R.mipmap.ic_launcher),
-                    contentDescription = "App icon",
-                    modifier = GlanceModifier.size(14.dp)
-                )
-                Spacer(modifier = GlanceModifier.width(4.dp))
+            // FREE badge (Top Left)
+            Box(
+                modifier = GlanceModifier
+                    .background(ColorProvider(Color(0xFF00D4FF)))
+                    .cornerRadius(4.dp)
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+            ) {
                 Text(
-                    text = "egdata.app",
+                    text = "FREE",
                     style = TextStyle(
-                        color = ColorProvider(Color(0xFF00D4FF)),
-                        fontSize = 8.sp,
+                        color = ColorProvider(Color.Black),
+                        fontSize = 9.sp,
                         fontWeight = FontWeight.Bold
                     )
                 )
             }
             
-            Spacer(modifier = GlanceModifier.height(4.dp))
+            Spacer(modifier = GlanceModifier.defaultWeight())
             
-            Text(
-                text = game.title,
-                style = TextStyle(
-                    color = ColorProvider(Color.White),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                ),
-                maxLines = 1
-            )
-            
-            Row(
-                modifier = GlanceModifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+            // Slide Indicator (Top Right)
+            Box(
+                modifier = GlanceModifier
+                    .background(ColorProvider(Color(0x66000000)))
+                    .cornerRadius(12.dp)
+                    .padding(horizontal = 8.dp, vertical = 2.dp)
             ) {
+                Text(
+                    text = "1 / $totalCount",
+                    style = TextStyle(
+                        color = ColorProvider(Color.White),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                )
+            }
+        }
+
+        // 4. Game Info (Bottom)
+        Box(
+            modifier = GlanceModifier
+                .fillMaxSize()
+                .padding(8.dp),
+            contentAlignment = Alignment.BottomStart
+        ) {
+            Column {
+                Text(
+                    text = game.title,
+                    style = TextStyle(
+                        color = ColorProvider(Color.White),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    maxLines = 1
+                )
+                
                 Text(
                     text = formatEndDate(game.endDate),
                     style = TextStyle(
-                        color = ColorProvider(Color(0xBBFFFFFF)),
-                        fontSize = 10.sp
-                    ),
-                    modifier = GlanceModifier.defaultWeight()
-                )
-                
-                Box(
-                    modifier = GlanceModifier
-                        .background(ColorProvider(Color(0xFF00D4FF)))
-                        .cornerRadius(3.dp)
-                        .padding(horizontal = 4.dp, vertical = 1.dp)
-                ) {
-                    Text(
-                        text = "FREE",
-                        style = TextStyle(
-                            color = ColorProvider(Color.Black),
-                            fontSize = 8.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        color = ColorProvider(Color(0xCCFFFFFF)),
+                        fontSize = 11.sp
                     )
-                }
+                )
             }
         }
     }
@@ -226,13 +232,12 @@ fun EmptySmallState() {
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "No games",
+            text = "No games available",
             style = TextStyle(color = ColorProvider(Color.Gray), fontSize = 12.sp)
         )
     }
 }
 
-// Reuse helper functions from Large Widget (ideally these should be in a shared file)
 private fun loadGamesFromPreferences(context: Context): List<GameData> {
     return try {
         val prefs = context.getSharedPreferences("HomeWidgetPreferences", Context.MODE_PRIVATE)

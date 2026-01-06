@@ -28,9 +28,10 @@ class MainActivity : FlutterActivity() {
         // Trigger the widget preview generation when the app starts
         lifecycleScope.launch {
             try {
-                // This tells Android: "Hey, run providePreview() and save the result for the Picker"
-                // Using 1.2.0-alpha01 or higher is required for setWidgetPreviews
-                GlanceAppWidgetManager(context).setWidgetPreviews(FreeGamesGlanceReceiver::class)
+                val manager = GlanceAppWidgetManager(context)
+                // Trigger preview for both large and small widgets
+                manager.setWidgetPreviews(FreeGamesGlanceReceiver::class)
+                manager.setWidgetPreviews(SmallFreeGamesGlanceReceiver::class)
             } catch (e: Exception) {
                 // This might fail on older Android versions or if rate-limited, which is fine.
                 Log.e("MainActivity", "Failed to set widget previews", e)
