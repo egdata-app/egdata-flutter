@@ -1,73 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/widget_container"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="@drawable/widget_glassmorphic_bg"
-    android:padding="12dp">
+    android:layout_height="match_parent">
 
-    <!-- Header Section -->
-    <LinearLayout
-        android:id="@+id/header"
+    <AdapterViewFlipper
+        android:id="@+id/carousel_flipper"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingBottom="8dp">
+        android:layout_height="match_parent"
+        android:autoStart="true"
+        android:flipInterval="15000" />
 
-        <ImageView
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@mipmap/ic_launcher" />
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:paddingLeft="8dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="egdata.app"
-                android:textSize="8sp"
-                android:textColor="#00D4FF"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Free This Week"
-                android:textSize="11sp"
-                android:textColor="#FFFFFF"
-                android:textStyle="bold" />
-        </LinearLayout>
-    </LinearLayout>
-
-    <!-- Game Count Text -->
-    <TextView
-        android:id="@+id/game_count"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:gravity="center"
-        android:text="Loading..."
-        android:textSize="14sp"
-        android:textColor="#FFFFFF"
-        android:textStyle="bold"
-        android:paddingTop="16dp" />
-
-    <!-- Empty/Loading state -->
-    <TextView
-        android:id="@+id/empty_text"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center"
-        android:text="@string/widget_no_games"
-        android:textSize="10sp"
-        android:textColor="#888888"
-        android:visibility="gone" />
-
-</LinearLayout>
+</RelativeLayout>

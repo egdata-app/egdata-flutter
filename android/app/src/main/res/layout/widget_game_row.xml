@@ -1,47 +1,76 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/row_container"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="horizontal"
-    android:gravity="center_vertical"
-    android:padding="8dp"
-    android:background="@drawable/widget_game_card_bg">
+    android:layout_height="120dp"
+    android:layout_marginBottom="10dp"
+    android:background="@drawable/widget_game_card_bg"
+    android:clipToOutline="true">
 
-    <!-- Thumbnail (Vertical/Tall ratio) -->
+    <!-- Wide Thumbnail -->
     <ImageView
         android:id="@+id/game_thumbnail"
-        android:layout_width="48dp"
-        android:layout_height="64dp"
-        android:scaleType="centerCrop" />
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:contentDescription="Game cover" />
 
-    <!-- Game Info (Takes up remaining space) -->
+    <!-- Gradient overlay for text readability -->
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:src="@drawable/widget_carousel_gradient"
+        android:scaleType="fitXY"
+        android:contentDescription="" />
+
+    <!-- Content Over Image -->
     <LinearLayout
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:orientation="vertical"
-        android:paddingLeft="12dp">
+        android:layout_gravity="bottom"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="12dp">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/game_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Game Title"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/game_date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Ends Jan 15"
+                android:textColor="#CCFFFFFF"
+                android:textSize="11sp"
+                android:paddingTop="2dp" />
+        </LinearLayout>
 
         <TextView
-            android:id="@+id/game_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Game Title"
-            android:textColor="#FFFFFF"
-            android:textSize="13sp"
-            android:textStyle="bold"
-            android:maxLines="2"
-            android:ellipsize="end" />
-
-        <TextView
-            android:id="@+id/game_date"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Ends Jan 15"
-            android:textColor="#888888"
+            android:background="@drawable/widget_discount_badge"
+            android:paddingLeft="10dp"
+            android:paddingRight="10dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
+            android:text="FREE"
+            android:textColor="#000000"
             android:textSize="10sp"
-            android:paddingTop="2dp" />
+            android:textStyle="bold" />
     </LinearLayout>
 
-</LinearLayout>
+</FrameLayout>

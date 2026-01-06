@@ -37,10 +37,11 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
-        <!-- Free Games Widget Provider -->
+        <!-- Large Free Games Widget (Jetpack Glance) -->
         <receiver
-            android:name=".FreeGamesWidgetProvider"
-            android:exported="false">
+            android:name=".FreeGamesGlanceReceiver"
+            android:exported="false"
+            android:label="@string/widget_name">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -49,10 +50,30 @@
                 android:resource="@xml/widget_info" />
         </receiver>
 
-        <!-- Widget Service for ListView -->
+        <!-- Small Free Games Widget Provider -->
+        <receiver
+            android:name=".SmallFreeGamesWidgetProvider"
+            android:exported="false"
+            android:label="Free Games (Compact)">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_small" />
+        </receiver>
+
+        <!-- Compact Widget Service for small layout -->
         <service
-            android:name=".WidgetService"
-            android:permission="android.permission.BIND_REMOTEVIEWS" />
+            android:name=".CompactWidgetService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
+
+        <!-- Carousel Service for small layout -->
+        <service
+            android:name=".CarouselService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
 
     </application>
 

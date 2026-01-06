@@ -3,6 +3,8 @@
     <string name="app_name">egdata.app</string>
     <string name="widget_name">Free Games</string>
     <string name="widget_description">Epic Games Store free games</string>
+    <string name="widget_description_small">Epic Games free games (compact)</string>
+    <string name="widget_description_large">Epic Games free games (full cards)</string>
     <string name="widget_no_games">No free games</string>
     <string name="widget_loading">Loading...</string>
     <string name="widget_error">Unable to load</string>

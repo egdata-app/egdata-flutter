@@ -3,6 +3,8 @@ package com.ignacioaldama.egdata
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import androidx.lifecycle.lifecycleScope
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
@@ -11,6 +13,7 @@ import androidx.work.WorkManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 class MainActivity : FlutterActivity() {
@@ -21,6 +24,18 @@ class MainActivity : FlutterActivity() {
         super.onCreate(savedInstanceState)
         scheduleWidgetUpdates()
         handleIntent(intent)
+
+        // Trigger the widget preview generation when the app starts
+        lifecycleScope.launch {
+            try {
+                // This tells Android: "Hey, run providePreview() and save the result for the Picker"
+                // Using 1.2.0-alpha01 or higher is required for setWidgetPreviews
+                GlanceAppWidgetManager(context).setWidgetPreviews(FreeGamesGlanceReceiver::class)
+            } catch (e: Exception) {
+                // This might fail on older Android versions or if rate-limited, which is fine.
+                Log.e("MainActivity", "Failed to set widget previews", e)
+            }
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -42,6 +57,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun handleIntent(intent: Intent) {
+        Log.d("MainActivity", "handleIntent: action=${intent.action}")
         if (intent.action == "com.ignacioaldama.egdata.ACTION_OPEN_OFFER") {
             pendingOfferId = intent.getStringExtra("offerId")
             Log.d("MainActivity", "Received offerId from widget: $pendingOfferId")

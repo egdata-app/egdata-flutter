@@ -38,13 +38,17 @@ class WidgetService {
         widgetData.toJsonString(),
       );
 
-      // Trigger widget update
+      // Trigger widget updates for both large (Glance) and small widgets
       await HomeWidget.updateWidget(
-        name: 'FreeGamesWidgetProvider',
-        androidName: 'FreeGamesWidgetProvider',
+        name: 'FreeGamesGlanceReceiver',
+        androidName: 'FreeGamesGlanceReceiver',
+      );
+      await HomeWidget.updateWidget(
+        name: 'SmallFreeGamesWidgetProvider',
+        androidName: 'SmallFreeGamesWidgetProvider',
       );
 
-      debugPrint('Widget updated successfully with ${widgetGames.length} games');
+      debugPrint('Widgets updated successfully with ${widgetGames.length} games');
     } catch (e) {
       debugPrint('Error updating widget: $e');
       // Don't rethrow - widget update failures shouldn't crash the app
@@ -143,8 +147,12 @@ class WidgetService {
     try {
       await HomeWidget.saveWidgetData<String>('widget_data', '');
       await HomeWidget.updateWidget(
-        name: 'FreeGamesWidgetProvider',
-        androidName: 'FreeGamesWidgetProvider',
+        name: 'FreeGamesGlanceReceiver',
+        androidName: 'FreeGamesGlanceReceiver',
+      );
+      await HomeWidget.updateWidget(
+        name: 'SmallFreeGamesWidgetProvider',
+        androidName: 'SmallFreeGamesWidgetProvider',
       );
     } catch (e) {
       debugPrint('Error clearing widget data: $e');
