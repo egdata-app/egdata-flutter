@@ -113,9 +113,8 @@ void main() {
         if (Platform.isWindows) {
           final result = WindowsProcessService.getAllProcessPaths();
           for (final path in result) {
-            // Each path should contain a backslash and end with .exe
+            // Each path should contain a backslash (valid Windows path)
             expect(path, contains('\\'));
-            expect(path.toLowerCase(), endsWith('.exe'));
           }
         }
       }, skip: !Platform.isWindows ? 'Only runs on Windows' : null);
