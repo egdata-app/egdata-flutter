@@ -287,7 +287,7 @@ class _EGDataAppState extends State<EGDataApp> {
 
   @override
   Widget build(BuildContext context) {
-    const interTextStyle = TextStyle(fontFamily: 'Inter');
+
     final baseTextTheme = ThemeData.dark().textTheme.apply(fontFamily: 'Inter');
 
     return QueryClientProvider(

@@ -338,9 +338,7 @@ class ApiService {
       // Sort by start date, most recent first
       giveaways.sort((a, b) {
         if (a.startDate == null && b.startDate == null) return 0;
-        if (a.startDate == null) return 1;
-        if (b.startDate == null) return -1;
-        return b.startDate!.compareTo(a.startDate!);
+        return b.startDate.compareTo(a.startDate);
       });
 
       return giveaways;
@@ -411,40 +409,7 @@ class ApiService {
     return Region.fromJson(regionData);
   }
 
-  /// Fetches price history for an offer in a specific region
-  ///
-  /// [offerId] - The offer ID to fetch price history for
-  /// [region] - The region code (e.g., "EURO", "US")
-  /// [since] - Optional start date for price history
-  Future<List<PriceHistoryEntry>> getOfferPriceHistory(
-    String offerId,
-    String region, {
-    DateTime? since,
-  }) async {
-    try {
-      var endpoint = '/offers/$offerId/price-history?region=$region';
-      if (since != null) {
-        endpoint += '&since=${since.toIso8601String()}';
-      }
-      final data = await _get(endpoint);
 
-      // Handle both array response and empty object response
-      if (data is List) {
-        return data
-            .map((e) => PriceHistoryEntry.fromJson(e as Map<String, dynamic>))
-            .toList();
-      } else if (data is Map) {
-        // Empty response or error - return empty list
-        return [];
-      }
-
-      return [];
-    } on ApiException catch (e) {
-      // Price history may not exist for all offers
-      if (e.statusCode == 404) return [];
-      rethrow;
-    }
-  }
 
   // ============================================
   // Push Notification Endpoints
@@ -551,6 +516,41 @@ class ApiService {
     return data
         .map((e) => GenreWithOffers.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  /// Fetches price history for an offer in a specific region
+  ///
+  /// [offerId] - The offer ID to fetch price history for
+  /// [region] - The region code (e.g., "EURO", "US")
+  /// [since] - Optional start date for price history
+  Future<List<PriceHistoryEntry>> getOfferPriceHistory(
+    String offerId,
+    String region, {
+    DateTime? since,
+  }) async {
+    try {
+      var endpoint = '/offers/$offerId/price-history?region=$region';
+      if (since != null) {
+        endpoint += '&since=${since.toIso8601String()}';
+      }
+      final data = await _get(endpoint);
+
+      // Handle both array response and empty object response
+      if (data is List) {
+        return data
+            .map((e) => PriceHistoryEntry.fromJson(e as Map<String, dynamic>))
+            .toList();
+      } else if (data is Map) {
+        // Empty response or error - return empty list
+        return [];
+      }
+
+      return [];
+    } on ApiException catch (e) {
+      // Price history may not exist for all offers
+      if (e.statusCode == 404) return [];
+      rethrow;
+    }
   }
 
   /// Disposes the HTTP client
