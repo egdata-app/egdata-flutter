@@ -545,6 +545,14 @@ class ApiService {
     return data.cast<Map<String, dynamic>>();
   }
 
+  /// Fetches genres with their top offers
+  Future<List<GenreWithOffers>> getGenres() async {
+    final data = await _get('/offers/genres') as List<dynamic>;
+    return data
+        .map((e) => GenreWithOffers.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   /// Disposes the HTTP client
   void dispose() {
     _client.close();

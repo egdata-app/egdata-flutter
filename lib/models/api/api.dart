@@ -12,3 +12,4 @@ export 'offer_polls.dart';
 export 'offer_tops.dart';
 export 'age_rating.dart';
 export 'offer_assets.dart';
+export 'genre.dart';

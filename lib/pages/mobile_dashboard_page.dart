@@ -10,7 +10,10 @@ import '../services/push_service.dart';
 import '../services/sync_service.dart';
 import '../widgets/progressive_image.dart';
 import '../widgets/free_games_notification_prompt_dialog.dart';
+import '../widgets/genre_card.dart';
 import 'mobile_offer_detail_page.dart';
+import 'mobile_browse_page.dart';
+import 'all_genres_page.dart';
 
 class MobileDashboardPage extends HookWidget {
   final FollowService followService;
@@ -59,6 +62,13 @@ class MobileDashboardPage extends HookWidget {
     return entries.where((g) => g.isOnSale).toList();
   }
 
+  Future<List<GenreWithOffers>> _fetchGenres() async {
+    final apiService = ApiService();
+    final genres = await apiService.getGenres();
+    // Return top 4 genres
+    return genres.take(4).toList();
+  }
+
   void _openGame(
     BuildContext context,
     String offerId, {
@@ -74,6 +84,53 @@ class MobileDashboardPage extends HookWidget {
           pushService: pushService,
           initialTitle: title,
           initialImageUrl: imageUrl,
+        ),
+      ),
+    );
+  }
+
+  void _openBrowseWithGenre(BuildContext context, GenreInfo genre) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: AppColors.background,
+          appBar: AppBar(
+            backgroundColor: AppColors.background,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded),
+              color: AppColors.textPrimary,
+              onPressed: () => Navigator.pop(context),
+            ),
+            title: Text(
+              genre.name,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          body: MobileBrowsePage(
+            followService: followService,
+            settings: settings,
+            pushService: pushService,
+            initialGenreId: genre.id,
+            initialGenreName: genre.name,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openAllGenres(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AllGenresPage(
+          followService: followService,
+          settings: settings,
+          pushService: pushService,
         ),
       ),
     );
@@ -109,6 +166,13 @@ class MobileDashboardPage extends HookWidget {
       queryKey: ['games-on-sale'],
       queryFn: (_) => _fetchGamesOnSale(),
       staleTime: StaleTime(const Duration(minutes: 1)),
+    );
+
+    // Query for genres
+    final genresQuery = useQuery<List<GenreWithOffers>, Object>(
+      queryKey: ['genres'],
+      queryFn: (_) => _fetchGenres(),
+      staleTime: StaleTime(const Duration(minutes: 10)),
     );
 
     // Listen to followed games stream and invalidate query
@@ -196,6 +260,7 @@ class MobileDashboardPage extends HookWidget {
     final homepageStats = homepageStatsQuery.data;
     final freeGamesStats = freeGamesStatsQuery.data;
     final gamesOnSale = gamesOnSaleQuery.data ?? [];
+    final genres = genresQuery.data ?? [];
 
     // Refresh handler
     Future<void> handleRefresh() async {
@@ -204,6 +269,7 @@ class MobileDashboardPage extends HookWidget {
         homepageStatsQuery.refetch(),
         freeGamesStatsQuery.refetch(),
         gamesOnSaleQuery.refetch(),
+        genresQuery.refetch(),
       ]);
     }
 
@@ -399,6 +465,7 @@ class MobileDashboardPage extends HookWidget {
 
             const SizedBox(height: 28),
 
+
             // Free games section
             if (activeFreeGames.isNotEmpty) ...[
               _buildSectionHeader(
@@ -416,6 +483,58 @@ class MobileDashboardPage extends HookWidget {
                   itemBuilder: (context, index) {
                     final game = activeFreeGames[index];
                     return _buildFreeGameCard(context, game);
+                  },
+                ),
+              ),
+              const SizedBox(height: 28),
+            ],
+
+                        // Genres section
+            if (genres.isNotEmpty) ...[
+              GestureDetector(
+                onTap: () => _openAllGenres(context),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _buildSectionHeader(
+                        'Browse by Genre',
+                        Icons.category_rounded,
+                        AppColors.primary,
+                      ),
+                    ),
+                    Text(
+                      'See all',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 14,
+                      color: AppColors.primary,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 160,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: genres.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 14),
+                  itemBuilder: (context, index) {
+                    final genre = genres[index];
+                    return SizedBox(
+                      width: 160,
+                      child: GenreCard(
+                        genreWithOffers: genre,
+                        onTap: () => _openBrowseWithGenre(context, genre.genre),
+                      ),
+                    );
                   },
                 ),
               ),

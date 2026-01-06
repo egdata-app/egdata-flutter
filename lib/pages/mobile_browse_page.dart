@@ -16,12 +16,16 @@ class MobileBrowsePage extends HookWidget {
   final AppSettings settings;
   final FollowService followService;
   final PushService? pushService;
+  final String? initialGenreId;
+  final String? initialGenreName;
 
   const MobileBrowsePage({
     super.key,
     required this.settings,
     required this.followService,
     this.pushService,
+    this.initialGenreId,
+    this.initialGenreName,
   });
 
   static const String _logTag = 'MobileBrowsePage';
@@ -77,6 +81,8 @@ class MobileBrowsePage extends HookWidget {
     final excludeBlockchain = useState(false);
     final pastGiveaways = useState(false);
     final isLowestPriceEver = useState(false);
+    final selectedGenreId = useState<String?>(initialGenreId);
+    final selectedGenreName = useState<String?>(initialGenreName);
 
     // Search text state
     final searchText = useState(searchController.text);
@@ -122,6 +128,7 @@ class MobileBrowsePage extends HookWidget {
         excludeBlockchain.value,
         pastGiveaways.value,
         isLowestPriceEver.value,
+        selectedGenreId.value,
       ],
       [
         country,
@@ -134,6 +141,7 @@ class MobileBrowsePage extends HookWidget {
         excludeBlockchain.value,
         pastGiveaways.value,
         isLowestPriceEver.value,
+        selectedGenreId.value,
       ],
     );
 
@@ -155,7 +163,7 @@ class MobileBrowsePage extends HookWidget {
             excludeBlockchain: excludeBlockchain.value ? true : null,
             pastGiveaways: pastGiveaways.value ? true : null,
             isLowestPriceEver: isLowestPriceEver.value ? true : null,
-            tags: null,
+            tags: selectedGenreId.value != null ? [selectedGenreId.value!] : null,
             limit: 20,
             page: page,
           );
@@ -331,46 +339,49 @@ class MobileBrowsePage extends HookWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
+              // Only show header when not navigated from genre
+              if (initialGenreId == null) ...[
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.explore_rounded,
+                        color: AppColors.primary,
+                        size: 24,
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.explore_rounded,
-                      color: AppColors.primary,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Browse',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimary,
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Browse',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimary,
+                            ),
                           ),
-                        ),
-                        Text(
-                          'Search and discover games',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: AppColors.textMuted,
+                          Text(
+                            'Search and discover games',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textMuted,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
+                  ],
+                ),
+                const SizedBox(height: 20),
+              ],
               // Search bar
               TextField(
                 controller: searchController,
@@ -500,6 +511,58 @@ class MobileBrowsePage extends HookWidget {
                   ),
                 ],
               ),
+              // Genre filter chip
+              if (selectedGenreName.value != null) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.category_rounded,
+                            size: 16,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            selectedGenreName.value!,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () {
+                              selectedGenreId.value = null;
+                              selectedGenreName.value = null;
+                            },
+                            child: const Icon(
+                              Icons.close_rounded,
+                              size: 16,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
