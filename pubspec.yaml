@@ -39,6 +39,8 @@ dependencies:
   iconsax_plus: ^1.0.0
   home_widget: ^0.8.1
   flutter_markdown_plus: ^1.0.7
+  win32: ^5.5.0
+  ffi: ^2.1.0
 
 dev_dependencies:
   flutter_test:

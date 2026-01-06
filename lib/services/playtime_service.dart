@@ -4,6 +4,7 @@ import '../database/database_service.dart';
 import '../models/game_info.dart';
 import '../models/playtime_stats.dart';
 import 'game_process_api_service.dart';
+import 'windows_process_service.dart';
 
 class PlaytimeService {
   final DatabaseService _db;
@@ -122,10 +123,10 @@ class PlaytimeService {
     final games = _getInstalledGames();
     if (games.isEmpty) return null;
 
-    // On Windows, use install directory detection (most reliable)
+    // On Windows, use install directory detection via native Win32 API (most reliable)
     if (Platform.isWindows) {
       for (final game in games) {
-        if (await _hasProcessInInstallDir(game)) {
+        if (_hasProcessInInstallDir(game)) {
           return game;
         }
       }
@@ -146,30 +147,10 @@ class PlaytimeService {
   }
 
   /// Check if any process is running from the game's install directory (Windows)
-  Future<bool> _hasProcessInInstallDir(GameInfo game) async {
+  /// Uses native Win32 API for better performance and reliability.
+  bool _hasProcessInInstallDir(GameInfo game) {
     try {
-      // Normalize path for wmic query (use backslashes, escape for LIKE)
-      final normalizedPath = game.installLocation
-          .replaceAll('/', '\\')
-          .replaceAll('\\', '\\\\');
-
-      final result = await Process.run('wmic', [
-        'process',
-        'where',
-        "ExecutablePath like '%$normalizedPath%'",
-        'get',
-        'Name',
-        '/format:csv',
-      ]);
-
-      // CSV output has header line, so more than 1 non-empty line means process found
-      final lines = result.stdout
-          .toString()
-          .split('\n')
-          .where((line) => line.trim().isNotEmpty)
-          .toList();
-
-      return lines.length > 1;
+      return WindowsProcessService.hasProcessInDirectory(game.installLocation);
     } catch (e) {
       return false;
     }
@@ -229,17 +210,8 @@ class PlaytimeService {
   Future<bool> _isProcessRunning(String processName) async {
     try {
       if (Platform.isWindows) {
-        final result = await Process.run('tasklist', [
-          '/FI',
-          'IMAGENAME eq $processName',
-          '/FO',
-          'CSV',
-          '/NH',
-        ]);
-        return result.stdout
-            .toString()
-            .toLowerCase()
-            .contains(processName.toLowerCase());
+        // Use native Win32 API for better performance
+        return WindowsProcessService.isProcessRunning(processName);
       } else if (Platform.isMacOS) {
         // On macOS, process names don't have .exe
         final macProcessName = processName.replaceAll('.exe', '');

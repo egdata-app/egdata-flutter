@@ -45,6 +45,9 @@ jobs:
       - name: Generate Isar bindings
         run: dart run build_runner build --delete-conflicting-outputs
 
+      - name: Run tests
+        run: flutter test
+
       - name: Update version in pubspec.yaml
         shell: pwsh
         run: |
@@ -113,6 +116,9 @@ jobs:
 
       - name: Generate Isar bindings
         run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Run tests
+        run: flutter test
 
       - name: Update version in pubspec.yaml
         run: |
@@ -185,6 +191,9 @@ jobs:
 
       - name: Generate Isar bindings
         run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Run tests
+        run: flutter test
 
       - name: Update version in pubspec.yaml
         run: |
