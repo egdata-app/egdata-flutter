@@ -61,9 +61,11 @@ class PlaytimeService {
     _pollTimer?.cancel();
     _pollTimer = null;
 
-    // End any active session
+    // End any active session (fire and forget for normal dispose)
     if (_activeSessionId != null) {
-      _endCurrentSession();
+      _endCurrentSession().catchError((e) {
+        // Ignore errors during shutdown
+      });
     }
   }
 
@@ -342,6 +344,15 @@ class PlaytimeService {
 
   void dispose() {
     stopTracking();
+    _statsController.close();
+    _activeGameController.close();
+  }
+
+  /// Proper shutdown that ensures all async operations complete
+  Future<void> shutdown() async {
+    if (_activeSessionId != null) {
+      await _endCurrentSession();
+    }
     _statsController.close();
     _activeGameController.close();
   }

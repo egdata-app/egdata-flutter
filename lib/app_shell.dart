@@ -255,8 +255,32 @@ class _AppShellState extends State<AppShell> {
 
   Future<void> _quitApp() async {
     if (!PlatformUtils.isDesktop) return;
-    await _trayService?.destroy();
-    await windowManager.destroy();
+    
+    // Hide window immediately for responsive UI
+    await windowManager.hide();
+    
+    // Continue with cleanup in the background
+    // We use a try-catch to ensure cleanup doesn't prevent app exit
+    try {
+      // Dispose all services before quitting to ensure proper cleanup
+      _syncTimer?.cancel();
+      _followService?.dispose();
+      await _playtimeService?.shutdown(); // Proper shutdown for playtime service
+      _pushService?.dispose();
+      _chatSessionService?.dispose();
+      _apiService.dispose();
+      _notificationService.dispose();
+      
+      // Close database connection
+      await _db?.close();
+      
+      // Destroy tray and window manager
+      await _trayService?.destroy();
+      await windowManager.destroy();
+    } catch (e) {
+      // Log error but don't block app exit
+      debugPrint('Error during app shutdown: $e');
+    }
   }
 
   Future<void> _handleClose() async {

@@ -119,4 +119,9 @@ class ChatSessionService {
       throw Exception('Failed to delete session: ${response.statusCode}');
     }
   }
+
+  /// Dispose of HTTP client resources
+  void dispose() {
+    _client.close();
+  }
 }
