@@ -7,8 +7,10 @@ class ChatSessionService {
   static const String baseUrl = 'https://ai.egdata.app';
 
   final String userId;
+  final http.Client _client;
 
-  ChatSessionService({required this.userId});
+  ChatSessionService({required this.userId, http.Client? client})
+      : _client = client ?? http.Client();
 
   /// List all chat sessions for the user
   Future<List<ChatSession>> listSessions({
@@ -22,7 +24,7 @@ class ChatSessionService {
       'offset': offset.toString(),
     });
 
-    final response = await http.get(uri);
+    final response = await _client.get(uri);
 
     if (response.statusCode != 200) {
       throw Exception('Failed to list sessions: ${response.statusCode}');
@@ -40,7 +42,7 @@ class ChatSessionService {
   Future<ChatSession> createSession({String? title}) async {
     final uri = Uri.parse('$baseUrl/api/sessions');
 
-    final response = await http.post(
+    final response = await _client.post(
       uri,
       headers: {'Content-Type': 'application/json'},
       body: json.encode({
@@ -68,7 +70,7 @@ class ChatSessionService {
       'includeMessages': includeMessages.toString(),
     });
 
-    final response = await http.get(uri);
+    final response = await _client.get(uri);
 
     if (response.statusCode != 200) {
       throw Exception('Failed to get session: ${response.statusCode}');
@@ -90,7 +92,7 @@ class ChatSessionService {
   Future<void> renameSession(String sessionId, String newTitle) async {
     final uri = Uri.parse('$baseUrl/api/sessions/$sessionId');
 
-    final response = await http.patch(
+    final response = await _client.patch(
       uri,
       headers: {'Content-Type': 'application/json'},
       body: json.encode({
@@ -111,7 +113,7 @@ class ChatSessionService {
       'userId': userId,
     });
 
-    final response = await http.delete(uri);
+    final response = await _client.delete(uri);
 
     if (response.statusCode != 200 && response.statusCode != 204) {
       throw Exception('Failed to delete session: ${response.statusCode}');
