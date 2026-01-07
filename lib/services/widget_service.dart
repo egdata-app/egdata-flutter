@@ -33,6 +33,7 @@ class WidgetService {
       );
 
       // Save to SharedPreferences via home_widget
+      await HomeWidget.setAppGroupId('group.com.ignacioaldama.egdata');
       await HomeWidget.saveWidgetData<String>(
         'widget_data',
         widgetData.toJsonString(),
