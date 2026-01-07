@@ -58,8 +58,8 @@ void main(List<String> args) async {
       debugPrint('Firebase initialization failed: $e');
     }
 
-    // Update Android widget with latest free games data (non-blocking)
-    if (Platform.isAndroid) {
+    // Update widget with latest free games data (non-blocking)
+    if (Platform.isAndroid || Platform.isIOS) {
       // Fire and forget - don't block app startup
       WidgetService().updateWidget().catchError((e) {
         debugPrint('Widget update failed: $e');
@@ -219,7 +219,7 @@ class EGDataApp extends StatefulWidget {
 class _EGDataAppState extends State<EGDataApp> {
   late final QueryClient _queryClient;
   static const platform = MethodChannel('com.ignacioaldama.egdata/widget');
-  
+
   // Services for detail page navigation
   late final FollowService _followService;
   late final PushService _pushService;
@@ -228,19 +228,19 @@ class _EGDataAppState extends State<EGDataApp> {
   void initState() {
     super.initState();
     _queryClient = QueryClient();
-    
+
     // Initialize services with the shared instances
     _followService = FollowService(db: widget.dbService);
     _pushService = PushService(
       db: widget.dbService,
       notification: widget.notificationService,
     );
-    
+
     _initWidgetChannel();
   }
 
   void _initWidgetChannel() {
-    if (!Platform.isAndroid) return;
+    if (!Platform.isAndroid && !Platform.isIOS) return;
 
     platform.setMethodCallHandler((call) async {
       if (call.method == "onOfferSelected") {

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
 import '../models/widget_data.dart';
@@ -32,22 +33,33 @@ class WidgetService {
         lastUpdate: DateTime.now(),
       );
 
-      // Save to SharedPreferences via home_widget
+      // Set App Group ID for iOS
       await HomeWidget.setAppGroupId('group.com.ignacioaldama.egdata');
+
+      // Save to SharedPreferences via home_widget
       await HomeWidget.saveWidgetData<String>(
         'widget_data',
         widgetData.toJsonString(),
       );
 
-      // Trigger widget updates for both large (Glance) and small widgets
-      await HomeWidget.updateWidget(
-        name: 'FreeGamesGlanceReceiver',
-        androidName: 'FreeGamesGlanceReceiver',
-      );
-      await HomeWidget.updateWidget(
-        name: 'SmallFreeGamesWidgetProvider',
-        androidName: 'SmallFreeGamesWidgetProvider',
-      );
+      // Trigger widget updates based on platform
+      if (Platform.isAndroid) {
+        // Android: Update both large (Glance) and small widgets
+        await HomeWidget.updateWidget(
+          name: 'FreeGamesGlanceReceiver',
+          androidName: 'FreeGamesGlanceReceiver',
+        );
+        await HomeWidget.updateWidget(
+          name: 'SmallFreeGamesWidgetProvider',
+          androidName: 'SmallFreeGamesWidgetProvider',
+        );
+      } else if (Platform.isIOS) {
+        // iOS: Update the FreeGamesWidget
+        await HomeWidget.updateWidget(
+          name: 'FreeGamesWidget',
+          iOSName: 'FreeGamesWidget',
+        );
+      }
 
       debugPrint('Widgets updated successfully with ${widgetGames.length} games');
     } catch (e) {
@@ -146,15 +158,24 @@ class WidgetService {
   /// Clear widget data
   Future<void> clearWidgetData() async {
     try {
+      await HomeWidget.setAppGroupId('group.com.ignacioaldama.egdata');
       await HomeWidget.saveWidgetData<String>('widget_data', '');
-      await HomeWidget.updateWidget(
-        name: 'FreeGamesGlanceReceiver',
-        androidName: 'FreeGamesGlanceReceiver',
-      );
-      await HomeWidget.updateWidget(
-        name: 'SmallFreeGamesWidgetProvider',
-        androidName: 'SmallFreeGamesWidgetProvider',
-      );
+
+      if (Platform.isAndroid) {
+        await HomeWidget.updateWidget(
+          name: 'FreeGamesGlanceReceiver',
+          androidName: 'FreeGamesGlanceReceiver',
+        );
+        await HomeWidget.updateWidget(
+          name: 'SmallFreeGamesWidgetProvider',
+          androidName: 'SmallFreeGamesWidgetProvider',
+        );
+      } else if (Platform.isIOS) {
+        await HomeWidget.updateWidget(
+          name: 'FreeGamesWidget',
+          iOSName: 'FreeGamesWidget',
+        );
+      }
     } catch (e) {
       debugPrint('Error clearing widget data: $e');
     }
