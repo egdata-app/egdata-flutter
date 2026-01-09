@@ -34,21 +34,45 @@ struct Provider: TimelineProvider {
     let userDefaultsKey = "widget_data"
     
     func placeholder(in context: Context) -> SimpleEntry {
-        SimpleEntry(date: Date(), games: [])
+        SimpleEntry(date: Date(), games: [], currentIndex: 0)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (SimpleEntry) -> ()) {
-        let entry = SimpleEntry(date: Date(), games: loadGames())
+        let games = loadGames()
+        let entry = SimpleEntry(date: Date(), games: games, currentIndex: 0)
         completion(entry)
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
         let games = loadGames()
-        let entry = SimpleEntry(date: Date(), games: games)
         
-        // Refresh every hour or when app updates
-        let nextUpdate = Calendar.current.date(byAdding: .hour, value: 1, to: Date())!
-        let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
+        if games.isEmpty {
+            let entry = SimpleEntry(date: Date(), games: [], currentIndex: 0)
+            let nextUpdate = Calendar.current.date(byAdding: .hour, value: 1, to: Date())!
+            let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
+            completion(timeline)
+            return
+        }
+        
+        // Create timeline entries for carousel effect (rotate every 15 seconds)
+        var entries: [SimpleEntry] = []
+        let currentDate = Date()
+        let rotationInterval: TimeInterval = 15
+        
+        // Create entries for each game, rotating through them
+        for i in 0..<games.count {
+            let entryDate = currentDate.addingTimeInterval(TimeInterval(i) * rotationInterval)
+            let entry = SimpleEntry(date: entryDate, games: games, currentIndex: i % games.count)
+            entries.append(entry)
+        }
+        
+        // Complete the cycle back to first game
+        let lastEntryDate = currentDate.addingTimeInterval(TimeInterval(games.count) * rotationInterval)
+        entries.append(SimpleEntry(date: lastEntryDate, games: games, currentIndex: 0))
+        
+        // Refresh every hour or after carousel completes
+        let nextUpdate = currentDate.addingTimeInterval(TimeInterval(games.count) * rotationInterval + 3600)
+        let timeline = Timeline(entries: entries, policy: .after(nextUpdate))
         completion(timeline)
     }
     
@@ -72,6 +96,7 @@ struct Provider: TimelineProvider {
 struct SimpleEntry: TimelineEntry {
     let date: Date
     let games: [WidgetFreeGame]
+    let currentIndex: Int
 }
 
 // MARK: - Views
@@ -86,11 +111,21 @@ struct FreeGamesWidgetEntryView : View {
         } else {
             switch family {
             case .systemSmall:
-                SmallWidgetView(game: entry.games[0])
+                SmallWidgetView(
+                    game: entry.games[entry.currentIndex],
+                    currentIndex: entry.currentIndex,
+                    totalGames: entry.games.count
+                )
             case .systemMedium:
                 MediumWidgetView(games: entry.games)
+            case .systemLarge:
+                LargeWidgetView(games: entry.games)
             default:
-                SmallWidgetView(game: entry.games[0])
+                SmallWidgetView(
+                    game: entry.games[entry.currentIndex],
+                    currentIndex: entry.currentIndex,
+                    totalGames: entry.games.count
+                )
             }
         }
     }
@@ -109,6 +144,133 @@ struct EmptyStateView: View {
 
 struct SmallWidgetView: View {
     let game: WidgetFreeGame
+    let currentIndex: Int
+    let totalGames: Int
+    
+    init(game: WidgetFreeGame, currentIndex: Int = 0, totalGames: Int = 1) {
+        self.game = game
+        self.currentIndex = currentIndex
+        self.totalGames = totalGames
+    }
+    
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .bottom) {
+                // Background Image
+                if let urlString = game.thumbnailUrl, let url = URL(string: urlString) {
+                    NetworkImage(url: url)
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .clipped()
+                } else {
+                    Color(red: 0.1, green: 0.1, blue: 0.1)
+                }
+                
+                // Gradient Overlay (from bottom, fading upward)
+                LinearGradient(
+                    gradient: Gradient(colors: [.black.opacity(0.8), .clear]),
+                    startPoint: .bottom,
+                    endPoint: .center
+                )
+                
+                // Position Indicator (top-right)
+                HStack {
+                    Spacer()
+                    Text("\(currentIndex + 1)/\(totalGames)")
+                        .font(.system(size: 10, weight: .bold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color(red: 0, green: 0.83, blue: 1, opacity: 0.2))
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                }
+                .padding(10)
+                
+                // Content (bottom)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(game.title)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                    
+                    HStack(alignment: .center, spacing: 4) {
+                        if let endDate = game.endDateTime {
+                            Text("Ends \(formatDate(endDate))")
+                                .font(.system(size: 11))
+                                .foregroundColor(Color(red: 0.8, green: 0.8, blue: 0.8))
+                        }
+                        
+                        Spacer()
+                        
+                        Text("FREE")
+                            .font(.system(size: 10, weight: .bold))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(Color(red: 0, green: 0.83, blue: 1))
+                            .foregroundColor(.black)
+                            .cornerRadius(8)
+                    }
+                }
+                .padding(12)
+            }
+            .background(Color(red: 0.04, green: 0.04, blue: 0.04))
+        }
+    }
+    
+    func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return formatter.string(from: date)
+    }
+}
+
+struct MediumWidgetView: View {
+    let games: [WidgetFreeGame]
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack(spacing: 10) {
+                if let appIcon = UIImage(named: "AppIcon") {
+                    Image(uiImage: appIcon)
+                        .resizable()
+                        .frame(width: 24, height: 24)
+                        .cornerRadius(6)
+                } else {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(red: 0, green: 0.83, blue: 1))
+                        .frame(width: 24, height: 24)
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("egdata.app")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(Color(red: 0, green: 0.83, blue: 1))
+                    
+                    Text("Free This Week")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.white)
+                }
+                
+                Spacer()
+            }
+            .padding(.bottom, 10)
+            
+            // Games List
+            ScrollView {
+                VStack(spacing: 10) {
+                    ForEach(Array(games.prefix(3).enumerated()), id: \.element.id) { index, game in
+                        GameCard(game: game)
+                    }
+                }
+            }
+        }
+        .padding(10)
+        .background(Color(red: 0.04, green: 0.04, blue: 0.04))
+    }
+}
+
+struct GameCard: View {
+    let game: WidgetFreeGame
     
     var body: some View {
         GeometryReader { geo in
@@ -124,128 +286,98 @@ struct SmallWidgetView: View {
                 
                 // Gradient Overlay
                 LinearGradient(
-                    gradient: Gradient(colors: [.black.opacity(0.8), .transparent]),
+                    gradient: Gradient(colors: [.black.opacity(0.8), .clear]),
                     startPoint: .bottom,
-                    endPoint: .center
+                    endPoint: .top
                 )
                 
                 // Content
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("FREE NOW")
-                        .font(.system(size: 8, weight: .bold))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(4)
-                        .padding(.top, 8)
-                    
-                    Spacer()
-                    
                     Text(game.title)
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.white)
-                        .lineLimit(2)
-                        .shadow(radius: 2)
+                        .lineLimit(1)
+                    
+                    HStack(alignment: .center, spacing: 4) {
+                        if let endDate = game.endDateTime {
+                            Text("Ends \(formatDate(endDate))")
+                                .font(.system(size: 11))
+                                .foregroundColor(Color(red: 0.8, green: 0.8, blue: 0.8))
+                        }
+                        
+                        Spacer()
+                        
+                        Text("FREE")
+                            .font(.system(size: 10, weight: .bold))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Color(red: 0, green: 0.83, blue: 1))
+                            .foregroundColor(.black)
+                            .cornerRadius(8)
+                    }
                 }
                 .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .background(Color(red: 0.04, green: 0.04, blue: 0.04))
+            .background(Color.black.opacity(0.9))
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color(red: 0.18, green: 0.18, blue: 0.18, opacity: 0.25), lineWidth: 1)
+            )
         }
-    }
-}
-
-struct MediumWidgetView: View {
-    let games: [WidgetFreeGame]
-    
-    var body: some View {
-        HStack(spacing: 0) {
-            // Featured Game (Left)
-            if let firstGame = games.first {
-                GeometryReader { geo in
-                    ZStack(alignment: .bottomLeading) {
-                        if let urlString = firstGame.thumbnailUrl, let url = URL(string: urlString) {
-                            NetworkImage(url: url)
-                                .frame(width: geo.size.width, height: geo.size.height)
-                                .clipped()
-                        }
-                        
-                        LinearGradient(
-                            gradient: Gradient(colors: [.black.opacity(0.9), .black.opacity(0.0)]),
-                            startPoint: .bottom,
-                            endPoint: .top
-                        )
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("FREE NOW")
-                                .font(.system(size: 8, weight: .bold))
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.blue)
-                                .foregroundColor(.white)
-                                .cornerRadius(4)
-                            
-                            Text(firstGame.title)
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(.white)
-                                .lineLimit(2)
-                        }
-                        .padding(12)
-                    }
-                }
-                .frame(width: 140)
-            }
-            
-            // List (Right)
-            VStack(alignment: .leading, spacing: 10) {
-                ForEach(games.dropFirst().prefix(2)) { game in
-                    HStack(spacing: 8) {
-                        if let urlString = game.thumbnailUrl, let url = URL(string: urlString) {
-                            NetworkImage(url: url)
-                                .frame(width: 40, height: 53)
-                                .cornerRadius(4)
-                                .clipped()
-                        } else {
-                            Rectangle()
-                                .fill(Color.gray.opacity(0.3))
-                                .frame(width: 40, height: 53)
-                                .cornerRadius(4)
-                        }
-                        
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(game.title)
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(.white)
-                                .lineLimit(2)
-                            
-                            if let endDate = game.endDateTime {
-                                Text("Ends \(formatDate(endDate))")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(.gray)
-                            }
-                        }
-                    }
-                }
-                
-                if games.count == 1 {
-                    Text("More offers coming soon")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                        .padding(.top, 20)
-                }
-            }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(red: 0.1, green: 0.1, blue: 0.1))
-        }
-        .background(Color(red: 0.04, green: 0.04, blue: 0.04))
+        .frame(height: 120)
     }
     
     func formatDate(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d"
         return formatter.string(from: date)
+    }
+}
+
+struct LargeWidgetView: View {
+    let games: [WidgetFreeGame]
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header (same as medium)
+            HStack(spacing: 10) {
+                if let appIcon = UIImage(named: "AppIcon") {
+                    Image(uiImage: appIcon)
+                        .resizable()
+                        .frame(width: 24, height: 24)
+                        .cornerRadius(6)
+                } else {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(red: 0, green: 0.83, blue: 1))
+                        .frame(width: 24, height: 24)
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("egdata.app")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(Color(red: 0, green: 0.83, blue: 1))
+                    
+                    Text("Free This Week")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.white)
+                }
+                
+                Spacer()
+            }
+            .padding(.bottom, 10)
+            
+            // Games List (scrollable, more games than medium)
+            ScrollView {
+                VStack(spacing: 10) {
+                    ForEach(games, id: \.id) { game in
+                        GameCard(game: game)
+                    }
+                }
+            }
+        }
+        .padding(10)
+        .background(Color(red: 0.04, green: 0.04, blue: 0.04))
     }
 }
 
@@ -292,6 +424,6 @@ struct FreeGamesWidget: Widget {
         }
         .configurationDisplayName("Free Games")
         .description("See the current free games on Epic Games Store.")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
