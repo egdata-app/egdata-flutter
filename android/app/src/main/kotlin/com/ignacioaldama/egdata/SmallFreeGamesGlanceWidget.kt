@@ -3,6 +3,7 @@ package com.ignacioaldama.egdata
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.os.Build
 import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -99,7 +100,10 @@ class SmallFreeGamesGlanceWidget : GlanceAppWidget() {
     companion object {
         suspend fun updateWidgetPreview(context: Context) {
             try {
-                GlanceAppWidgetManager(context).setWidgetPreviews(SmallFreeGamesGlanceReceiver::class)
+                // setWidgetPreviews is only available on Android 15 (API 35) and above
+                if (Build.VERSION.SDK_INT >= 35) {
+                    GlanceAppWidgetManager(context).setWidgetPreviews(SmallFreeGamesGlanceReceiver::class)
+                }
             } catch (e: Exception) {
                 Log.e("SmallWidget", "Failed to update preview", e)
             }

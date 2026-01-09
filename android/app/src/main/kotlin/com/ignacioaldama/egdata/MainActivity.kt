@@ -1,6 +1,7 @@
 package com.ignacioaldama.egdata
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.lifecycle.lifecycleScope
@@ -25,15 +26,18 @@ class MainActivity : FlutterActivity() {
         scheduleWidgetUpdates()
         handleIntent(intent)
 
-        // Trigger the widget preview generation when the app starts
+        // Trigger the widget preview generation when the app starts (Android 15+ only)
         lifecycleScope.launch {
             try {
-                val manager = GlanceAppWidgetManager(context)
-                // Trigger preview for both large and small widgets
-                manager.setWidgetPreviews(FreeGamesGlanceReceiver::class)
-                manager.setWidgetPreviews(SmallFreeGamesGlanceReceiver::class)
+                // setWidgetPreviews is only available on Android 15 (API 35) and above
+                if (Build.VERSION.SDK_INT >= 35) {
+                    val manager = GlanceAppWidgetManager(context)
+                    // Trigger preview for both large and small widgets
+                    manager.setWidgetPreviews(FreeGamesGlanceReceiver::class)
+                    manager.setWidgetPreviews(SmallFreeGamesGlanceReceiver::class)
+                }
             } catch (e: Exception) {
-                // This might fail on older Android versions or if rate-limited, which is fine.
+                // This might fail if rate-limited, which is fine.
                 Log.e("MainActivity", "Failed to set widget previews", e)
             }
         }

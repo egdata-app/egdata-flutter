@@ -7,6 +7,7 @@ import android.graphics.Canvas
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Shader
+import android.os.Build
 import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color // Compose Color for UI
@@ -125,7 +126,10 @@ class FreeGamesGlanceWidget : GlanceAppWidget() {
     companion object {
         suspend fun updateWidgetPreview(context: Context) {
             try {
-                GlanceAppWidgetManager(context).setWidgetPreviews(FreeGamesGlanceReceiver::class)
+                // setWidgetPreviews is only available on Android 15 (API 35) and above
+                if (Build.VERSION.SDK_INT >= 35) {
+                    GlanceAppWidgetManager(context).setWidgetPreviews(FreeGamesGlanceReceiver::class)
+                }
             } catch (e: Exception) {
                 Log.e("FreeGamesGlanceWidget", "Failed to update widget preview", e)
             }
