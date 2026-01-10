@@ -514,15 +514,6 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
       if (_isLoadingDetails || _ratings != null || _tops != null)
         const SizedBox(height: 24),
 
-      // Age rating badge
-      if (_ageRatings != null) ...[
-        AgeRatingBadge(
-          ageRatings: _ageRatings!,
-          userCountry: widget.country,
-        ),
-        const SizedBox(height: 24),
-      ],
-
       // Price history (includes current price)
       if (_isLoadingDetails)
         const SkeletonPriceHistory()
@@ -548,6 +539,12 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
           _buildSection('Features', const SkeletonFeatures())
         else
           _buildSection('Features', _buildFeatures()),
+        const SizedBox(height: 24),
+      ],
+
+      // Genres/Tags
+      if (_offer != null && _offer!.tags.isNotEmpty) ...[
+        _buildSection('Genres', _buildGenres()),
         const SizedBox(height: 24),
       ],
 
@@ -735,6 +732,88 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
     if (lower.contains('achievement')) return Icons.emoji_events_rounded;
     if (lower.contains('online')) return Icons.public_rounded;
     return Icons.check_circle_rounded;
+  }
+
+  Widget _buildGenres() {
+    final tags = _offer!.tags;
+    final maxVisible = 6;
+    final hasMore = tags.length > maxVisible;
+    final visibleTags = hasMore ? tags.take(maxVisible).toList() : tags;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: visibleTags.map((tag) => _buildGenreChip(tag.name)).toList(),
+        ),
+        if (hasMore) ...[
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: () => _showAllGenres(),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Show all ${tags.length} genres',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.arrow_forward_rounded,
+                  size: 16,
+                  color: AppColors.primary,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildGenreChip(String name) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.sell_rounded,
+            size: 14,
+            color: AppColors.primary,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            name,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAllGenres() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => _GenresBottomSheet(tags: _offer!.tags),
+    );
   }
 
   Widget _buildHltb() {
@@ -1168,6 +1247,29 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
               'Refund Policy',
               _offer!.refundType!.replaceAll('_', ' ').toLowerCase(),
             ),
+          if (_ageRatings != null) _buildAgeRatingRow(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAgeRatingRow() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text(
+            'Age Rating',
+            style: TextStyle(fontSize: 14, color: AppColors.textMuted),
+          ),
+          const SizedBox(width: 16),
+          Flexible(
+            child: AgeRatingBadge(
+              ageRatings: _ageRatings!,
+              userCountry: widget.country,
+            ),
+          ),
         ],
       ),
     );
@@ -1203,6 +1305,114 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
 
   String _formatDate(DateTime date) {
     return DateFormat.yMMMd().format(date);
+  }
+}
+
+class _GenresBottomSheet extends StatelessWidget {
+  final List<Tag> tags;
+
+  const _GenresBottomSheet({required this.tags});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.7,
+      ),
+      decoration: const BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle bar
+          Container(
+            margin: const EdgeInsets.only(top: 12, bottom: 8),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.surfaceLight,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.sell_rounded,
+                  color: AppColors.primary,
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'All Genres (${tags.length})',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded),
+                  color: AppColors.textMuted,
+                ),
+              ],
+            ),
+          ),
+
+          const Divider(height: 1, color: AppColors.border),
+
+          // Tags list
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: tags.map((tag) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.sell_rounded,
+                          size: 14,
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          tag.name,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

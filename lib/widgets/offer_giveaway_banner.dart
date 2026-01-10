@@ -60,9 +60,9 @@ class OfferGiveawayBanner extends StatelessWidget {
                   // Title
                   Row(
                     children: [
-                      const Text(
-                        'Was FREE',
-                        style: TextStyle(
+                      Text(
+                        recent.isActive ? 'Is FREE' : 'Was FREE',
+                        style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
                           color: Color(0xFF10B981),

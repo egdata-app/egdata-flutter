@@ -384,21 +384,14 @@ Future<Mappings?> getOfferMappings(String offerId);
 
 ---
 
-### 5.2 Genres Section
-**Widget:** Enhance existing Features widget or create `lib/widgets/offer_genres_widget.dart`
+### 5.2 Genres Section ✅ COMPLETED
+**Implementation:** Uses existing `tags` from Offer model (no separate endpoint needed)
 
-**Endpoint:**
-- `GET /offers/:id/genres` - Genre tags assigned to offer
-
-**Implementation:**
-- Display as chips/badges (similar to Features)
-- Tappable tags that navigate to browse page filtered by genre
-- Could enhance or replace existing type display
-
-**API Service Method:**
-```dart
-Future<List<String>> getOfferGenres(String offerId);
-```
+**Details:**
+- Displays as chips/badges similar to Features section
+- Uses `_offer!.tags` which is already fetched with the main offer
+- Positioned after Features section in the layout
+- Styled consistently with Features using `Icons.sell_rounded` icon
 
 ---
 
@@ -414,7 +407,7 @@ Future<List<String>> getOfferGenres(String offerId);
 5. Price history ✅ Existing
 6. Description ✅ Existing
 7. Features ✅ Existing
-8. [TODO] Genres (chips/tags)
+8. Genres ✅ COMPLETED (uses offer tags)
 9. How Long To Beat ✅ Existing
 10. Achievements ✅ Existing
 11. Screenshots ✅ Existing
@@ -423,7 +416,7 @@ Future<List<String>> getOfferGenres(String offerId);
 14. [TODO] Items/DLC
 15. [TODO] Suggestions
 16. [TODO] Bundle info (if applicable)
-17. Details (+ Age Rating + download sizes) ✅ Existing (enhanced with Age Rating)
+17. Details (+ Age Rating + download sizes) ✅ COMPLETED (Age Rating moved here)
 ```
 
 ---
@@ -473,9 +466,8 @@ For each widget/feature:
 
 ### Nice to Have (Phase 5)
 - 🔗 External platform mappings
-- 🏷️ Genres as tappable tags
+- ✅ ~~Genres as tappable tags~~ COMPLETED (uses existing offer tags)
 - 🔧 Technology stack badges
-- 🔞 Age rating badges
 
 ---
 
