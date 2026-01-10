@@ -173,8 +173,26 @@ class _AppShellState extends State<AppShell> {
     await _initNotifications();
 
     // Perform startup sync
+    // Check if this is the first sync (no free games in database yet)
+    // to avoid flooding with notifications for all existing free games
+    final existingFreeGames = await _db!.getAllFreeGames();
+    final isFirstSync = existingFreeGames.isEmpty;
+
+    // On mobile, skip local notifications entirely since push notifications
+    // handle this. Firebase doesn't support desktop push, so desktop uses
+    // local notifications from the sync service.
+    final skipLocalNotifications = PlatformUtils.isMobile;
+
+    if (isFirstSync) {
+      _addLog('First sync detected - notifications will be skipped');
+    }
+
     _addLog('Performing startup sync...');
-    final result = await _syncService!.performSync(_settings);
+    final result = await _syncService!.performSync(
+      _settings,
+      isFirstSync: isFirstSync,
+      skipLocalNotifications: skipLocalNotifications,
+    );
     if (result.error != null) {
       _addLog('Startup sync error: ${result.error}');
     } else if (result.hasChanges) {
@@ -320,7 +338,11 @@ class _AppShellState extends State<AppShell> {
     // Sync API data (free games, sales, changelogs)
     _addLog('Auto-sync: syncing API data...');
     if (_syncService != null) {
-      final result = await _syncService!.performSync(_settings);
+      // On mobile, skip local notifications - push notifications handle this
+      final result = await _syncService!.performSync(
+        _settings,
+        skipLocalNotifications: PlatformUtils.isMobile,
+      );
       if (result.error != null) {
         _addLog('Auto-sync: API sync error - ${result.error}');
       } else if (result.hasChanges) {

@@ -41,31 +41,51 @@ class SyncService {
 
   bool get isSyncing => _isSyncing;
 
-  Future<SyncResult> performSync(AppSettings settings) async {
+  /// Performs a sync of free games, followed game prices, and changelogs.
+  ///
+  /// [settings] - App settings controlling notification preferences
+  /// [isFirstSync] - If true, skips all notifications (used on first launch
+  ///   to avoid flooding the user with notifications for existing free games)
+  /// [skipLocalNotifications] - If true, skips local notifications entirely
+  ///   (used on mobile where push notifications handle this instead)
+  Future<SyncResult> performSync(
+    AppSettings settings, {
+    bool isFirstSync = false,
+    bool skipLocalNotifications = false,
+  }) async {
     if (_isSyncing) {
       return SyncResult(error: 'Sync already in progress');
     }
 
     _isSyncing = true;
 
+    // Don't show notifications on first sync or when explicitly skipped
+    final shouldNotify = !isFirstSync && !skipLocalNotifications;
+
     try {
       final newFreeGames = <FreeGameEntry>[];
       final gamesOnSale = <FollowedGameEntry>[];
       final newChangelogs = <ChangelogEntry>[];
 
-      // 1. Sync free games (always sync, notify based on settings)
-      final freeGameResults = await _syncFreeGames(settings.notifyFreeGames);
+      // 1. Sync free games (always sync, notify based on settings and flags)
+      final freeGameResults = await _syncFreeGames(
+        settings.notifyFreeGames && shouldNotify,
+      );
       newFreeGames.addAll(freeGameResults);
 
       // 2. Sync followed games prices (check for sales)
       if (settings.notifySales) {
-        final saleResults = await _syncFollowedGamePrices();
+        final saleResults = await _syncFollowedGamePrices(
+          notify: shouldNotify,
+        );
         gamesOnSale.addAll(saleResults);
       }
 
       // 3. Sync changelogs for followed games
       if (settings.notifyFollowedUpdates) {
-        final changelogResults = await _syncChangelogs();
+        final changelogResults = await _syncChangelogs(
+          notify: shouldNotify,
+        );
         newChangelogs.addAll(changelogResults);
       }
 
@@ -163,7 +183,9 @@ class SyncService {
       ..notifiedNewGame = false;
   }
 
-  Future<List<FollowedGameEntry>> _syncFollowedGamePrices() async {
+  Future<List<FollowedGameEntry>> _syncFollowedGamePrices({
+    bool notify = true,
+  }) async {
     final followedGames = await _db.getAllFollowedGames();
     final gamesOnSale = <FollowedGameEntry>[];
 
@@ -194,10 +216,12 @@ class SyncService {
               !game.notifiedSale;
 
           if (isNewSale) {
-            await _notification.showNotification(
-              title: 'Game on Sale!',
-              body: '${game.title} is now ${game.formattedDiscount} off!',
-            );
+            if (notify) {
+              await _notification.showNotification(
+                title: 'Game on Sale!',
+                body: '${game.title} is now ${game.formattedDiscount} off!',
+              );
+            }
             game.notifiedSale = true;
             gamesOnSale.add(game);
           }
@@ -218,7 +242,9 @@ class SyncService {
     return gamesOnSale;
   }
 
-  Future<List<ChangelogEntry>> _syncChangelogs() async {
+  Future<List<ChangelogEntry>> _syncChangelogs({
+    bool notify = true,
+  }) async {
     final followedGames = await _db.getAllFollowedGames();
     final newChangelogs = <ChangelogEntry>[];
 
@@ -255,11 +281,13 @@ class SyncService {
 
           await _db.saveChangelog(entry);
 
-          // Show notification
-          await _notification.showNotification(
-            title: 'Game Updated',
-            body: '${game.title} has been ${changeType}d',
-          );
+          // Show notification if enabled
+          if (notify) {
+            await _notification.showNotification(
+              title: 'Game Updated',
+              body: '${game.title} has been ${changeType}d',
+            );
+          }
 
           entry.notified = true;
           await _db.saveChangelog(entry);
