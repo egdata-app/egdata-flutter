@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_in_app_messaging/firebase_in_app_messaging.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_performance/firebase_performance.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:fluquery/fluquery.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/services.dart';
@@ -55,6 +56,15 @@ void main(List<String> args) async {
   if (PlatformUtils.isMobile) {
     try {
       await Firebase.initializeApp();
+
+      // Initialize App Check (using Play Integrity for Android, App Attest for iOS)
+      // ignore: deprecated_member_use
+      await FirebaseAppCheck.instance.activate(
+        // ignore: deprecated_member_use
+        androidProvider: AndroidProvider.playIntegrity,
+        // ignore: deprecated_member_use
+        appleProvider: AppleProvider.appAttest,
+      );
 
       // Initialize Crashlytics
       FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
