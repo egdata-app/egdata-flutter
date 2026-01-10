@@ -7,6 +7,7 @@ import '../models/followed_game.dart';
 import '../models/settings.dart';
 import '../services/analytics_service.dart';
 import '../services/api_service.dart' show ApiService, ApiException, SearchRequest, SearchResponse, SearchOfferType, SearchSortBy, SearchSortDir, PriceRange, Offer, SearchAggregations;
+import '../services/browse_prefetch_cache.dart';
 import '../services/follow_service.dart';
 import '../services/push_service.dart';
 import '../widgets/game_card.dart';
@@ -113,12 +114,16 @@ class MobileBrowsePage extends HookWidget {
       return null;
     }, [debouncedSearch, offerType.value]);
 
+    // Normalize empty search to null for consistent query keys
+    // This prevents query key changes when debouncedSearch goes from null -> ''
+    final normalizedSearch = (debouncedSearch?.isEmpty ?? true) ? null : debouncedSearch;
+
     // Create query key from filters
     final queryKey = useMemoized(
       () => [
         'search',
         country,
-        debouncedSearch,
+        normalizedSearch,
         offerType.value?.value,
         sortBy.value.value,
         sortDir.value.value,
@@ -132,7 +137,7 @@ class MobileBrowsePage extends HookWidget {
       ],
       [
         country,
-        debouncedSearch,
+        normalizedSearch,
         offerType.value,
         sortBy.value,
         sortDir.value,
@@ -152,6 +157,29 @@ class MobileBrowsePage extends HookWidget {
         try {
           final page = (ctx.pageParam as int?) ?? 1;
           final query = debouncedSearch;
+
+          // Check prefetch cache for default query (page 1, no filters)
+          final isDefaultQuery = page == 1 &&
+              (query == null || query.isEmpty) &&
+              offerType.value == null &&
+              sortBy.value == SearchSortBy.lastModifiedDate &&
+              sortDir.value == SearchSortDir.desc &&
+              onSale.value == null &&
+              priceRange.value == null &&
+              !excludeBlockchain.value &&
+              !pastGiveaways.value &&
+              !isLowestPriceEver.value &&
+              selectedGenreId.value == null;
+
+          if (isDefaultQuery) {
+            final cachedData = BrowsePrefetchCache.instance.consumeData(
+              country: country,
+            );
+            if (cachedData != null) {
+              _log('performSearch - using prefetched data: ${cachedData.offers.length} offers');
+              return cachedData;
+            }
+          }
 
           final request = SearchRequest(
             title: (query?.isNotEmpty ?? false) ? query : null,

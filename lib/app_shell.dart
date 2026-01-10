@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:fluquery/fluquery.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -12,6 +13,7 @@ import 'models/notification_topics.dart';
 import 'models/settings.dart';
 import 'models/upload_status.dart';
 import 'services/api_service.dart';
+import 'services/browse_prefetch_cache.dart';
 import 'services/follow_service.dart';
 import 'services/manifest_scanner.dart';
 import 'services/notification_service.dart';
@@ -36,7 +38,9 @@ import 'services/chat_session_service.dart';
 import 'services/user_service.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+  final QueryClient? queryClient;
+
+  const AppShell({super.key, this.queryClient});
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -205,6 +209,39 @@ class _AppShellState extends State<AppShell> {
 
     // Check for app updates
     _checkForUpdates();
+
+    // Prefetch browse page data for mobile (non-blocking)
+    if (PlatformUtils.isMobile) {
+      _prefetchBrowseData();
+    }
+  }
+
+  /// Prefetch the default browse search to avoid loading state on first visit
+  Future<void> _prefetchBrowseData() async {
+    try {
+      final request = SearchRequest(
+        sortBy: SearchSortBy.lastModifiedDate,
+        sortDir: SearchSortDir.desc,
+        limit: 20,
+        page: 1,
+      );
+
+      final response = await _apiService.search(
+        request,
+        country: _settings.country,
+      );
+
+      // Store in the prefetch cache for browse page to use
+      BrowsePrefetchCache.instance.setData(
+        country: _settings.country,
+        response: response,
+      );
+
+      _addLog('Browse prefetch complete: ${response.offers.length} offers');
+    } catch (e) {
+      // Non-fatal - browse page will fetch on mount
+      debugPrint('Browse prefetch failed: $e');
+    }
   }
 
   Future<void> _checkForUpdates() async {

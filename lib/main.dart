@@ -314,7 +314,7 @@ class _EGDataAppState extends State<EGDataApp> {
           scaffoldBackgroundColor: AppColors.background,
           textTheme: baseTextTheme,
         ),
-        home: const AppShell(),
+        home: AppShell(queryClient: _queryClient),
       ),
     );
   }

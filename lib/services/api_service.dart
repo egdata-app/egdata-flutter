@@ -53,7 +53,10 @@ class ApiService {
       throw ApiException('Network error: ${e.message}', null);
     } on http.ClientException catch (e) {
       // Handle HTTP client exceptions (including cancelled requests)
-      if (e.message.contains('cancelled') || e.message.contains('Connection attempt cancelled')) {
+      // "Connection closed" happens when navigating away during a request
+      if (e.message.contains('cancelled') ||
+          e.message.contains('Connection attempt cancelled') ||
+          e.message.contains('Connection closed')) {
         throw ApiException('Request cancelled', null);
       }
       throw ApiException('Client error: ${e.message}', null);
@@ -97,7 +100,10 @@ class ApiService {
       throw ApiException('Network error: ${e.message}', null);
     } on http.ClientException catch (e) {
       // Handle HTTP client exceptions (including cancelled requests)
-      if (e.message.contains('cancelled') || e.message.contains('Connection attempt cancelled')) {
+      // "Connection closed" happens when navigating away during a request
+      if (e.message.contains('cancelled') ||
+          e.message.contains('Connection attempt cancelled') ||
+          e.message.contains('Connection closed')) {
         throw ApiException('Request cancelled', null);
       }
       throw ApiException('Client error: ${e.message}', null);
@@ -137,7 +143,10 @@ class ApiService {
       throw ApiException('Network error: ${e.message}', null);
     } on http.ClientException catch (e) {
       // Handle HTTP client exceptions (including cancelled requests)
-      if (e.message.contains('cancelled') || e.message.contains('Connection attempt cancelled')) {
+      // "Connection closed" happens when navigating away during a request
+      if (e.message.contains('cancelled') ||
+          e.message.contains('Connection attempt cancelled') ||
+          e.message.contains('Connection closed')) {
         throw ApiException('Request cancelled', null);
       }
       throw ApiException('Client error: ${e.message}', null);
