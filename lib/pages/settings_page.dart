@@ -376,20 +376,22 @@ class _SettingsPageState extends State<SettingsPage>
                     const SizedBox(height: 24),
                     _buildPushNotificationsSection(),
                   ],
-                  const SizedBox(height: 24),
-                  _buildSection(
-                    title: 'Data',
-                    icon: Icons.storage_rounded,
-                    color: AppColors.accent,
-                    children: [
-                      _buildActionTile(
-                        title: 'Clear Process Cache',
-                        subtitle: 'Force refresh of game process names from API',
-                        icon: Icons.refresh_rounded,
-                        onTap: _clearProcessCache,
-                      ),
-                    ],
-                  ),
+                  if (PlatformUtils.isDesktop) ...[
+                    const SizedBox(height: 24),
+                    _buildSection(
+                      title: 'Data',
+                      icon: Icons.storage_rounded,
+                      color: AppColors.accent,
+                      children: [
+                        _buildActionTile(
+                          title: 'Clear Process Cache',
+                          subtitle: 'Force refresh of game process names from API',
+                          icon: Icons.refresh_rounded,
+                          onTap: _clearProcessCache,
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 24),
                   _buildSection(
                     title: 'About',
