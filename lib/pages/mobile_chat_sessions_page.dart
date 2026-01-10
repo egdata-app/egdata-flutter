@@ -68,7 +68,7 @@ class MobileChatSessionsPage extends HookWidget {
       return null;
     }, []);
 
-    Future<void> createNewChat() async {
+    Future<void> createNewChat({String? initialMessage}) async {
       try {
         final newSession = await chatService.createSession();
         sessions.value = [newSession, ...sessions.value];
@@ -84,6 +84,7 @@ class MobileChatSessionsPage extends HookWidget {
                 session: newSession,
                 followService: followService,
                 pushService: pushService,
+                initialMessage: initialMessage,
                 onSessionUpdated: () async {
                   // Refresh sessions list
                   final updatedSessions = await chatService.listSessions();
@@ -158,7 +159,7 @@ class MobileChatSessionsPage extends HookWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context, VoidCallback onNewChat) {
+  Widget _buildHeader(BuildContext context, Future<void> Function({String? initialMessage}) onNewChat) {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -234,7 +235,7 @@ class MobileChatSessionsPage extends HookWidget {
               ),
               // New chat button
               GestureDetector(
-                onTap: onNewChat,
+                onTap: () => onNewChat(),
                 child: Container(
                   width: 44,
                   height: 44,
@@ -260,7 +261,7 @@ class MobileChatSessionsPage extends HookWidget {
     );
   }
 
-  Widget _buildEmptyState(VoidCallback onNewChat) {
+  Widget _buildEmptyState(Future<void> Function({String? initialMessage}) onNewChat) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -320,15 +321,15 @@ class MobileChatSessionsPage extends HookWidget {
               ),
             ),
             const SizedBox(height: 12),
-            _buildPromptChip('Show me RPGs under \$20', onNewChat),
+            _buildPromptChip('Show me RPGs under \$20', () => onNewChat(initialMessage: 'Show me RPGs under \$20')),
             const SizedBox(height: 8),
-            _buildPromptChip('What games are on sale?', onNewChat),
+            _buildPromptChip('What games are on sale?', () => onNewChat(initialMessage: 'What games are on sale?')),
             const SizedBox(height: 8),
-            _buildPromptChip('Best co-op games', onNewChat),
+            _buildPromptChip('Best co-op games', () => onNewChat(initialMessage: 'Best co-op games')),
             const SizedBox(height: 32),
             // Primary CTA
             GestureDetector(
-              onTap: onNewChat,
+              onTap: () => onNewChat(),
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 32,

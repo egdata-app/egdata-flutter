@@ -26,6 +26,7 @@ class MobileChatPage extends HookWidget {
   final FollowService followService;
   final PushService? pushService;
   final VoidCallback? onSessionUpdated;
+  final String? initialMessage;
 
   const MobileChatPage({
     super.key,
@@ -36,6 +37,7 @@ class MobileChatPage extends HookWidget {
     required this.followService,
     this.pushService,
     this.onSessionUpdated,
+    this.initialMessage,
   });
 
   Future<List<ChatMessage>> _loadChatHistory(String sessionId) async {
@@ -296,6 +298,25 @@ class MobileChatPage extends HookWidget {
         streamingMessageId.value = null;
       }
     }
+
+    // Track if initial message was sent
+    final initialMessageSent = useState(false);
+
+    // Send initial message after connection is established
+    useEffect(() {
+      if (isConnected.value &&
+          initialMessage != null &&
+          initialMessage!.isNotEmpty &&
+          !initialMessageSent.value &&
+          messages.value.isEmpty) {
+        initialMessageSent.value = true;
+        // Use a small delay to ensure everything is ready
+        Future.delayed(const Duration(milliseconds: 100), () {
+          sendMessage(initialMessage!);
+        });
+      }
+      return null;
+    }, [isConnected.value]);
 
     return Scaffold(
       backgroundColor: AppColors.background,
