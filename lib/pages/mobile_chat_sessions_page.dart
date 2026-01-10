@@ -35,6 +35,13 @@ class MobileChatSessionsPage extends HookWidget {
     final isLoading = useState(true);
     final error = useState<String?>(null);
 
+    // Track if widget is still mounted using a ref
+    final mountedRef = useRef(true);
+    useEffect(() {
+      mountedRef.value = true;
+      return () => mountedRef.value = false;
+    }, []);
+
     // Load sessions on mount
     useEffect(() {
       Future<void> loadSessions() async {
@@ -42,6 +49,10 @@ class MobileChatSessionsPage extends HookWidget {
           isLoading.value = true;
           error.value = null;
           final loadedSessions = await chatService.listSessions();
+
+          // Check if still mounted before updating state
+          if (!mountedRef.value) return;
+
           sessions.value = loadedSessions;
 
           // Also sync to local database (update or insert)
@@ -58,9 +69,12 @@ class MobileChatSessionsPage extends HookWidget {
             await db.saveChatSession(entry);
           }
         } catch (e) {
+          if (!mountedRef.value) return;
           error.value = e.toString();
         } finally {
-          isLoading.value = false;
+          if (mountedRef.value) {
+            isLoading.value = false;
+          }
         }
       }
 
