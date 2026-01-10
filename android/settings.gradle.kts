@@ -27,6 +27,7 @@ plugins {
 }
 
 include(":app")
+include(":wear")
 
 // Fix for isar_flutter_libs missing namespace and compileSdk (required by AGP 8+)
 gradle.beforeProject {

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">EGData</string>
+    <string name="tile_label">Free Games</string>
+    <string name="tile_description">Shows current free Epic Games</string>
+</resources>

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:fluquery/fluquery.dart';
@@ -10,6 +11,7 @@ import '../services/push_service.dart';
 import '../services/sync_service.dart';
 import '../widgets/progressive_image.dart';
 import '../widgets/genre_card.dart';
+import '../widgets/wear_install_prompt.dart';
 import 'mobile_offer_detail_page.dart';
 import 'mobile_browse_page.dart';
 import 'all_genres_page.dart';
@@ -264,7 +266,12 @@ class MobileDashboardPage extends HookWidget {
               ],
             ),
 
-            const SizedBox(height: 28),
+            const SizedBox(height: 20),
+
+            // Wear OS install prompt (Android only)
+            if (Platform.isAndroid) const WearInstallPrompt(),
+
+            const SizedBox(height: 20),
 
             // Stats row - Homepage stats
             Row(

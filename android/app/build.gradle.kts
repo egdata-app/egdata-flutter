@@ -74,11 +74,19 @@ dependencies {
     implementation("com.github.bumptech.glide:glide:4.16.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
 
-    // Attempting 1.2.0-alpha01 again with confirmed settings
+    // Glance for home screen widgets
     val glanceVersion = "1.2.0-alpha01"
-
     implementation("androidx.glance:glance:$glanceVersion")
     implementation("androidx.glance:glance-appwidget:$glanceVersion")
     implementation("androidx.glance:glance-material3:$glanceVersion")
     debugImplementation("androidx.glance:glance-appwidget-preview:1.1.0")
+
+    // Wearable API for detecting and communicating with Wear OS devices
+    implementation("com.google.android.gms:play-services-wearable:18.2.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.7.3")
+    implementation("androidx.wear:wear-remote-interactions:1.1.0")
+
+    // Embed Wear OS app
+    wearApp(project(":wear"))
 }

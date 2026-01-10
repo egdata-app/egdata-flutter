@@ -19,10 +19,13 @@ import java.util.concurrent.TimeUnit
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.ignacioaldama.egdata/widget"
+    private val WEAR_CHANNEL = "com.ignacioaldama.egdata/wear"
     private var pendingOfferId: String? = null
+    private lateinit var wearableService: WearableService
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        wearableService = WearableService(this)
         scheduleWidgetUpdates()
         handleIntent(intent)
 
@@ -51,12 +54,55 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        // Widget channel
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             if (call.method == "getPendingOfferId") {
                 result.success(pendingOfferId)
                 pendingOfferId = null // Clear after reading
             } else {
                 result.notImplemented()
+            }
+        }
+
+        // Wear OS channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WEAR_CHANNEL).setMethodCallHandler { call, result ->
+            lifecycleScope.launch {
+                try {
+                    when (call.method) {
+                        "getConnectedDevices" -> {
+                            val devices = wearableService.getConnectedWearDevices()
+                            result.success(devices.map { mapOf(
+                                "id" to it.id,
+                                "displayName" to it.displayName,
+                                "isNearby" to it.isNearby
+                            )})
+                        }
+                        "getDevicesWithApp" -> {
+                            val deviceIds = wearableService.getDevicesWithAppInstalled()
+                            result.success(deviceIds)
+                        }
+                        "openPlayStoreOnWatch" -> {
+                            val nodeId = call.argument<String>("nodeId")
+                            Log.d("MainActivity", "openPlayStoreOnWatch called with nodeId: $nodeId")
+                            if (nodeId != null) {
+                                val success = wearableService.openPlayStoreOnWatch(nodeId)
+                                Log.d("MainActivity", "openPlayStoreOnWatch result: $success")
+                                result.success(success)
+                            } else {
+                                Log.e("MainActivity", "openPlayStoreOnWatch: nodeId is null")
+                                result.error("INVALID_ARGUMENT", "nodeId is required", null)
+                            }
+                        }
+                        "triggerTileRefresh" -> {
+                            val success = wearableService.triggerTileRefresh()
+                            result.success(success)
+                        }
+                        else -> result.notImplemented()
+                    }
+                } catch (e: Exception) {
+                    result.error("ERROR", e.message, null)
+                }
             }
         }
     }
