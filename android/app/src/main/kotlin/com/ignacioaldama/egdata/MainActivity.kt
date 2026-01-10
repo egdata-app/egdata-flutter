@@ -21,6 +21,7 @@ class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.ignacioaldama.egdata/widget"
     private val WEAR_CHANNEL = "com.ignacioaldama.egdata/wear"
     private var pendingOfferId: String? = null
+    private var pendingAction: String? = null
     private lateinit var wearableService: WearableService
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,11 +58,21 @@ class MainActivity : FlutterActivity() {
 
         // Widget channel
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
-            if (call.method == "getPendingOfferId") {
-                result.success(pendingOfferId)
-                pendingOfferId = null // Clear after reading
-            } else {
-                result.notImplemented()
+            when (call.method) {
+                "getPendingOfferId" -> {
+                    result.success(pendingOfferId)
+                    pendingOfferId = null // Clear after reading
+                }
+                "getPendingAction" -> {
+                    val response = mapOf(
+                        "action" to pendingAction,
+                        "offerId" to pendingOfferId
+                    )
+                    result.success(response)
+                    pendingAction = null
+                    pendingOfferId = null
+                }
+                else -> result.notImplemented()
             }
         }
 
@@ -108,10 +119,28 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun handleIntent(intent: Intent) {
-        Log.d("MainActivity", "handleIntent: action=${intent.action}")
+        Log.d("MainActivity", "handleIntent: action=${intent.action}, extras=${intent.extras}")
+
+        // Handle widget action
         if (intent.action == "com.ignacioaldama.egdata.ACTION_OPEN_OFFER") {
             pendingOfferId = intent.getStringExtra("offerId")
             Log.d("MainActivity", "Received offerId from widget: $pendingOfferId")
+        }
+
+        // Handle wear tile actions (via extras)
+        val action = intent.getStringExtra("action")
+        if (action != null) {
+            Log.d("MainActivity", "Received action from wear tile: $action")
+            when (action) {
+                "free_games" -> {
+                    pendingAction = "free_games"
+                }
+                "open_offer" -> {
+                    pendingOfferId = intent.getStringExtra("offerId")
+                    pendingAction = "open_offer"
+                    Log.d("MainActivity", "Received offerId from wear tile: $pendingOfferId")
+                }
+            }
         }
     }
 

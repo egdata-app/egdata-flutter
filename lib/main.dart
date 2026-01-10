@@ -16,8 +16,10 @@ import 'services/widget_service.dart';
 import 'services/follow_service.dart';
 import 'services/push_service.dart';
 import 'services/notification_service.dart';
+import 'services/sync_service.dart';
 import 'database/database_service.dart';
 import 'pages/mobile_offer_detail_page.dart';
+import 'pages/free_games_page.dart';
 
 // Desktop-only imports (conditionally used)
 import 'package:window_manager/window_manager.dart';
@@ -247,6 +249,7 @@ class _EGDataAppState extends State<EGDataApp> {
   // Services for detail page navigation
   late final FollowService _followService;
   late final PushService _pushService;
+  late final SyncService _syncService;
 
   @override
   void initState() {
@@ -256,6 +259,10 @@ class _EGDataAppState extends State<EGDataApp> {
     // Initialize services with the shared instances
     _followService = FollowService(db: widget.dbService);
     _pushService = PushService(
+      db: widget.dbService,
+      notification: widget.notificationService,
+    );
+    _syncService = SyncService(
       db: widget.dbService,
       notification: widget.notificationService,
     );
@@ -282,6 +289,24 @@ class _EGDataAppState extends State<EGDataApp> {
 
   Future<void> _checkInitialWidgetClick() async {
     try {
+      // First check for wear tile actions (supports both free_games and open_offer)
+      final Map<dynamic, dynamic>? pendingAction =
+          await platform.invokeMethod('getPendingAction');
+
+      if (pendingAction != null) {
+        final String? action = pendingAction['action'] as String?;
+        final String? offerId = pendingAction['offerId'] as String?;
+
+        if (action == 'free_games') {
+          _navigateToFreeGames();
+          return;
+        } else if (action == 'open_offer' && offerId != null) {
+          _navigateToOffer(offerId);
+          return;
+        }
+      }
+
+      // Fallback: check for legacy pending offer ID (home widget)
       final String? offerId = await platform.invokeMethod('getPendingOfferId');
       if (offerId != null) {
         _navigateToOffer(offerId);
@@ -297,6 +322,19 @@ class _EGDataAppState extends State<EGDataApp> {
         builder: (context) => MobileOfferDetailPage(
           offerId: offerId,
           followService: _followService,
+          pushService: _pushService,
+        ),
+      ),
+    );
+  }
+
+  void _navigateToFreeGames() {
+    navigatorKey.currentState?.push(
+      MaterialPageRoute(
+        builder: (context) => FreeGamesPage(
+          followService: _followService,
+          syncService: _syncService,
+          db: widget.dbService,
           pushService: _pushService,
         ),
       ),
