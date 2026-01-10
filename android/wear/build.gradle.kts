@@ -59,4 +59,7 @@ dependencies {
 
     // Coil for image loading
     implementation("io.coil-kt:coil:2.5.0")
+
+    // Remote interactions for launching phone app from watch
+    implementation("androidx.wear:wear-remote-interactions:1.0.0")
 }

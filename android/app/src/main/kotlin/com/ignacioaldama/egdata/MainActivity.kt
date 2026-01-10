@@ -119,7 +119,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun handleIntent(intent: Intent) {
-        Log.d("MainActivity", "handleIntent: action=${intent.action}, extras=${intent.extras}")
+        Log.d("MainActivity", "handleIntent: action=${intent.action}, data=${intent.data}, extras=${intent.extras}")
 
         // Handle widget action
         if (intent.action == "com.ignacioaldama.egdata.ACTION_OPEN_OFFER") {
@@ -127,10 +127,34 @@ class MainActivity : FlutterActivity() {
             Log.d("MainActivity", "Received offerId from widget: $pendingOfferId")
         }
 
-        // Handle wear tile actions (via extras)
+        // Handle deep links from Wear OS tile (egdata:// scheme)
+        if (intent.action == Intent.ACTION_VIEW && intent.data?.scheme == "egdata") {
+            val uri = intent.data
+            Log.d("MainActivity", "Received deep link from wear tile: $uri")
+            when (uri?.host) {
+                "offer" -> {
+                    // egdata://offer/{offerId}
+                    pendingOfferId = uri.pathSegments.firstOrNull()
+                    pendingAction = "open_offer"
+                    Log.d("MainActivity", "Deep link: open offer $pendingOfferId")
+                }
+                "free-games" -> {
+                    // egdata://free-games
+                    pendingAction = "free_games"
+                    Log.d("MainActivity", "Deep link: open free games")
+                }
+                "home" -> {
+                    // egdata://home - just open the app
+                    Log.d("MainActivity", "Deep link: open home")
+                }
+            }
+            return
+        }
+
+        // Handle wear tile actions (via extras) - legacy fallback
         val action = intent.getStringExtra("action")
         if (action != null) {
-            Log.d("MainActivity", "Received action from wear tile: $action")
+            Log.d("MainActivity", "Received action from wear tile (extras): $action")
             when (action) {
                 "free_games" -> {
                     pendingAction = "free_games"

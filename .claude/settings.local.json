@@ -27,7 +27,14 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:ai.google.dev)",
       "WebFetch(domain:langchaindart.dev)",
-      "WebFetch(domain:egdata.app)"
+      "WebFetch(domain:egdata.app)",
+      "Bash(./gradlew :wear:compileDebugKotlin:*)",
+      "Bash(./gradlew:*)",
+      "Bash(adb:*)",
+      "Bash(.gradlew:*)",
+      "Bash(gradlew.bat :wear:assembleDebug:*)",
+      "Bash(E:\\\\code\\\\egdata-flutter\\\\egdata_flutter\\\\android\\\\gradlew.bat:*)",
+      "Bash(powershell -Command:*)"
     ]
   }
 }

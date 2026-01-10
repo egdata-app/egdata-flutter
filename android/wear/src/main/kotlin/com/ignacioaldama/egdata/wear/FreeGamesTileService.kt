@@ -53,10 +53,9 @@ class FreeGamesTileService : TileService() {
         private const val IMAGE_WIDTH = 40
         private const val IMAGE_HEIGHT = 53 // 3:4 aspect ratio
 
-        // Phone app package and actions
-        private const val PHONE_APP_PACKAGE = "com.ignacioaldama.egdata"
-        private const val ACTION_OPEN_FREE_GAMES = "com.ignacioaldama.egdata.ACTION_OPEN_FREE_GAMES"
-        private const val ACTION_OPEN_OFFER = "com.ignacioaldama.egdata.ACTION_OPEN_OFFER"
+        // Trampoline activity on watch to forward intents to phone
+        private const val WATCH_PACKAGE = "com.ignacioaldama.egdata"  // applicationId (same as phone for embedded wear app)
+        private const val TRAMPOLINE_CLASS = "com.ignacioaldama.egdata.wear.TrampolineActivity"
 
         // Colors - matching app's Unreal Engine inspired theme
         private const val COLOR_BACKGROUND = 0xFF0A0A0A.toInt()
@@ -477,12 +476,12 @@ class FreeGamesTileService : TileService() {
                 ActionBuilders.LaunchAction.Builder()
                     .setAndroidActivity(
                         ActionBuilders.AndroidActivity.Builder()
-                            .setPackageName(PHONE_APP_PACKAGE)
-                            .setClassName("$PHONE_APP_PACKAGE.MainActivity")
+                            .setPackageName(WATCH_PACKAGE)
+                            .setClassName(TRAMPOLINE_CLASS)
                             .addKeyToExtraMapping(
-                                "action",
+                                TrampolineActivity.EXTRA_ACTION,
                                 ActionBuilders.AndroidStringExtra.Builder()
-                                    .setValue("free_games")
+                                    .setValue(TrampolineActivity.ACTION_FREE_GAMES)
                                     .build()
                             )
                             .build()
@@ -498,16 +497,16 @@ class FreeGamesTileService : TileService() {
                 ActionBuilders.LaunchAction.Builder()
                     .setAndroidActivity(
                         ActionBuilders.AndroidActivity.Builder()
-                            .setPackageName(PHONE_APP_PACKAGE)
-                            .setClassName("$PHONE_APP_PACKAGE.MainActivity")
+                            .setPackageName(WATCH_PACKAGE)
+                            .setClassName(TRAMPOLINE_CLASS)
                             .addKeyToExtraMapping(
-                                "action",
+                                TrampolineActivity.EXTRA_ACTION,
                                 ActionBuilders.AndroidStringExtra.Builder()
-                                    .setValue("open_offer")
+                                    .setValue(TrampolineActivity.ACTION_OPEN_OFFER)
                                     .build()
                             )
                             .addKeyToExtraMapping(
-                                "offerId",
+                                TrampolineActivity.EXTRA_OFFER_ID,
                                 ActionBuilders.AndroidStringExtra.Builder()
                                     .setValue(offerId)
                                     .build()

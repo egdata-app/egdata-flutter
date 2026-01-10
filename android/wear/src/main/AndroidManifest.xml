@@ -18,6 +18,14 @@
             android:name="com.google.android.gms.version"
             android:value="@integer/google_play_services_version" />
 
+        <!-- Trampoline Activity to forward tile taps to phone app -->
+        <activity
+            android:name=".TrampolineActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:noHistory="true"
+            android:excludeFromRecents="true" />
+
         <!-- Free Games Tile Service -->
         <service
             android:name=".FreeGamesTileService"
