@@ -10,6 +10,7 @@ import 'utils/platform_utils.dart';
 import 'database/database_service.dart';
 import 'models/game_info.dart';
 import 'models/notification_topics.dart';
+import 'models/playtime_stats.dart';
 import 'models/settings.dart';
 import 'models/upload_status.dart';
 import 'services/api_service.dart';
@@ -24,6 +25,7 @@ import 'services/upload_service.dart';
 import 'services/settings_service.dart';
 import 'services/tray_service.dart';
 import 'services/update_service.dart';
+import 'services/window_channel_service.dart';
 import 'widgets/app_sidebar.dart';
 import 'widgets/glassmorphic_bottom_nav.dart';
 import 'widgets/custom_title_bar.dart';
@@ -91,6 +93,10 @@ class _AppShellState extends State<AppShell> {
   String? _latestVersion;
   String _currentVersion = '';
 
+  // Tray popup subscriptions (macOS)
+  StreamSubscription<PlaytimeStats>? _trayStatsSubscription;
+  StreamSubscription<PlaytimeSessionEntry?>? _trayActiveGameSubscription;
+
   @override
   void initState() {
     super.initState();
@@ -101,6 +107,8 @@ class _AppShellState extends State<AppShell> {
   @override
   void dispose() {
     _syncTimer?.cancel();
+    _trayStatsSubscription?.cancel();
+    _trayActiveGameSubscription?.cancel();
     _mobilePageController.dispose();
     _followService?.dispose();
     _playtimeService?.dispose();
@@ -265,6 +273,22 @@ class _AppShellState extends State<AppShell> {
     _trayService!.onShowWindow = _showWindow;
     _trayService!.onQuit = _quitApp;
 
+    // Set up tray popup stats updates (macOS only)
+    if (Platform.isMacOS && _playtimeService != null) {
+      // Initial stats update
+      _updateTrayPopupStats();
+
+      // Subscribe to stats changes
+      _trayStatsSubscription = _playtimeService!.statsStream.listen((_) {
+        _updateTrayPopupStats();
+      });
+
+      // Subscribe to active game changes
+      _trayActiveGameSubscription = _playtimeService!.activeGameStream.listen((_) {
+        _updateTrayPopupStats();
+      });
+    }
+
     // launch_at_startup requires native setup on macOS (LaunchAtLogin Swift package)
     // Only use on Windows until macOS native code is configured
     if (PlatformUtils.isWindows) {
@@ -277,6 +301,34 @@ class _AppShellState extends State<AppShell> {
         }
       }
     }
+  }
+
+  Future<void> _updateTrayPopupStats() async {
+    if (_trayService == null || _playtimeService == null || _db == null) return;
+
+    final stats = await _playtimeService!.getWeeklyStats();
+    final activeSession = await _db!.getActiveSession();
+
+    String? currentSessionTime;
+    if (activeSession != null) {
+      final duration = activeSession.duration;
+      final hours = duration.inHours;
+      final minutes = duration.inMinutes % 60;
+      final seconds = duration.inSeconds % 60;
+      currentSessionTime = hours > 0
+          ? '${hours}h ${minutes}m ${seconds}s'
+          : minutes > 0
+              ? '${minutes}m ${seconds}s'
+              : '${seconds}s';
+    }
+
+    await _trayService!.updatePopupStats(
+      weeklyPlaytime: stats.formattedTotalPlaytime,
+      gamesInstalled: _games.length,
+      mostPlayedGame: stats.mostPlayedGame?.gameName,
+      currentGame: activeSession?.gameName,
+      currentSessionTime: currentSessionTime,
+    );
   }
 
   Future<void> _migrateFollowedGamesTopics() async {
@@ -358,6 +410,11 @@ class _AppShellState extends State<AppShell> {
     setState(() {
       _settings = settings;
     });
+
+    // Sync minimize-to-tray setting with macOS native code
+    if (Platform.isMacOS) {
+      await WindowChannelService().setMinimizeToTray(settings.minimizeToTray);
+    }
   }
 
   void _setupAutoSync() {
@@ -499,6 +556,11 @@ class _AppShellState extends State<AppShell> {
     });
     await _settingsService.saveSettings(newSettings);
     _setupAutoSync();
+
+    // Sync minimize-to-tray setting with macOS native code
+    if (Platform.isMacOS && oldSettings.minimizeToTray != newSettings.minimizeToTray) {
+      await WindowChannelService().setMinimizeToTray(newSettings.minimizeToTray);
+    }
 
     // launch_at_startup only works on Windows until macOS native code is configured
     if (PlatformUtils.isWindows) {

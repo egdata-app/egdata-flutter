@@ -34,7 +34,10 @@
       "Bash(.gradlew:*)",
       "Bash(gradlew.bat :wear:assembleDebug:*)",
       "Bash(E:\\\\code\\\\egdata-flutter\\\\egdata_flutter\\\\android\\\\gradlew.bat:*)",
-      "Bash(powershell -Command:*)"
+      "Bash(powershell -Command:*)",
+      "Bash(cat:*)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)"
     ]
   }
 }
