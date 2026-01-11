@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../main.dart';
 import '../models/playtime_stats.dart';
+import '../utils/image_utils.dart';
 
 class WeeklyStatsRow extends StatelessWidget {
   final PlaytimeStats stats;
@@ -139,7 +140,12 @@ class WeeklyStatsRow extends StatelessWidget {
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: Image.network(
-                      mostPlayedGame.thumbnailUrl!,
+                      // 36x36 thumbnail for most played game
+                      ImageUtils.getOptimizedUrl(
+                        mostPlayedGame.thumbnailUrl!,
+                        width: 72,
+                        height: 72,
+                      ),
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => const Icon(
                         Icons.games_rounded,

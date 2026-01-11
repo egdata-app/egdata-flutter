@@ -5,6 +5,7 @@ import '../models/playtime_stats.dart';
 import '../services/playtime_service.dart';
 import '../database/database_service.dart';
 import '../models/game_info.dart';
+import '../utils/image_utils.dart';
 
 /// Compact dashboard content for the tray popup window.
 /// Shows current game (if playing) and quick stats.
@@ -214,7 +215,12 @@ class _TrayPopupContentState extends State<TrayPopupContent> {
             clipBehavior: Clip.antiAlias,
             child: session.thumbnailUrl != null
                 ? Image.network(
-                    session.thumbnailUrl!,
+                    // 40x40 thumbnail for now playing card
+                    ImageUtils.getOptimizedUrl(
+                      session.thumbnailUrl!,
+                      width: 80,
+                      height: 80,
+                    ),
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => const Icon(
                       Icons.games_rounded,

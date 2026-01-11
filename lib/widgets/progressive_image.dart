@@ -2,11 +2,12 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../main.dart';
+import '../utils/image_utils.dart';
 
 /// A progressive image loader that first shows a tiny blurred placeholder,
 /// then loads the full-resolution image.
 ///
-/// Uses Epic CDN's resize parameters: ?w={width}&resize=true
+/// Uses Cloudflare CDN image optimization for size-aware loading.
 class ProgressiveImage extends StatelessWidget {
   final String imageUrl;
   final BoxFit fit;
@@ -23,26 +24,16 @@ class ProgressiveImage extends StatelessWidget {
     required this.imageUrl,
     this.fit = BoxFit.cover,
     this.borderRadius,
-    this.placeholderWidth = 10,
+    this.placeholderWidth = 20,
     this.finalWidth = 400,
   });
 
-  /// Adds resize parameters to Epic CDN URLs
-  String _getResizedUrl(String url, int targetWidth) {
-    if (targetWidth <= 0) return url;
-
-    // Check if it's an Epic CDN URL
-    if (!url.contains('epicgames.com')) return url;
-
-    // Remove existing query params and add resize
-    final baseUrl = url.split('?').first;
-    return '$baseUrl?w=$targetWidth&resize=true';
-  }
-
   @override
   Widget build(BuildContext context) {
-    final placeholderUrl = _getResizedUrl(imageUrl, placeholderWidth);
-    final finalUrl = _getResizedUrl(imageUrl, finalWidth);
+    final placeholderUrl = ImageUtils.getPlaceholderUrl(imageUrl, width: placeholderWidth);
+    final finalUrl = finalWidth > 0
+        ? ImageUtils.getOptimizedUrl(imageUrl, width: finalWidth)
+        : imageUrl;
 
     Widget result = SizedBox.expand(
       child: CachedNetworkImage(

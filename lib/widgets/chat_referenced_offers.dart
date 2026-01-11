@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:fluquery/fluquery.dart';
@@ -7,6 +8,7 @@ import '../pages/mobile_offer_detail_page.dart';
 import '../services/api_service.dart';
 import '../services/follow_service.dart';
 import '../services/push_service.dart';
+import '../utils/image_utils.dart';
 
 class ChatReferencedOffers extends HookWidget {
   final List<ReferencedOffer> offers;
@@ -180,12 +182,17 @@ class ChatOfferCard extends HookWidget {
               if (thumbnailUrl != null)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(6),
-                  child: Image.network(
-                    thumbnailUrl,
+                  child: CachedNetworkImage(
+                    // 80x80 thumbnail for chat offer cards
+                    imageUrl: ImageUtils.getOptimizedUrl(
+                      thumbnailUrl,
+                      width: 160,
+                      height: 160,
+                    ),
                     width: 80,
                     height: 80,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
+                    errorWidget: (context, url, error) {
                       return Container(
                         width: 80,
                         height: 80,

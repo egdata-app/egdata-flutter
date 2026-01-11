@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../main.dart';
+import '../utils/image_utils.dart';
 import '../widgets/progressive_image.dart';
 
 class MobileOfferDetailHeader extends StatelessWidget {
@@ -98,7 +99,12 @@ class MobileOfferDetailHeader extends StatelessWidget {
                     Opacity(
                       opacity: 0.4 * collapsedOpacity,
                       child: CachedNetworkImage(
-                        imageUrl: wideImageUrl!,
+                        // Small blurred background, low quality is fine
+                        imageUrl: ImageUtils.getOptimizedUrl(
+                          wideImageUrl!,
+                          width: 200,
+                          quality: 60,
+                        ),
                         fit: BoxFit.cover,
                         placeholder: (context, url) =>
                             Container(color: AppColors.surface),
@@ -195,7 +201,12 @@ class MobileOfferDetailHeader extends StatelessWidget {
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(6),
                                 child: CachedNetworkImage(
-                                  imageUrl: tallImageUrl!,
+                                  // Small collapsed header thumbnail (36x48)
+                                  imageUrl: ImageUtils.getOptimizedUrl(
+                                    tallImageUrl!,
+                                    width: 72,
+                                    height: 96,
+                                  ),
                                   fit: BoxFit.cover,
                                   placeholder: (context, url) =>
                                       Container(color: AppColors.surfaceLight),

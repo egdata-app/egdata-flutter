@@ -4,6 +4,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../models/api/offer_details.dart';
+import '../utils/image_utils.dart';
 
 /// Full-screen screenshot carousel viewer with zoom and download support
 class ScreenshotCarousel extends HookWidget {
@@ -56,7 +57,8 @@ class ScreenshotCarousel extends HookWidget {
                   minScale: 1.0,
                   maxScale: 4.0,
                   child: CachedNetworkImage(
-                    imageUrl: images[index].src,
+                    // Full resolution for main view (user can zoom in)
+                    imageUrl: ImageUtils.getFullResUrl(images[index].src),
                     fit: BoxFit.contain,
                     placeholder: (context, url) => const Center(
                       child: CircularProgressIndicator(
@@ -177,7 +179,11 @@ class ScreenshotCarousel extends HookWidget {
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(6),
                             child: CachedNetworkImage(
-                              imageUrl: images[index].src,
+                              // Small thumbnail for strip (80px wide)
+                              imageUrl: ImageUtils.getThumbnailUrl(
+                                images[index].src,
+                                size: 160, // 2x for retina
+                              ),
                               fit: BoxFit.cover,
                               placeholder: (context, url) =>
                                   Container(color: Colors.grey.shade800),

@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../main.dart';
 import '../models/api/age_rating.dart';
+import '../utils/image_utils.dart';
 
 class AgeRatingBadge extends StatelessWidget {
   final AgeRatings ageRatings;
@@ -83,7 +84,13 @@ class AgeRatingBadge extends StatelessWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(4),
                   child: CachedNetworkImage(
-                    imageUrl: rating.ratingImage!,
+                    // 32x32 rating badge
+                    imageUrl: ImageUtils.getOptimizedUrl(
+                      rating.ratingImage!,
+                      width: 64,
+                      height: 64,
+                      fit: 'contain',
+                    ),
                     fit: BoxFit.contain,
                     placeholder: (context, url) => const SizedBox(),
                     errorWidget: (context, url, error) => const SizedBox(),
@@ -276,7 +283,13 @@ class _AllRatingsBottomSheet extends StatelessWidget {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: CachedNetworkImage(
-                  imageUrl: rating.rectangularRatingImage!,
+                  // 60x80 rectangular rating image
+                  imageUrl: ImageUtils.getOptimizedUrl(
+                    rating.rectangularRatingImage!,
+                    width: 120,
+                    height: 160,
+                    fit: 'contain',
+                  ),
                   fit: BoxFit.contain,
                   placeholder: (context, url) => Container(
                     color: AppColors.surfaceLight,

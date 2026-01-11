@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../main.dart';
 import '../models/game_info.dart';
 import '../models/upload_status.dart';
+import '../utils/image_utils.dart';
 import 'follow_button.dart';
 
 class GameTile extends StatefulWidget {
@@ -156,7 +157,12 @@ class _GameTileState extends State<GameTile> {
         borderRadius: BorderRadius.circular(3),
         child: imageUrl != null
             ? Image.network(
-                imageUrl,
+                // 64x64 thumbnail for desktop library tiles
+                ImageUtils.getOptimizedUrl(
+                  imageUrl,
+                  width: 128,
+                  height: 128,
+                ),
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) => _buildPlaceholder(),
                 loadingBuilder: (context, child, loadingProgress) {

@@ -5,6 +5,7 @@ import '../main.dart';
 import '../models/game_info.dart';
 import '../models/playtime_stats.dart';
 import '../services/playtime_service.dart';
+import '../utils/image_utils.dart';
 import '../widgets/weekly_activity_chart.dart';
 
 class DashboardPage extends StatefulWidget {
@@ -253,7 +254,12 @@ class _DashboardPageState extends State<DashboardPage> {
             clipBehavior: Clip.antiAlias,
             child: session.thumbnailUrl != null
                 ? Image.network(
-                    session.thumbnailUrl!,
+                    // 48x48 thumbnail for now playing card
+                    ImageUtils.getOptimizedUrl(
+                      session.thumbnailUrl!,
+                      width: 96,
+                      height: 96,
+                    ),
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => const Icon(
                       Icons.games_rounded,
@@ -467,7 +473,12 @@ class _DashboardPageState extends State<DashboardPage> {
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: Image.network(
-                      mostPlayed.thumbnailUrl!,
+                      // 36x36 thumbnail for most played game
+                      ImageUtils.getOptimizedUrl(
+                        mostPlayed.thumbnailUrl!,
+                        width: 72,
+                        height: 72,
+                      ),
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => const Icon(
                         Icons.games_rounded,
@@ -651,7 +662,12 @@ class _DashboardPageState extends State<DashboardPage> {
             clipBehavior: Clip.antiAlias,
             child: thumbnailUrl != null
                 ? Image.network(
-                    thumbnailUrl,
+                    // 44x44 thumbnail for recently played list
+                    ImageUtils.getOptimizedUrl(
+                      thumbnailUrl,
+                      width: 88,
+                      height: 88,
+                    ),
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => const Icon(
                       Icons.games_rounded,
