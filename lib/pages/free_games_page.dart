@@ -3,7 +3,9 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:fluquery/fluquery.dart';
 import '../main.dart';
 import '../database/database_service.dart';
+import '../models/settings.dart';
 import '../services/api_service.dart';
+import '../services/chat_session_service.dart';
 import '../services/follow_service.dart';
 import '../services/push_service.dart';
 import '../services/sync_service.dart';
@@ -15,6 +17,8 @@ class FreeGamesPage extends HookWidget {
   final SyncService syncService;
   final DatabaseService db;
   final PushService? pushService;
+  final ChatSessionService? chatService;
+  final AppSettings? settings;
 
   const FreeGamesPage({
     super.key,
@@ -22,6 +26,8 @@ class FreeGamesPage extends HookWidget {
     required this.syncService,
     required this.db,
     this.pushService,
+    this.chatService,
+    this.settings,
   });
 
   Future<List<FreeGameEntry>> _fetchFreeGames() async {
@@ -64,6 +70,8 @@ class FreeGamesPage extends HookWidget {
           offerId: game.offerId,
           followService: followService,
           pushService: pushService,
+          chatService: chatService,
+          settings: settings,
           initialTitle: game.title,
           initialImageUrl: game.thumbnailUrl,
         ),

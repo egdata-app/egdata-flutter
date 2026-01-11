@@ -8,6 +8,7 @@ import '../models/settings.dart';
 import '../services/analytics_service.dart';
 import '../services/api_service.dart' show ApiService, ApiException, SearchRequest, SearchResponse, SearchOfferType, SearchSortBy, SearchSortDir, PriceRange, Offer, SearchAggregations;
 import '../services/browse_prefetch_cache.dart';
+import '../services/chat_session_service.dart';
 import '../services/follow_service.dart';
 import '../services/push_service.dart';
 import '../widgets/game_card.dart';
@@ -17,6 +18,7 @@ class MobileBrowsePage extends HookWidget {
   final AppSettings settings;
   final FollowService followService;
   final PushService? pushService;
+  final ChatSessionService? chatService;
   final String? initialGenreId;
   final String? initialGenreName;
 
@@ -25,6 +27,7 @@ class MobileBrowsePage extends HookWidget {
     required this.settings,
     required this.followService,
     this.pushService,
+    this.chatService,
     this.initialGenreId,
     this.initialGenreName,
   });
@@ -742,6 +745,8 @@ class MobileBrowsePage extends HookWidget {
           offerId: offer.id,
           followService: followService,
           pushService: pushService,
+          chatService: chatService,
+          settings: settings,
           initialTitle: offer.title,
           initialImageUrl: _getThumbnailUrl(offer),
         ),

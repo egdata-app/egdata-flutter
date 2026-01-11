@@ -6,6 +6,7 @@ import '../main.dart';
 import '../database/database_service.dart';
 import '../models/chat_message.dart';
 import '../models/chat_session.dart';
+import '../models/referenced_offer.dart';
 import '../models/settings.dart';
 import '../services/api_service.dart';
 import '../services/chat_session_service.dart';
@@ -27,6 +28,10 @@ class MobileChatPage extends HookWidget {
   final PushService? pushService;
   final VoidCallback? onSessionUpdated;
   final String? initialMessage;
+  // For continuing from Ask AI bottom sheet
+  final String? existingUserMessage;
+  final String? existingAiResponse;
+  final List<ReferencedOffer>? existingReferencedOffers;
 
   const MobileChatPage({
     super.key,
@@ -38,6 +43,9 @@ class MobileChatPage extends HookWidget {
     this.pushService,
     this.onSessionUpdated,
     this.initialMessage,
+    this.existingUserMessage,
+    this.existingAiResponse,
+    this.existingReferencedOffers,
   });
 
   Future<List<ChatMessage>> _loadChatHistory(String sessionId) async {
@@ -102,7 +110,33 @@ class MobileChatPage extends HookWidget {
         try {
           // Load chat history first
           final history = await _loadChatHistory(session.id);
-          messages.value = history;
+
+          // If we have existing messages from the Ask AI bottom sheet, add them
+          if (existingUserMessage != null &&
+              existingAiResponse != null &&
+              history.isEmpty) {
+            final userMessage = ChatMessage(
+              id: _uuid.v4(),
+              sessionId: session.id,
+              role: 'user',
+              content: existingUserMessage!,
+              timestamp: DateTime.now().subtract(const Duration(seconds: 2)),
+            );
+            final aiMessage = ChatMessage(
+              id: _uuid.v4(),
+              sessionId: session.id,
+              role: 'assistant',
+              content: existingAiResponse!,
+              timestamp: DateTime.now().subtract(const Duration(seconds: 1)),
+              referencedOffers: existingReferencedOffers,
+            );
+            messages.value = [userMessage, aiMessage];
+            // Save to database
+            await _saveChatMessage(userMessage);
+            await _saveChatMessage(aiMessage);
+          } else {
+            messages.value = history;
+          }
 
           // Get persistent user ID and connect to WebSocket
           final userId = await UserService.getUserId();

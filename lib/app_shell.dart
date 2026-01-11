@@ -669,12 +669,14 @@ class _AppShellState extends State<AppShell> {
                 db: _db!,
                 settings: _settings,
                 pushService: _pushService,
+                chatService: _chatSessionService,
                 onSettingsChanged: _onSettingsChanged,
               ),
               MobileBrowsePage(
                 settings: _settings,
                 followService: _followService!,
                 pushService: _pushService,
+                chatService: _chatSessionService,
               ),
               MobileChatSessionsPage(
                 settings: _settings,
@@ -688,6 +690,8 @@ class _AppShellState extends State<AppShell> {
                 syncService: _syncService!,
                 db: _db!,
                 pushService: _pushService,
+                chatService: _chatSessionService,
+                settings: _settings,
               ),
               SettingsPage(
                 settings: _settings,
@@ -736,6 +740,7 @@ class _AppShellState extends State<AppShell> {
             db: _db!,
             settings: _settings,
             pushService: _pushService,
+            chatService: _chatSessionService,
             onSettingsChanged: _onSettingsChanged,
           );
         }
@@ -752,6 +757,7 @@ class _AppShellState extends State<AppShell> {
             settings: _settings,
             followService: _followService!,
             pushService: _pushService,
+            chatService: _chatSessionService,
           );
         }
         return LibraryPage(

@@ -16,6 +16,7 @@ class MobileOfferDetailHeader extends StatelessWidget {
   final String? developerName;
   final VoidCallback onBack;
   final VoidCallback onOpenInBrowser;
+  final VoidCallback? onAskAI;
 
   const MobileOfferDetailHeader({
     super.key,
@@ -29,6 +30,7 @@ class MobileOfferDetailHeader extends StatelessWidget {
     this.developerName,
     required this.onBack,
     required this.onOpenInBrowser,
+    this.onAskAI,
   });
 
   @override
@@ -247,6 +249,20 @@ class MobileOfferDetailHeader extends StatelessWidget {
                               ],
                             ),
                           ),
+                          // Ask AI button
+                          if (onAskAI != null)
+                            GestureDetector(
+                              onTap: onAskAI,
+                              child: const SizedBox(
+                                width: 48,
+                                height: 48,
+                                child: Icon(
+                                  Icons.auto_awesome_rounded,
+                                  color: Colors.white,
+                                  size: 22,
+                                ),
+                              ),
+                            ),
                           // Browser button
                           GestureDetector(
                             onTap: onOpenInBrowser,
@@ -280,6 +296,20 @@ class MobileOfferDetailHeader extends StatelessWidget {
             child: _buildBackButton(),
           ),
         ),
+        // Ask AI button (floating)
+        if (onAskAI != null)
+          Positioned(
+            top: statusBarHeight + 8,
+            right: 56,
+            child: Opacity(
+              opacity: expandedOpacity,
+              child: _buildActionButton(
+                Icons.auto_awesome_rounded,
+                'Ask AI',
+                onAskAI!,
+              ),
+            ),
+          ),
         Positioned(
           top: statusBarHeight + 8,
           right: 8,

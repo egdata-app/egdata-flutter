@@ -5,11 +5,14 @@ import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../models/followed_game.dart';
 import '../models/notification_topics.dart';
+import '../models/settings.dart';
 import '../services/api_service.dart';
 import '../services/analytics_service.dart';
+import '../services/chat_session_service.dart';
 import '../services/follow_service.dart';
 import '../services/push_service.dart';
 import '../utils/platform_utils.dart';
+import '../widgets/ask_ai_bottom_sheet.dart';
 import '../widgets/follow_button.dart';
 import '../widgets/notification_topic_selector.dart';
 import '../widgets/progressive_image.dart';
@@ -23,6 +26,7 @@ import '../widgets/offer_giveaway_banner.dart';
 import '../widgets/age_rating_badge.dart';
 import '../widgets/offer_changelog_card.dart';
 import '../widgets/skeleton_loading.dart';
+import 'mobile_chat_page.dart';
 
 class MobileOfferDetailPage extends StatefulWidget {
   final String offerId;
@@ -30,6 +34,8 @@ class MobileOfferDetailPage extends StatefulWidget {
   final String? initialImageUrl;
   final FollowService followService;
   final PushService? pushService;
+  final ChatSessionService? chatService;
+  final AppSettings? settings;
   final String country;
 
   const MobileOfferDetailPage({
@@ -37,6 +43,8 @@ class MobileOfferDetailPage extends StatefulWidget {
     required this.offerId,
     required this.followService,
     this.pushService,
+    this.chatService,
+    this.settings,
     this.initialTitle,
     this.initialImageUrl,
     this.country = 'US',
@@ -366,6 +374,47 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
     }
   }
 
+  void _showAskAIBottomSheet() {
+    if (_offer == null) return;
+    if (widget.chatService == null || widget.settings == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => AskAIBottomSheet(
+        offerTitle: _offer!.title,
+        offerId: widget.offerId,
+        offerType: _offer!.offerType,
+        chatService: widget.chatService!,
+        onContinueInChat: _continueInChat,
+      ),
+    );
+  }
+
+  void _continueInChat(AskAIContinueResult result) {
+    if (widget.chatService == null || widget.settings == null) return;
+
+    // Navigate to the chat page with the existing session
+    // The session already has the initial exchange, so we pass
+    // existingMessages to pre-populate the chat
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => MobileChatPage(
+          settings: widget.settings!,
+          apiService: _apiService,
+          chatService: widget.chatService!,
+          session: result.session,
+          followService: widget.followService,
+          pushService: widget.pushService,
+          existingUserMessage: result.userMessage,
+          existingAiResponse: result.aiResponse,
+          existingReferencedOffers: result.referencedOffers,
+        ),
+      ),
+    );
+  }
+
   void _navigateToBaseGame(Offer baseGame) {
     // Cache the thumbnail URL for the base game
     final thumbnailUrl = _getThumbnailUrl(baseGame);
@@ -377,6 +426,8 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
           offerId: baseGame.id,
           followService: widget.followService,
           pushService: widget.pushService,
+          chatService: widget.chatService,
+          settings: widget.settings,
           initialTitle: baseGame.title,
           initialImageUrl: thumbnailUrl,
           country: widget.country,
@@ -414,6 +465,9 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
                 developerName: _offer?.developerDisplayName,
                 onBack: () => Navigator.of(context).pop(),
                 onOpenInBrowser: _openInBrowser,
+                onAskAI: widget.chatService != null && widget.settings != null
+                    ? _showAskAIBottomSheet
+                    : null,
               ),
               // Content
               if (_error != null)
@@ -1143,6 +1197,8 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
                       offerId: offer.id,
                       followService: widget.followService,
                       pushService: widget.pushService,
+                      chatService: widget.chatService,
+                      settings: widget.settings,
                       initialTitle: offer.title,
                       initialImageUrl: thumbnailUrl,
                       country: widget.country,

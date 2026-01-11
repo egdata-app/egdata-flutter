@@ -8,6 +8,7 @@ import '../main.dart';
 import '../database/database_service.dart';
 import '../models/settings.dart';
 import '../services/api_service.dart';
+import '../services/chat_session_service.dart';
 import '../services/follow_service.dart';
 import '../services/push_service.dart';
 import '../services/sync_service.dart';
@@ -25,6 +26,7 @@ class MobileDashboardPage extends HookWidget {
   final DatabaseService db;
   final AppSettings settings;
   final PushService? pushService;
+  final ChatSessionService? chatService;
   final ValueChanged<AppSettings> onSettingsChanged;
 
   const MobileDashboardPage({
@@ -34,6 +36,7 @@ class MobileDashboardPage extends HookWidget {
     required this.db,
     required this.settings,
     this.pushService,
+    this.chatService,
     required this.onSettingsChanged,
   });
 
@@ -86,6 +89,8 @@ class MobileDashboardPage extends HookWidget {
           offerId: offerId,
           followService: followService,
           pushService: pushService,
+          chatService: chatService,
+          settings: settings,
           initialTitle: title,
           initialImageUrl: imageUrl,
         ),
