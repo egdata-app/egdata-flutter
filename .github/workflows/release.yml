@@ -172,10 +172,8 @@ jobs:
           path: build/macos/egdata-app-*-macos.dmg
           retention-days: 7
 
-  prepare-android:
+  build-android:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/cirruslabs/flutter:stable
     outputs:
       version: ${{ steps.version.outputs.version }}
 
@@ -193,6 +191,37 @@ jobs:
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Version: $VERSION"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
 
       - name: Install dependencies
         run: flutter pub get
@@ -213,47 +242,6 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           sed -i "s/const String appVersion = '[^']*';/const String appVersion = '$VERSION';/" lib/main.dart
 
-      - name: Build Wear OS app (if present)
-        if: ${{ hashFiles('android/wear/**') != '' }}
-        working-directory: android
-        run: ./gradlew :wear:assembleRelease
-
-      - name: Upload Android workspace
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-workspace
-          path: |
-            .
-            !**/build/**
-            !.git/**
-
-  build-android:
-    name: Build Android (${{ matrix.target }})
-    runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/cirruslabs/flutter:stable
-    needs: prepare-android
-    strategy:
-      fail-fast: false
-      matrix:
-        target: [apk, appbundle]
-
-    steps:
-      - name: Download Android workspace
-        uses: actions/download-artifact@v4
-        with:
-          name: android-workspace
-          path: .
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Read version
-        id: version
-        run: |
-          VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
       - name: Decode keystore
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
@@ -267,28 +255,24 @@ jobs:
           keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
           EOF
 
+      - name: Build Wear OS app (if present)
+        if: ${{ hashFiles('android/wear/**') != '' }}
+        working-directory: android
+        run: ./gradlew :wear:assembleRelease
+
       - name: Build Android APK
-        if: matrix.target == 'apk'
         run: flutter build apk --release
 
       - name: Build Android App Bundle
-        if: matrix.target == 'appbundle'
         run: flutter build appbundle --release
 
-      - name: Rename APK
-        if: matrix.target == 'apk'
+      - name: Rename artifacts
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/egdata-app-$VERSION-android.apk
-
-      - name: Rename App Bundle
-        if: matrix.target == 'appbundle'
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
           mv build/app/outputs/bundle/release/app-release.aab build/app/outputs/bundle/release/egdata-app-$VERSION-android.aab
 
       - name: Upload Android APK artifact
-        if: matrix.target == 'apk'
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
@@ -296,7 +280,6 @@ jobs:
           retention-days: 7
 
       - name: Upload Android App Bundle artifact
-        if: matrix.target == 'appbundle'
         uses: actions/upload-artifact@v4
         with:
           name: android-appbundle
