@@ -305,6 +305,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
+      - name: Install dependencies
+        run: flutter pub get
+
       - name: Read version
         id: version
         run: |
