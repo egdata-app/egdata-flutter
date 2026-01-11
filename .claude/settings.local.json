@@ -37,7 +37,10 @@
       "Bash(powershell -Command:*)",
       "Bash(cat:*)",
       "Bash(git pull:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(git -C E:codeegdata-flutteregdata_flutter status)",
+      "Bash(git -C E:codeegdata-flutteregdata_flutter log --oneline -5)",
+      "Bash(git show:*)"
     ]
   }
 }
