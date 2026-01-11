@@ -173,9 +173,12 @@ jobs:
           retention-days: 7
 
   build-android:
+    name: Build Android (${{ matrix.target }})
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [apk, appbundle]
 
     steps:
       - name: Checkout repository
@@ -255,20 +258,48 @@ jobs:
           keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
           EOF
 
+      - name: Build Wear OS app (if present)
+        if: ${{ hashFiles('android/wear/**') != '' }}
+        working-directory: android
+        run: ./gradlew :wear:assembleRelease
+
       - name: Build Android APK
+        if: matrix.target == 'apk'
         run: flutter build apk --release
 
+      - name: Build Android App Bundle
+        if: matrix.target == 'appbundle'
+        run: flutter build appbundle --release
+
       - name: Rename APK
+        if: matrix.target == 'apk'
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/egdata-app-$VERSION-android.apk
 
+      - name: Rename App Bundle
+        if: matrix.target == 'appbundle'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          mv build/app/outputs/bundle/release/app-release.aab build/app/outputs/bundle/release/egdata-app-$VERSION-android.aab
+
       - name: Upload Android APK artifact
+        if: matrix.target == 'apk'
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
           path: build/app/outputs/flutter-apk/egdata-app-*-android.apk
           retention-days: 7
+
+      - name: Upload Android App Bundle artifact
+        if: matrix.target == 'appbundle'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-appbundle
+          path: build/app/outputs/bundle/release/egdata-app-*-android.aab
+          retention-days: 7
+
+
 
   build-ios:
     runs-on: macos-latest
@@ -342,6 +373,12 @@ jobs:
           name: android-apk
           path: artifacts
 
+      - name: Download Android App Bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: android-appbundle
+          path: artifacts
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -354,5 +391,7 @@ jobs:
             artifacts/egdata-app-*-setup.exe
             artifacts/egdata-app-*-macos.dmg
             artifacts/egdata-app-*-android.apk
+            artifacts/egdata-app-*-android.aab
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
