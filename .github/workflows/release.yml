@@ -216,9 +216,7 @@ jobs:
       - name: Build Wear OS app (if present)
         if: ${{ hashFiles('android/wear/**') != '' }}
         working-directory: android
-        run: |
-          gradle wrapper
-          ./gradlew :wear:assembleRelease
+        run: ./gradlew :wear:assembleRelease
 
       - name: Upload Android workspace
         uses: actions/upload-artifact@v4

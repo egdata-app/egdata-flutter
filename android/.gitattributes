@@ -1,0 +1,6 @@
+# Ensure shell scripts have Unix line endings
+gradlew text eol=lf
+*.bat text eol=crlf
+
+# Gradle wrapper JAR is binary
+gradle/wrapper/gradle-wrapper.jar binary
