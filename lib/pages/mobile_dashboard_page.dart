@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:fluquery/fluquery.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../main.dart';
 import '../database/database_service.dart';
 import '../models/settings.dart';
@@ -273,6 +275,11 @@ class MobileDashboardPage extends HookWidget {
 
             const SizedBox(height: 20),
 
+            // Creator code banner
+            _CreatorCodeBanner(),
+
+            const SizedBox(height: 20),
+
             // Stats row - Homepage stats
             Row(
               children: [
@@ -412,7 +419,6 @@ class MobileDashboardPage extends HookWidget {
 
             const SizedBox(height: 28),
 
-
             // Free games section
             if (activeFreeGames.isNotEmpty) ...[
               _buildSectionHeader(
@@ -436,7 +442,7 @@ class MobileDashboardPage extends HookWidget {
               const SizedBox(height: 28),
             ],
 
-                        // Genres section
+            // Genres section
             if (genres.isNotEmpty) ...[
               GestureDetector(
                 onTap: () => _openAllGenres(context),
@@ -544,6 +550,9 @@ class MobileDashboardPage extends HookWidget {
                   ],
                 ),
               ),
+
+            // Persistent creator code mini banner (shown when main banner is dismissed)
+            const _CreatorCodeMiniBanner(),
           ],
         ),
       ),
@@ -858,6 +867,251 @@ class MobileDashboardPage extends HookWidget {
           Icons.videogame_asset_rounded,
           color: AppColors.textMuted,
           size: 24,
+        ),
+      ),
+    );
+  }
+}
+
+class _CreatorCodeBanner extends HookWidget {
+  static const _dismissedKey = 'creator_code_banner_dismissed_at';
+
+  @override
+  Widget build(BuildContext context) {
+    final isDismissed = useState<bool?>(null);
+
+    // Check if banner was dismissed within the last month
+    useEffect(() {
+      SharedPreferences.getInstance().then((prefs) {
+        final dismissedAt = prefs.getInt(_dismissedKey);
+        if (dismissedAt != null) {
+          final dismissedDate =
+              DateTime.fromMillisecondsSinceEpoch(dismissedAt);
+          final now = DateTime.now();
+          final difference = now.difference(dismissedDate);
+          // Show again after 30 days
+          isDismissed.value = difference.inDays < 30;
+        } else {
+          isDismissed.value = false;
+        }
+      });
+      return null;
+    }, []);
+
+    // Still loading preference
+    if (isDismissed.value == null) {
+      return const SizedBox.shrink();
+    }
+
+    if (isDismissed.value!) {
+      return const SizedBox.shrink();
+    }
+
+    void dismissBanner() async {
+      isDismissed.value = true;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_dismissedKey, DateTime.now().millisecondsSinceEpoch);
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primary.withValues(alpha: 0.15),
+            AppColors.primary.withValues(alpha: 0.05),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.favorite_rounded,
+              color: AppColors.primary,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Support egdata.app',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      'Use creator code ',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        Clipboard.setData(const ClipboardData(text: 'EGDATA'));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('Creator code copied!'),
+                            backgroundColor: AppColors.surface,
+                            behavior: SnackBarBehavior.floating,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'EGDATA',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primary,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Text(
+                      ' in the Epic Games Store',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: dismissBanner,
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Icon(
+                Icons.close_rounded,
+                color: AppColors.textMuted,
+                size: 18,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CreatorCodeMiniBanner extends HookWidget {
+  const _CreatorCodeMiniBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDismissed = useState<bool?>(null);
+
+    // Check if main banner was dismissed (show mini banner only when dismissed)
+    useEffect(() {
+      SharedPreferences.getInstance().then((prefs) {
+        final dismissedAt =
+            prefs.getInt(_CreatorCodeBanner._dismissedKey);
+        if (dismissedAt != null) {
+          final dismissedDate =
+              DateTime.fromMillisecondsSinceEpoch(dismissedAt);
+          final now = DateTime.now();
+          final difference = now.difference(dismissedDate);
+          // Show mini banner only when main banner is dismissed (within 30 days)
+          isDismissed.value = difference.inDays < 30;
+        } else {
+          isDismissed.value = false;
+        }
+      });
+      return null;
+    }, []);
+
+    // Still loading or main banner is showing
+    if (isDismissed.value == null || !isDismissed.value!) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 20, bottom: 20),
+      child: GestureDetector(
+        onTap: () {
+          Clipboard.setData(const ClipboardData(text: 'EGDATA'));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Creator code copied!'),
+              backgroundColor: AppColors.surface,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.favorite_rounded,
+                color: AppColors.primary,
+                size: 16,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Support us with creator code ',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textMuted,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  'EGDATA',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
