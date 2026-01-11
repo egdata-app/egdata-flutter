@@ -223,11 +223,12 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
           _isLoadingOffer = false;
         });
         _updateCachedImageUrls();
-        // Track game view
+        // Track game view with offer ID as parameter
         if (_offer != null) {
           AnalyticsService().logGameView(
             gameId: widget.offerId,
             gameName: _offer!.title,
+            offerType: _offer!.offerType,
           );
         }
       }

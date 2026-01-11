@@ -58,18 +58,30 @@ class AnalyticsService {
     }
   }
 
-  /// Track game view
+  /// Track game view using Firebase's standard view_item event
   Future<void> logGameView({
     required String gameId,
     required String gameName,
+    String? offerType,
   }) async {
-    await logEvent(
-      name: 'view_game',
-      parameters: {
-        'game_id': gameId,
-        'game_name': gameName,
-      },
-    );
+    if (_analytics == null) return;
+
+    try {
+      await _analytics!.logViewItem(
+        items: [
+          AnalyticsEventItem(
+            itemId: gameId,
+            itemName: gameName,
+            itemCategory: offerType,
+          ),
+        ],
+        parameters: {
+          'offer_id': gameId,
+        },
+      );
+    } catch (e) {
+      debugPrint('Failed to log game view: $e');
+    }
   }
 
   /// Track search
