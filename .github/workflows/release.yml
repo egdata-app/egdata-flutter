@@ -172,13 +172,10 @@ jobs:
           path: build/macos/egdata-app-*-macos.dmg
           retention-days: 7
 
-  build-android:
-    name: Build Android (${{ matrix.target }})
+  prepare-android:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        target: [apk, appbundle]
+    outputs:
+      version: ${{ steps.version.outputs.version }}
 
     steps:
       - name: Checkout repository
@@ -245,6 +242,73 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           sed -i "s/const String appVersion = '[^']*';/const String appVersion = '$VERSION';/" lib/main.dart
 
+      - name: Build Wear OS app (if present)
+        if: ${{ hashFiles('android/wear/**') != '' }}
+        working-directory: android
+        run: ./gradlew :wear:assembleRelease
+
+      - name: Upload Android workspace
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-workspace
+          path: |
+            .
+            !**/build/**
+            !.git/**
+
+  build-android:
+    name: Build Android (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    needs: prepare-android
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [apk, appbundle]
+
+    steps:
+      - name: Download Android workspace
+        uses: actions/download-artifact@v4
+        with:
+          name: android-workspace
+          path: .
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Decode keystore
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
@@ -257,11 +321,6 @@ jobs:
           keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
           keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
           EOF
-
-      - name: Build Wear OS app (if present)
-        if: ${{ hashFiles('android/wear/**') != '' }}
-        working-directory: android
-        run: ./gradlew :wear:assembleRelease
 
       - name: Build Android APK
         if: matrix.target == 'apk'
