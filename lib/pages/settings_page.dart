@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../main.dart';
 import '../models/settings.dart';
 import '../services/analytics_service.dart';
@@ -41,6 +42,12 @@ class _SettingsPageState extends State<SettingsPage>
   bool _isUnsubscribing = false;
   PushSubscriptionState? _pushState;
   String? _pushError;
+  bool _isTestingNotification = false;
+
+  // Method channel for Android notification testing
+  static const _notificationChannel = MethodChannel(
+    'com.ignacioaldama.egdata/notification',
+  );
 
   @override
   void initState() {
@@ -177,10 +184,7 @@ class _SettingsPageState extends State<SettingsPage>
         _isUnsubscribing = false;
         if (result.success) {
           _pushError = null;
-          _pushState = PushSubscriptionState(
-            isSubscribed: false,
-            topics: [],
-          );
+          _pushState = PushSubscriptionState(isSubscribed: false, topics: []);
           _updateSettings(_settings.copyWith(pushNotificationsEnabled: false));
         } else {
           _pushError = result.error;
@@ -230,6 +234,59 @@ class _SettingsPageState extends State<SettingsPage>
     }
   }
 
+  /// Test the custom notification layout (Android only)
+  Future<void> _testNotification() async {
+    if (!Platform.isAndroid) return;
+
+    setState(() {
+      _isTestingNotification = true;
+    });
+
+    try {
+      // Use a sample offer ID - this is "The Witcher 3: Wild Hunt" which is often free
+      // You can change this to any valid offer ID
+      const testOfferId = '9064fdd49de04718abe631788ad5a759';
+
+      await _notificationChannel.invokeMethod('testFreeGameNotification', {
+        'offerId': testOfferId,
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Test notification sent'),
+            backgroundColor: AppColors.success,
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to send test notification: $e'),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isTestingNotification = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
@@ -268,11 +325,14 @@ class _SettingsPageState extends State<SettingsPage>
                       children: [
                         _buildSettingTile(
                           title: 'Auto Sync',
-                          subtitle: 'Automatically upload manifests at regular intervals',
+                          subtitle:
+                              'Automatically upload manifests at regular intervals',
                           trailing: Switch(
                             value: _settings.autoSync,
                             onChanged: (value) {
-                              _updateSettings(_settings.copyWith(autoSync: value));
+                              _updateSettings(
+                                _settings.copyWith(autoSync: value),
+                              );
                             },
                           ),
                         ),
@@ -298,7 +358,9 @@ class _SettingsPageState extends State<SettingsPage>
                             trailing: Switch(
                               value: _settings.launchAtStartup,
                               onChanged: (value) {
-                                _updateSettings(_settings.copyWith(launchAtStartup: value));
+                                _updateSettings(
+                                  _settings.copyWith(launchAtStartup: value),
+                                );
                               },
                             ),
                           ),
@@ -306,11 +368,14 @@ class _SettingsPageState extends State<SettingsPage>
                         ],
                         _buildSettingTile(
                           title: 'Minimize to Tray',
-                          subtitle: 'Keep running in system tray when window is closed',
+                          subtitle:
+                              'Keep running in system tray when window is closed',
                           trailing: Switch(
                             value: _settings.minimizeToTray,
                             onChanged: (value) {
-                              _updateSettings(_settings.copyWith(minimizeToTray: value));
+                              _updateSettings(
+                                _settings.copyWith(minimizeToTray: value),
+                              );
                             },
                           ),
                         ),
@@ -331,7 +396,9 @@ class _SettingsPageState extends State<SettingsPage>
                           trailing: Switch(
                             value: _settings.notifyFreeGames,
                             onChanged: (value) {
-                              _updateSettings(_settings.copyWith(notifyFreeGames: value));
+                              _updateSettings(
+                                _settings.copyWith(notifyFreeGames: value),
+                              );
                             },
                           ),
                         ),
@@ -342,7 +409,9 @@ class _SettingsPageState extends State<SettingsPage>
                           trailing: Switch(
                             value: _settings.notifyReleases,
                             onChanged: (value) {
-                              _updateSettings(_settings.copyWith(notifyReleases: value));
+                              _updateSettings(
+                                _settings.copyWith(notifyReleases: value),
+                              );
                             },
                           ),
                         ),
@@ -353,7 +422,9 @@ class _SettingsPageState extends State<SettingsPage>
                           trailing: Switch(
                             value: _settings.notifySales,
                             onChanged: (value) {
-                              _updateSettings(_settings.copyWith(notifySales: value));
+                              _updateSettings(
+                                _settings.copyWith(notifySales: value),
+                              );
                             },
                           ),
                         ),
@@ -364,7 +435,11 @@ class _SettingsPageState extends State<SettingsPage>
                           trailing: Switch(
                             value: _settings.notifyFollowedUpdates,
                             onChanged: (value) {
-                              _updateSettings(_settings.copyWith(notifyFollowedUpdates: value));
+                              _updateSettings(
+                                _settings.copyWith(
+                                  notifyFollowedUpdates: value,
+                                ),
+                              );
                             },
                           ),
                         ),
@@ -385,7 +460,8 @@ class _SettingsPageState extends State<SettingsPage>
                       children: [
                         _buildActionTile(
                           title: 'Clear Process Cache',
-                          subtitle: 'Force refresh of game process names from API',
+                          subtitle:
+                              'Force refresh of game process names from API',
                           icon: Icons.refresh_rounded,
                           onTap: _clearProcessCache,
                         ),
@@ -402,10 +478,15 @@ class _SettingsPageState extends State<SettingsPage>
                         title: 'EGData Client',
                         subtitle: 'Version 0.1.0',
                         trailing: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.primary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+                            borderRadius: BorderRadius.circular(
+                              AppColors.radiusSmall,
+                            ),
                             border: Border.all(
                               color: AppColors.primary.withValues(alpha: 0.25),
                             ),
@@ -424,12 +505,15 @@ class _SettingsPageState extends State<SettingsPage>
                       _buildDivider(),
                       _buildSettingTile(
                         title: 'Purpose',
-                        subtitle: 'Helps preserve Epic Games Store manifest data for research',
+                        subtitle:
+                            'Helps preserve Epic Games Store manifest data for research',
                         trailing: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color: AppColors.surfaceLight,
-                            borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+                            borderRadius: BorderRadius.circular(
+                              AppColors.radiusSmall,
+                            ),
                           ),
                           child: const Icon(
                             Icons.science_rounded,
@@ -470,10 +554,7 @@ class _SettingsPageState extends State<SettingsPage>
               const SizedBox(height: 4),
               Text(
                 'Configure app behavior',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textSecondary,
-                ),
+                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
               ),
             ],
           ),
@@ -519,19 +600,14 @@ class _SettingsPageState extends State<SettingsPage>
             borderRadius: BorderRadius.circular(AppColors.radiusMedium),
             border: Border.all(color: AppColors.border),
           ),
-          child: Column(
-            children: children,
-          ),
+          child: Column(children: children),
         ),
       ],
     );
   }
 
   Widget _buildDivider() {
-    return Container(
-      height: 1,
-      color: AppColors.border,
-    );
+    return Container(height: 1, color: AppColors.border);
   }
 
   Widget _buildPushNotificationsSection() {
@@ -553,7 +629,9 @@ class _SettingsPageState extends State<SettingsPage>
               decoration: BoxDecoration(
                 color: AppColors.warning.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(AppColors.radiusSmall),
-                border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+                border: Border.all(
+                  color: AppColors.warning.withValues(alpha: 0.3),
+                ),
               ),
               child: Row(
                 children: [
@@ -587,135 +665,169 @@ class _SettingsPageState extends State<SettingsPage>
             ),
           ),
         ] else ...[
-        // Subscribe/Unsubscribe button
-        Container(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          isSubscribed ? 'Subscribed' : 'Subscribe to Push Notifications',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
+          // Subscribe/Unsubscribe button
+          Container(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isSubscribed
+                                ? 'Subscribed'
+                                : 'Subscribe to Push Notifications',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            isSubscribed
+                                ? 'Receiving notifications from EGData'
+                                : 'Get real-time notifications on your device',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    if (isSubscribed)
+                      ElevatedButton(
+                        onPressed: _isUnsubscribing
+                            ? null
+                            : _unsubscribeFromPush,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.error,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppColors.radiusSmall,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          isSubscribed
-                              ? 'Receiving notifications from EGData'
-                              : 'Get real-time notifications on your device',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: AppColors.textSecondary,
+                        child: _isUnsubscribing
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text(
+                                'Unsubscribe',
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                      )
+                    else
+                      ElevatedButton(
+                        onPressed: _isSubscribing ? null : _subscribeToPush,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppColors.radiusSmall,
+                            ),
+                          ),
+                        ),
+                        child: _isSubscribing
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.black,
+                                ),
+                              )
+                            : const Text(
+                                'Subscribe',
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                      ),
+                  ],
+                ),
+                if (_pushError != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(
+                        AppColors.radiusSmall,
+                      ),
+                      border: Border.all(
+                        color: AppColors.error.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          color: AppColors.error,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _pushError!,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.error,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  if (isSubscribed)
-                    ElevatedButton(
-                      onPressed: _isUnsubscribing ? null : _unsubscribeFromPush,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.error,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppColors.radiusSmall),
-                        ),
-                      ),
-                      child: _isUnsubscribing
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text(
-                              'Unsubscribe',
-                              style: TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                    )
-                  else
-                    ElevatedButton(
-                      onPressed: _isSubscribing ? null : _subscribeToPush,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppColors.radiusSmall),
-                        ),
-                      ),
-                      child: _isSubscribing
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.black,
-                              ),
-                            )
-                          : const Text(
-                              'Subscribe',
-                              style: TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                    ),
                 ],
-              ),
-              if (_pushError != null) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.error.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(AppColors.radiusSmall),
-                    border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.error_outline, color: AppColors.error, size: 18),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _pushError!,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: AppColors.error,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               ],
-            ],
-          ),
-        ),
-        // Topic subscriptions (only shown when subscribed)
-        if (isSubscribed) ...[
-          _buildDivider(),
-          _buildSettingTile(
-            title: 'Free Games',
-            subtitle: 'Receive notifications for new free games',
-            trailing: Switch(
-              value: subscribedTopics.contains(PushTopics.freeGames),
-              onChanged: (value) {
-                _toggleTopic(PushTopics.freeGames, value);
-              },
             ),
           ),
-        ],
+          // Topic subscriptions (only shown when subscribed)
+          if (isSubscribed) ...[
+            _buildDivider(),
+            _buildSettingTile(
+              title: 'Free Games',
+              subtitle: 'Receive notifications for new free games',
+              trailing: Switch(
+                value: subscribedTopics.contains(PushTopics.freeGames),
+                onChanged: (value) {
+                  _toggleTopic(PushTopics.freeGames, value);
+                },
+              ),
+            ),
+          ],
+          // Test notification button (Android only)
+          if (Platform.isAndroid) ...[
+            _buildDivider(),
+            _buildActionTile(
+              title: 'Test Notification',
+              subtitle: 'Preview the custom notification layout',
+              icon: _isTestingNotification
+                  ? Icons.hourglass_empty_rounded
+                  : Icons.notifications_active_rounded,
+              onTap: _isTestingNotification ? () {} : _testNotification,
+            ),
+          ],
         ], // end of else (isAvailable)
       ],
     );
@@ -809,11 +921,7 @@ class _SettingsPageState extends State<SettingsPage>
                   borderRadius: BorderRadius.circular(AppColors.radiusSmall),
                   border: Border.all(color: AppColors.borderLight),
                 ),
-                child: Icon(
-                  icon,
-                  color: AppColors.textSecondary,
-                  size: 18,
-                ),
+                child: Icon(icon, color: AppColors.textSecondary, size: 18),
               ),
             ],
           ),
@@ -852,7 +960,9 @@ class _SettingsPageState extends State<SettingsPage>
           onChanged: _settings.autoSync
               ? (value) {
                   if (value != null) {
-                    _updateSettings(_settings.copyWith(syncIntervalMinutes: value));
+                    _updateSettings(
+                      _settings.copyWith(syncIntervalMinutes: value),
+                    );
                   }
                 }
               : null,
@@ -981,7 +1091,9 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
   void _onSearchChanged() {
     setState(() {
       if (_searchController.text.isEmpty) {
-        _filteredCountries = CountryUtils.getCountriesForCodes(widget.countries);
+        _filteredCountries = CountryUtils.getCountriesForCodes(
+          widget.countries,
+        );
       } else {
         _filteredCountries = CountryUtils.searchCountries(
           widget.countries,
@@ -1048,15 +1160,21 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
                     filled: true,
                     fillColor: AppColors.surfaceLight,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+                      borderRadius: BorderRadius.circular(
+                        AppColors.radiusSmall,
+                      ),
                       borderSide: BorderSide(color: AppColors.borderLight),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+                      borderRadius: BorderRadius.circular(
+                        AppColors.radiusSmall,
+                      ),
                       borderSide: BorderSide(color: AppColors.borderLight),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+                      borderRadius: BorderRadius.circular(
+                        AppColors.radiusSmall,
+                      ),
                       borderSide: const BorderSide(color: AppColors.primary),
                     ),
                     contentPadding: const EdgeInsets.symmetric(

@@ -81,6 +81,9 @@ dependencies {
     implementation("androidx.glance:glance-material3:$glanceVersion")
     debugImplementation("androidx.glance:glance-appwidget-preview:1.1.0")
 
+    // Firebase Messaging for custom notification service
+    implementation("com.google.firebase:firebase-messaging-ktx:24.0.0")
+
     // Wearable API for detecting and communicating with Wear OS devices
     implementation("com.google.android.gms:play-services-wearable:18.2.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")

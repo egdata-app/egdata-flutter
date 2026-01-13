@@ -40,7 +40,9 @@
       "Bash(git stash:*)",
       "Bash(git -C E:codeegdata-flutteregdata_flutter status)",
       "Bash(git -C E:codeegdata-flutteregdata_flutter log --oneline -5)",
-      "Bash(git show:*)"
+      "Bash(git show:*)",
+      "Bash(git -C E:codeegdata-flutteregdata_flutter diff lib/services/analytics_service.dart lib/pages/mobile_offer_detail_page.dart)",
+      "Bash(git -C E:codeegdata-flutteregdata_flutter diff --stat)"
     ]
   }
 }

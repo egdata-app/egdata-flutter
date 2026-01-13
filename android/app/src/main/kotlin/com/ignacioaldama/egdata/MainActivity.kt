@@ -20,13 +20,16 @@ import java.util.concurrent.TimeUnit
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.ignacioaldama.egdata/widget"
     private val WEAR_CHANNEL = "com.ignacioaldama.egdata/wear"
+    private val NOTIFICATION_CHANNEL = "com.ignacioaldama.egdata/notification"
     private var pendingOfferId: String? = null
     private var pendingAction: String? = null
     private lateinit var wearableService: WearableService
+    private lateinit var notificationHelper: NotificationTestHelper
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         wearableService = WearableService(this)
+        notificationHelper = NotificationTestHelper(this)
         scheduleWidgetUpdates()
         handleIntent(intent)
 
@@ -73,6 +76,28 @@ class MainActivity : FlutterActivity() {
                     pendingOfferId = null
                 }
                 else -> result.notImplemented()
+            }
+        }
+
+        // Notification channel for testing custom notifications
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, NOTIFICATION_CHANNEL).setMethodCallHandler { call, result ->
+            lifecycleScope.launch {
+                try {
+                    when (call.method) {
+                        "testFreeGameNotification" -> {
+                            val offerId = call.argument<String>("offerId")
+                            if (offerId != null) {
+                                notificationHelper.triggerTestNotification(offerId)
+                                result.success(true)
+                            } else {
+                                result.error("INVALID_ARGUMENT", "offerId is required", null)
+                            }
+                        }
+                        else -> result.notImplemented()
+                    }
+                } catch (e: Exception) {
+                    result.error("ERROR", e.message, null)
+                }
             }
         }
 
