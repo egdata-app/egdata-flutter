@@ -424,7 +424,7 @@ class MobileBrowsePage extends HookWidget {
                 decoration: InputDecoration(
                   hintText: 'Search for games...',
                   hintStyle: TextStyle(color: AppColors.textMuted),
-                  prefixIcon: searchQuery.isLoading && allOffers.isEmpty
+                  prefixIcon: (searchQuery.isPending || searchQuery.isLoading) && allOffers.isEmpty
                       ? Container(
                           width: 20,
                           height: 20,
@@ -668,7 +668,11 @@ class MobileBrowsePage extends HookWidget {
     List<Offer> offers,
     ScrollController scrollController,
   ) {
-    if (query.isLoading && offers.isEmpty) {
+    // Show loading if query is pending (no data yet) or currently loading
+    // isPending = status is pending (no data)
+    // isLoading = isPending && isFetching (pending and actively fetching)
+    // We need isPending to catch the initial state before fetch starts
+    if ((query.isPending || query.isLoading) && offers.isEmpty) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.primary),
       );
