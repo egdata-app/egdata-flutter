@@ -5,7 +5,7 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   connectivity_plus
   firebase_core
-  isar_flutter_libs
+  isar_community_flutter_libs
   screen_retriever_windows
   tray_manager
   url_launcher_windows

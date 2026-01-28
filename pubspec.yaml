@@ -1,7 +1,7 @@
 name: egdata_flutter
 description: "EGData Client - Epic Games manifest uploader"
 publish_to: "none"
-version: 1.1.1+8
+version: 1.1.1+9
 environment:
   sdk: ^3.10.4
 
@@ -24,8 +24,8 @@ dependencies:
   table_calendar: ^3.1.2
   flutter_local_notifications: ^19.0.0
   url_launcher: ^6.3.2
-  isar: ^3.1.0+1
-  isar_flutter_libs: ^3.1.0+1
+  isar_community: ^3.3.0
+  isar_community_flutter_libs: ^3.3.0
   package_info_plus: ^9.0.0
   cached_network_image: ^3.4.1
   firebase_core: ^4.3.0
@@ -51,7 +51,7 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   msix: ^3.16.12
   flutter_launcher_icons: ^0.14.4
-  isar_generator: ^3.1.0+1
+  isar_community_generator: ^3.3.0
   build_runner: ^2.4.0
   inno_bundle: ^0.11.2
   mockito: ^5.4.0

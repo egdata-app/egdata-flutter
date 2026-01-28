@@ -28,11 +28,7 @@ const PlaytimeSessionEntrySchema = CollectionSchema(
       name: r'endTime',
       type: IsarType.dateTime,
     ),
-    r'gameId': PropertySchema(
-      id: 2,
-      name: r'gameId',
-      type: IsarType.string,
-    ),
+    r'gameId': PropertySchema(id: 2, name: r'gameId', type: IsarType.string),
     r'gameName': PropertySchema(
       id: 3,
       name: r'gameName',
@@ -57,8 +53,9 @@ const PlaytimeSessionEntrySchema = CollectionSchema(
       id: 7,
       name: r'thumbnailUrl',
       type: IsarType.string,
-    )
+    ),
   },
+
   estimateSize: _playtimeSessionEntryEstimateSize,
   serialize: _playtimeSessionEntrySerialize,
   deserialize: _playtimeSessionEntryDeserialize,
@@ -75,7 +72,7 @@ const PlaytimeSessionEntrySchema = CollectionSchema(
           name: r'gameId',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'startTime': IndexSchema(
@@ -88,16 +85,17 @@ const PlaytimeSessionEntrySchema = CollectionSchema(
           name: r'startTime',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
-    )
+    ),
   },
   links: {},
   embeddedSchemas: {},
+
   getId: _playtimeSessionEntryGetId,
   getLinks: _playtimeSessionEntryGetLinks,
   attach: _playtimeSessionEntryAttach,
-  version: '3.1.0+1',
+  version: '3.3.0',
 );
 
 int _playtimeSessionEntryEstimateSize(
@@ -197,26 +195,30 @@ Id _playtimeSessionEntryGetId(PlaytimeSessionEntry object) {
 }
 
 List<IsarLinkBase<dynamic>> _playtimeSessionEntryGetLinks(
-    PlaytimeSessionEntry object) {
+  PlaytimeSessionEntry object,
+) {
   return [];
 }
 
 void _playtimeSessionEntryAttach(
-    IsarCollection<dynamic> col, Id id, PlaytimeSessionEntry object) {
+  IsarCollection<dynamic> col,
+  Id id,
+  PlaytimeSessionEntry object,
+) {
   object.id = id;
 }
 
 extension PlaytimeSessionEntryQueryWhereSort
     on QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QWhere> {
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterWhere>
-      anyId() {
+  anyId() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(const IdWhereClause.any());
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterWhere>
-      anyStartTime() {
+  anyStartTime() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'startTime'),
@@ -228,17 +230,14 @@ extension PlaytimeSessionEntryQueryWhereSort
 extension PlaytimeSessionEntryQueryWhere
     on QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QWhereClause> {
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterWhereClause>
-      idEqualTo(Id id) {
+  idEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: id,
-        upper: id,
-      ));
+      return query.addWhereClause(IdWhereClause.between(lower: id, upper: id));
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterWhereClause>
-      idNotEqualTo(Id id) {
+  idNotEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
@@ -261,7 +260,7 @@ extension PlaytimeSessionEntryQueryWhere
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterWhereClause>
-      idGreaterThan(Id id, {bool include = false}) {
+  idGreaterThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.greaterThan(lower: id, includeLower: include),
@@ -270,7 +269,7 @@ extension PlaytimeSessionEntryQueryWhere
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterWhereClause>
-      idLessThan(Id id, {bool include = false}) {
+  idLessThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.lessThan(upper: id, includeUpper: include),
@@ -279,341 +278,419 @@ extension PlaytimeSessionEntryQueryWhere
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterWhereClause>
-      idBetween(
+  idBetween(
     Id lowerId,
     Id upperId, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: lowerId,
-        includeLower: includeLower,
-        upper: upperId,
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IdWhereClause.between(
+          lower: lowerId,
+          includeLower: includeLower,
+          upper: upperId,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterWhereClause>
-      gameIdEqualTo(String gameId) {
+  gameIdEqualTo(String gameId) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'gameId',
-        value: [gameId],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'gameId', value: [gameId]),
+      );
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterWhereClause>
-      gameIdNotEqualTo(String gameId) {
+  gameIdNotEqualTo(String gameId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'gameId',
-              lower: [],
-              upper: [gameId],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'gameId',
-              lower: [gameId],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'gameId',
+                lower: [],
+                upper: [gameId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'gameId',
+                lower: [gameId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'gameId',
-              lower: [gameId],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'gameId',
-              lower: [],
-              upper: [gameId],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'gameId',
+                lower: [gameId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'gameId',
+                lower: [],
+                upper: [gameId],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterWhereClause>
-      startTimeEqualTo(DateTime startTime) {
+  startTimeEqualTo(DateTime startTime) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'startTime',
-        value: [startTime],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'startTime', value: [startTime]),
+      );
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterWhereClause>
-      startTimeNotEqualTo(DateTime startTime) {
+  startTimeNotEqualTo(DateTime startTime) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'startTime',
-              lower: [],
-              upper: [startTime],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'startTime',
-              lower: [startTime],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'startTime',
+                lower: [],
+                upper: [startTime],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'startTime',
+                lower: [startTime],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'startTime',
-              lower: [startTime],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'startTime',
-              lower: [],
-              upper: [startTime],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'startTime',
+                lower: [startTime],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'startTime',
+                lower: [],
+                upper: [startTime],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterWhereClause>
-      startTimeGreaterThan(
-    DateTime startTime, {
-    bool include = false,
-  }) {
+  startTimeGreaterThan(DateTime startTime, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'startTime',
-        lower: [startTime],
-        includeLower: include,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'startTime',
+          lower: [startTime],
+          includeLower: include,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterWhereClause>
-      startTimeLessThan(
-    DateTime startTime, {
-    bool include = false,
-  }) {
+  startTimeLessThan(DateTime startTime, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'startTime',
-        lower: [],
-        upper: [startTime],
-        includeUpper: include,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'startTime',
+          lower: [],
+          upper: [startTime],
+          includeUpper: include,
+        ),
+      );
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterWhereClause>
-      startTimeBetween(
+  startTimeBetween(
     DateTime lowerStartTime,
     DateTime upperStartTime, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'startTime',
-        lower: [lowerStartTime],
-        includeLower: includeLower,
-        upper: [upperStartTime],
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'startTime',
+          lower: [lowerStartTime],
+          includeLower: includeLower,
+          upper: [upperStartTime],
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 }
 
-extension PlaytimeSessionEntryQueryFilter on QueryBuilder<PlaytimeSessionEntry,
-    PlaytimeSessionEntry, QFilterCondition> {
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> durationSecondsEqualTo(int value) {
+extension PlaytimeSessionEntryQueryFilter
+    on
+        QueryBuilder<
+          PlaytimeSessionEntry,
+          PlaytimeSessionEntry,
+          QFilterCondition
+        > {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  durationSecondsEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'durationSeconds',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'durationSeconds', value: value),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> durationSecondsGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  durationSecondsGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'durationSeconds',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'durationSeconds',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> durationSecondsLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  durationSecondsLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'durationSeconds',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'durationSeconds',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> durationSecondsBetween(
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  durationSecondsBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'durationSeconds',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'durationSeconds',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> endTimeIsNull() {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  endTimeIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'endTime',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'endTime'),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> endTimeIsNotNull() {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  endTimeIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'endTime',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'endTime'),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> endTimeEqualTo(DateTime? value) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  endTimeEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'endTime',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'endTime', value: value),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> endTimeGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  endTimeGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'endTime',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'endTime',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> endTimeLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  endTimeLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'endTime',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'endTime',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> endTimeBetween(
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  endTimeBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'endTime',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'endTime',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> gameIdEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  gameIdEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'gameId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'gameId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> gameIdGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'gameId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> gameIdLessThan(
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  gameIdGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'gameId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'gameId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> gameIdBetween(
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  gameIdLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'gameId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  gameIdBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -621,137 +698,180 @@ extension PlaytimeSessionEntryQueryFilter on QueryBuilder<PlaytimeSessionEntry,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'gameId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'gameId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> gameIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  gameIdStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'gameId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'gameId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> gameIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  gameIdEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'gameId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'gameId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-          QAfterFilterCondition>
-      gameIdContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  gameIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'gameId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'gameId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-          QAfterFilterCondition>
-      gameIdMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  gameIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'gameId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'gameId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> gameIdIsEmpty() {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  gameIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'gameId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'gameId', value: ''),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> gameIdIsNotEmpty() {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  gameIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'gameId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'gameId', value: ''),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> gameNameEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  gameNameEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'gameName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'gameName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> gameNameGreaterThan(
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  gameNameGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'gameName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'gameName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> gameNameLessThan(
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  gameNameLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'gameName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'gameName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> gameNameBetween(
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  gameNameBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -759,211 +879,277 @@ extension PlaytimeSessionEntryQueryFilter on QueryBuilder<PlaytimeSessionEntry,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'gameName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'gameName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> gameNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  gameNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'gameName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'gameName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> gameNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  gameNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'gameName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'gameName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-          QAfterFilterCondition>
-      gameNameContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  gameNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'gameName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'gameName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-          QAfterFilterCondition>
-      gameNameMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  gameNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'gameName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'gameName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> gameNameIsEmpty() {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  gameNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'gameName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'gameName', value: ''),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> gameNameIsNotEmpty() {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  gameNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'gameName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'gameName', value: ''),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> idEqualTo(Id value) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  idEqualTo(Id value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'id', value: value),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> idGreaterThan(
-    Id value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  idGreaterThan(Id value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> idLessThan(
-    Id value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  idLessThan(Id value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> idBetween(
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  idBetween(
     Id lower,
     Id upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'id',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'id',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> installationGuidIsNull() {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  installationGuidIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'installationGuid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'installationGuid'),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> installationGuidIsNotNull() {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  installationGuidIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'installationGuid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'installationGuid'),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> installationGuidEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  installationGuidEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'installationGuid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'installationGuid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> installationGuidGreaterThan(
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  installationGuidGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'installationGuid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'installationGuid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> installationGuidLessThan(
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  installationGuidLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'installationGuid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'installationGuid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> installationGuidBetween(
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  installationGuidBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -971,155 +1157,206 @@ extension PlaytimeSessionEntryQueryFilter on QueryBuilder<PlaytimeSessionEntry,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'installationGuid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'installationGuid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> installationGuidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  installationGuidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'installationGuid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'installationGuid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> installationGuidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  installationGuidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'installationGuid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'installationGuid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-          QAfterFilterCondition>
-      installationGuidContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  installationGuidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'installationGuid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'installationGuid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-          QAfterFilterCondition>
-      installationGuidMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  installationGuidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'installationGuid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'installationGuid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> installationGuidIsEmpty() {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  installationGuidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'installationGuid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'installationGuid', value: ''),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> installationGuidIsNotEmpty() {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  installationGuidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'installationGuid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'installationGuid', value: ''),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> processNameIsNull() {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  processNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'processName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'processName'),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> processNameIsNotNull() {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  processNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'processName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'processName'),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> processNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  processNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'processName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'processName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> processNameGreaterThan(
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  processNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'processName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'processName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> processNameLessThan(
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  processNameLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'processName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'processName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> processNameBetween(
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  processNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -1127,211 +1364,277 @@ extension PlaytimeSessionEntryQueryFilter on QueryBuilder<PlaytimeSessionEntry,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'processName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'processName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> processNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  processNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'processName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'processName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> processNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  processNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'processName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'processName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-          QAfterFilterCondition>
-      processNameContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  processNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'processName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'processName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-          QAfterFilterCondition>
-      processNameMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  processNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'processName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'processName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> processNameIsEmpty() {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  processNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'processName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'processName', value: ''),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> processNameIsNotEmpty() {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  processNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'processName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'processName', value: ''),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> startTimeEqualTo(DateTime value) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  startTimeEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'startTime',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'startTime', value: value),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> startTimeGreaterThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  startTimeGreaterThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'startTime',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'startTime',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> startTimeLessThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  startTimeLessThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'startTime',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'startTime',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> startTimeBetween(
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  startTimeBetween(
     DateTime lower,
     DateTime upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'startTime',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'startTime',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> thumbnailUrlIsNull() {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  thumbnailUrlIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'thumbnailUrl',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'thumbnailUrl'),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> thumbnailUrlIsNotNull() {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  thumbnailUrlIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'thumbnailUrl',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'thumbnailUrl'),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> thumbnailUrlEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  thumbnailUrlEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'thumbnailUrl',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'thumbnailUrl',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> thumbnailUrlGreaterThan(
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  thumbnailUrlGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'thumbnailUrl',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'thumbnailUrl',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> thumbnailUrlLessThan(
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  thumbnailUrlLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'thumbnailUrl',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'thumbnailUrl',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> thumbnailUrlBetween(
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  thumbnailUrlBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -1339,205 +1642,239 @@ extension PlaytimeSessionEntryQueryFilter on QueryBuilder<PlaytimeSessionEntry,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'thumbnailUrl',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'thumbnailUrl',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> thumbnailUrlStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  thumbnailUrlStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'thumbnailUrl',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'thumbnailUrl',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> thumbnailUrlEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  thumbnailUrlEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'thumbnailUrl',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'thumbnailUrl',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-          QAfterFilterCondition>
-      thumbnailUrlContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  thumbnailUrlContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'thumbnailUrl',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'thumbnailUrl',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-          QAfterFilterCondition>
-      thumbnailUrlMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  thumbnailUrlMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'thumbnailUrl',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'thumbnailUrl',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> thumbnailUrlIsEmpty() {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  thumbnailUrlIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'thumbnailUrl',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'thumbnailUrl', value: ''),
+      );
     });
   }
 
-  QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry,
-      QAfterFilterCondition> thumbnailUrlIsNotEmpty() {
+  QueryBuilder<
+    PlaytimeSessionEntry,
+    PlaytimeSessionEntry,
+    QAfterFilterCondition
+  >
+  thumbnailUrlIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'thumbnailUrl',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'thumbnailUrl', value: ''),
+      );
     });
   }
 }
 
-extension PlaytimeSessionEntryQueryObject on QueryBuilder<PlaytimeSessionEntry,
-    PlaytimeSessionEntry, QFilterCondition> {}
+extension PlaytimeSessionEntryQueryObject
+    on
+        QueryBuilder<
+          PlaytimeSessionEntry,
+          PlaytimeSessionEntry,
+          QFilterCondition
+        > {}
 
-extension PlaytimeSessionEntryQueryLinks on QueryBuilder<PlaytimeSessionEntry,
-    PlaytimeSessionEntry, QFilterCondition> {}
+extension PlaytimeSessionEntryQueryLinks
+    on
+        QueryBuilder<
+          PlaytimeSessionEntry,
+          PlaytimeSessionEntry,
+          QFilterCondition
+        > {}
 
 extension PlaytimeSessionEntryQuerySortBy
     on QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QSortBy> {
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      sortByDurationSeconds() {
+  sortByDurationSeconds() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'durationSeconds', Sort.asc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      sortByDurationSecondsDesc() {
+  sortByDurationSecondsDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'durationSeconds', Sort.desc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      sortByEndTime() {
+  sortByEndTime() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'endTime', Sort.asc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      sortByEndTimeDesc() {
+  sortByEndTimeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'endTime', Sort.desc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      sortByGameId() {
+  sortByGameId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'gameId', Sort.asc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      sortByGameIdDesc() {
+  sortByGameIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'gameId', Sort.desc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      sortByGameName() {
+  sortByGameName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'gameName', Sort.asc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      sortByGameNameDesc() {
+  sortByGameNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'gameName', Sort.desc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      sortByInstallationGuid() {
+  sortByInstallationGuid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'installationGuid', Sort.asc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      sortByInstallationGuidDesc() {
+  sortByInstallationGuidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'installationGuid', Sort.desc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      sortByProcessName() {
+  sortByProcessName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'processName', Sort.asc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      sortByProcessNameDesc() {
+  sortByProcessNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'processName', Sort.desc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      sortByStartTime() {
+  sortByStartTime() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'startTime', Sort.asc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      sortByStartTimeDesc() {
+  sortByStartTimeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'startTime', Sort.desc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      sortByThumbnailUrl() {
+  sortByThumbnailUrl() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'thumbnailUrl', Sort.asc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      sortByThumbnailUrlDesc() {
+  sortByThumbnailUrlDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'thumbnailUrl', Sort.desc);
     });
@@ -1547,126 +1884,126 @@ extension PlaytimeSessionEntryQuerySortBy
 extension PlaytimeSessionEntryQuerySortThenBy
     on QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QSortThenBy> {
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      thenByDurationSeconds() {
+  thenByDurationSeconds() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'durationSeconds', Sort.asc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      thenByDurationSecondsDesc() {
+  thenByDurationSecondsDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'durationSeconds', Sort.desc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      thenByEndTime() {
+  thenByEndTime() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'endTime', Sort.asc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      thenByEndTimeDesc() {
+  thenByEndTimeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'endTime', Sort.desc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      thenByGameId() {
+  thenByGameId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'gameId', Sort.asc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      thenByGameIdDesc() {
+  thenByGameIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'gameId', Sort.desc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      thenByGameName() {
+  thenByGameName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'gameName', Sort.asc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      thenByGameNameDesc() {
+  thenByGameNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'gameName', Sort.desc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      thenById() {
+  thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      thenByIdDesc() {
+  thenByIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.desc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      thenByInstallationGuid() {
+  thenByInstallationGuid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'installationGuid', Sort.asc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      thenByInstallationGuidDesc() {
+  thenByInstallationGuidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'installationGuid', Sort.desc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      thenByProcessName() {
+  thenByProcessName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'processName', Sort.asc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      thenByProcessNameDesc() {
+  thenByProcessNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'processName', Sort.desc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      thenByStartTime() {
+  thenByStartTime() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'startTime', Sort.asc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      thenByStartTimeDesc() {
+  thenByStartTimeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'startTime', Sort.desc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      thenByThumbnailUrl() {
+  thenByThumbnailUrl() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'thumbnailUrl', Sort.asc);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QAfterSortBy>
-      thenByThumbnailUrlDesc() {
+  thenByThumbnailUrlDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'thumbnailUrl', Sort.desc);
     });
@@ -1676,65 +2013,72 @@ extension PlaytimeSessionEntryQuerySortThenBy
 extension PlaytimeSessionEntryQueryWhereDistinct
     on QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QDistinct> {
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QDistinct>
-      distinctByDurationSeconds() {
+  distinctByDurationSeconds() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'durationSeconds');
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QDistinct>
-      distinctByEndTime() {
+  distinctByEndTime() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'endTime');
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QDistinct>
-      distinctByGameId({bool caseSensitive = true}) {
+  distinctByGameId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'gameId', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QDistinct>
-      distinctByGameName({bool caseSensitive = true}) {
+  distinctByGameName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'gameName', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QDistinct>
-      distinctByInstallationGuid({bool caseSensitive = true}) {
+  distinctByInstallationGuid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'installationGuid',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'installationGuid',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QDistinct>
-      distinctByProcessName({bool caseSensitive = true}) {
+  distinctByProcessName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'processName', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QDistinct>
-      distinctByStartTime() {
+  distinctByStartTime() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'startTime');
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, PlaytimeSessionEntry, QDistinct>
-      distinctByThumbnailUrl({bool caseSensitive = true}) {
+  distinctByThumbnailUrl({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'thumbnailUrl', caseSensitive: caseSensitive);
     });
   }
 }
 
-extension PlaytimeSessionEntryQueryProperty on QueryBuilder<
-    PlaytimeSessionEntry, PlaytimeSessionEntry, QQueryProperty> {
+extension PlaytimeSessionEntryQueryProperty
+    on
+        QueryBuilder<
+          PlaytimeSessionEntry,
+          PlaytimeSessionEntry,
+          QQueryProperty
+        > {
   QueryBuilder<PlaytimeSessionEntry, int, QQueryOperations> idProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'id');
@@ -1742,56 +2086,56 @@ extension PlaytimeSessionEntryQueryProperty on QueryBuilder<
   }
 
   QueryBuilder<PlaytimeSessionEntry, int, QQueryOperations>
-      durationSecondsProperty() {
+  durationSecondsProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'durationSeconds');
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, DateTime?, QQueryOperations>
-      endTimeProperty() {
+  endTimeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'endTime');
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, String, QQueryOperations>
-      gameIdProperty() {
+  gameIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'gameId');
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, String, QQueryOperations>
-      gameNameProperty() {
+  gameNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'gameName');
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, String?, QQueryOperations>
-      installationGuidProperty() {
+  installationGuidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'installationGuid');
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, String?, QQueryOperations>
-      processNameProperty() {
+  processNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'processName');
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, DateTime, QQueryOperations>
-      startTimeProperty() {
+  startTimeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'startTime');
     });
   }
 
   QueryBuilder<PlaytimeSessionEntry, String?, QQueryOperations>
-      thumbnailUrlProperty() {
+  thumbnailUrlProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'thumbnailUrl');
     });
