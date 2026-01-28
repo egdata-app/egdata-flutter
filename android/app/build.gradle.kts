@@ -73,6 +73,8 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.9.0")
     implementation("com.github.bumptech.glide:glide:4.16.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    // Required for WindowCompat.setDecorFitsSystemWindows() - Android 15+ edge-to-edge compatibility
+    implementation("androidx.core:core-ktx:1.15.0")
 
     // Glance for home screen widgets
     val glanceVersion = "1.2.0-alpha01"

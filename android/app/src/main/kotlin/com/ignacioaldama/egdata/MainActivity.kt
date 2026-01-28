@@ -4,6 +4,9 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.View
+import android.view.WindowInsetsController
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.work.Constraints
@@ -27,6 +30,9 @@ class MainActivity : FlutterActivity() {
     private lateinit var notificationHelper: NotificationTestHelper
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Enable edge-to-edge display for Android 15+ compatibility
+        // This replaces the deprecated setStatusBarColor/setNavigationBarColor APIs
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         super.onCreate(savedInstanceState)
         wearableService = WearableService(this)
         notificationHelper = NotificationTestHelper(this)
