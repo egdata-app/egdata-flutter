@@ -10,6 +10,7 @@ void main() {
       required String guid,
       required String catalogItemId,
       required String installLocation,
+      String catalogNamespace = 'ns',
       String mainGameCatalogItemId = '',
       String? manifestLocation,
     }) {
@@ -19,7 +20,7 @@ void main() {
         installLocation: installLocation,
         installSize: 1024,
         version: '1.0',
-        catalogNamespace: 'ns',
+        catalogNamespace: catalogNamespace,
         catalogItemId: catalogItemId,
         installationGuid: guid,
         mainGameCatalogItemId: mainGameCatalogItemId,
@@ -27,19 +28,81 @@ void main() {
       );
     }
 
-    test('detects duplicate install folders and orphan add-ons', () {
+    test('does not flag duplicate install for same namespace', () {
       final scanner = ManifestScanner();
       final games = [
         createGame(
           name: 'Base Game',
           guid: 'base',
           catalogItemId: 'base-id',
+          catalogNamespace: 'shared-ns',
           installLocation: r'C:\Games\Shared',
         ),
         createGame(
           name: 'DLC Game',
           guid: 'dlc',
           catalogItemId: 'dlc-id',
+          catalogNamespace: 'shared-ns',
+          installLocation: r'C:\Games\Shared',
+        ),
+      ];
+
+      final report = scanner.analyzeManifestHealth(games);
+
+      expect(
+        report.issues.any(
+          (issue) =>
+              issue.type == ManifestHealthIssueType.duplicateInstallLocation,
+        ),
+        isFalse,
+      );
+    });
+
+    test('detects duplicate install folders across namespaces', () {
+      final scanner = ManifestScanner();
+      final games = [
+        createGame(
+          name: 'Base Game',
+          guid: 'base',
+          catalogItemId: 'base-id',
+          catalogNamespace: 'ns-one',
+          installLocation: r'C:\Games\Shared',
+        ),
+        createGame(
+          name: 'DLC Game',
+          guid: 'dlc',
+          catalogItemId: 'dlc-id',
+          catalogNamespace: 'ns-two',
+          installLocation: r'C:\Games\Shared',
+        ),
+      ];
+
+      final report = scanner.analyzeManifestHealth(games);
+
+      expect(
+        report.issues.any(
+          (issue) =>
+              issue.type == ManifestHealthIssueType.duplicateInstallLocation,
+        ),
+        isTrue,
+      );
+    });
+
+    test('detects orphan add-ons and stale manifest paths', () {
+      final scanner = ManifestScanner();
+      final games = [
+        createGame(
+          name: 'Base Game',
+          guid: 'base',
+          catalogItemId: 'base-id',
+          catalogNamespace: 'ns-one',
+          installLocation: r'C:\Games\Shared',
+        ),
+        createGame(
+          name: 'DLC Game',
+          guid: 'dlc',
+          catalogItemId: 'dlc-id',
+          catalogNamespace: 'ns-two',
           mainGameCatalogItemId: 'missing-main-id',
           installLocation: r'C:\Games\Shared',
           manifestLocation: r'C:\DoesNotExist\file.manifest',
@@ -49,13 +112,6 @@ void main() {
       final report = scanner.analyzeManifestHealth(games);
 
       expect(report.issues.isNotEmpty, isTrue);
-      expect(
-        report.issues.any(
-          (issue) =>
-              issue.type == ManifestHealthIssueType.duplicateInstallLocation,
-        ),
-        isTrue,
-      );
       expect(
         report.issues.any(
           (issue) => issue.type == ManifestHealthIssueType.orphanAddon,

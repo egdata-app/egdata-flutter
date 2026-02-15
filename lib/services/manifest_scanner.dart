@@ -341,6 +341,23 @@ class ManifestScanner {
         continue;
       }
 
+      final namespaces = entry.value
+          .map((game) {
+            final mainNamespace = game.mainGameCatalogNamespace.trim();
+            if (mainNamespace.isNotEmpty) {
+              return mainNamespace.toLowerCase();
+            }
+            return game.catalogNamespace.trim().toLowerCase();
+          })
+          .where((namespace) => namespace.isNotEmpty)
+          .toSet();
+
+      // Multiple manifests in one install folder are expected for base game + DLC
+      // bundles under the same namespace, so don't flag those as issues.
+      if (namespaces.length <= 1 && namespaces.isNotEmpty) {
+        continue;
+      }
+
       final hasAddonStyleEntry = entry.value.any(
         (game) =>
             game.mainGameCatalogItemId.trim().isNotEmpty ||
@@ -425,24 +442,88 @@ class ManifestScanner {
         continue;
       }
 
-      final manifestCandidates = <File>[];
-      await for (final entity in egstoreDir.list()) {
-        if (entity is File && entity.path.endsWith('.manifest')) {
-          manifestCandidates.add(entity);
-        }
+      final manifestCandidates = await _findManifestCandidates(egstoreDir);
+      if (manifestCandidates.isEmpty) {
+        continue;
       }
 
-      if (manifestCandidates.length != 1) {
+      final bestCandidate = _selectBestManifestCandidate(
+        game,
+        manifestCandidates,
+      );
+      if (bestCandidate == null) {
         continue;
       }
 
       final content = await itemFile.readAsString();
       final json = jsonDecode(content) as Map<String, dynamic>;
-      json['ManifestLocation'] = manifestCandidates.first.path;
+      json['ManifestLocation'] = bestCandidate.path;
       await itemFile.writeAsString(jsonEncode(json));
       repaired++;
     }
 
     return repaired;
+  }
+
+  Future<List<File>> _findManifestCandidates(Directory egstoreDir) async {
+    final manifestCandidates = <File>[];
+    await for (final entity in egstoreDir.list(recursive: true)) {
+      if (entity is File && entity.path.toLowerCase().endsWith('.manifest')) {
+        manifestCandidates.add(entity);
+      }
+    }
+    return manifestCandidates;
+  }
+
+  File? _selectBestManifestCandidate(GameInfo game, List<File> candidates) {
+    if (candidates.isEmpty) {
+      return null;
+    }
+    if (candidates.length == 1) {
+      return candidates.first;
+    }
+
+    final previousName = game.manifestLocation == null
+        ? ''
+        : p.basename(game.manifestLocation!).toLowerCase();
+    if (previousName.isNotEmpty) {
+      for (final candidate in candidates) {
+        if (p.basename(candidate.path).toLowerCase() == previousName) {
+          return candidate;
+        }
+      }
+    }
+
+    final installationGuid = game.installationGuid.toLowerCase();
+    if (installationGuid.isNotEmpty) {
+      for (final candidate in candidates) {
+        if (p
+            .basenameWithoutExtension(candidate.path)
+            .toLowerCase()
+            .contains(installationGuid)) {
+          return candidate;
+        }
+      }
+    }
+
+    final appName = game.appName.toLowerCase();
+    if (appName.isNotEmpty) {
+      for (final candidate in candidates) {
+        if (p
+            .basenameWithoutExtension(candidate.path)
+            .toLowerCase()
+            .contains(appName)) {
+          return candidate;
+        }
+      }
+    }
+
+    candidates.sort((a, b) {
+      final aTime = a.statSync().modified;
+      final bTime = b.statSync().modified;
+      return bTime.compareTo(aTime);
+    });
+
+    return candidates.first;
   }
 }

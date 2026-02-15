@@ -5,6 +5,7 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import '../models/tray_popup_stats.dart';
 import 'tray_popup_window_service.dart';
+import 'windows_cursor_service.dart';
 
 class TrayService with TrayListener {
   static final TrayService _instance = TrayService._internal();
@@ -12,6 +13,7 @@ class TrayService with TrayListener {
   TrayService._internal();
 
   bool _isInitialized = false;
+  bool get isInitialized => _isInitialized;
   Function()? onShowWindow;
   Function()? onQuit;
   final TrayPopupWindowService _popupService = TrayPopupWindowService();
@@ -93,6 +95,14 @@ class TrayService with TrayListener {
           y: Platform.isWindows ? bounds.top : bounds.bottom,
         );
       } else {
+        if (Platform.isWindows) {
+          final cursorPos = WindowsCursorService.getCursorScreenPosition();
+          if (cursorPos != null) {
+            await _popupService.showPopup(x: cursorPos.x, y: cursorPos.y);
+            return;
+          }
+        }
+
         _showWindow();
       }
     } catch (e) {

@@ -5,6 +5,23 @@ import 'package:ffi/ffi.dart';
 import 'package:win32/win32.dart';
 
 class WindowsCursorService {
+  static ({double x, double y})? getCursorScreenPosition() {
+    if (!Platform.isWindows) {
+      return null;
+    }
+
+    final point = calloc<POINT>();
+    try {
+      final ok = GetCursorPos(point);
+      if (ok == 0) {
+        return null;
+      }
+      return (x: point.ref.x.toDouble(), y: point.ref.y.toDouble());
+    } finally {
+      calloc.free(point);
+    }
+  }
+
   static bool isMouseButtonDown() {
     if (!Platform.isWindows) {
       return false;

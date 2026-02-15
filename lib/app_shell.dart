@@ -156,6 +156,11 @@ class _AppShellState extends State<AppShell> {
 
     await _loadSettings();
 
+    // Desktop: initialize tray early so it's available even if startup work is long.
+    if (PlatformUtils.isDesktop) {
+      await _initTray();
+    }
+
     // Desktop: scan local games
     if (PlatformUtils.isDesktop) {
       await _scanGames();
@@ -172,11 +177,6 @@ class _AppShellState extends State<AppShell> {
     }
 
     _setupAutoSync();
-
-    // Desktop: initialize tray
-    if (PlatformUtils.isDesktop) {
-      await _initTray();
-    }
 
     await _initNotifications();
 
@@ -268,6 +268,17 @@ class _AppShellState extends State<AppShell> {
     if (!PlatformUtils.isDesktop || _trayService == null) return;
 
     await _trayService!.init();
+    if (!_trayService!.isInitialized) {
+      _addLog('Tray initialization failed, retrying...');
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      await _trayService!.init();
+    }
+
+    if (!_trayService!.isInitialized) {
+      _addLog('Tray is unavailable on this startup');
+      return;
+    }
+
     _trayService!.onShowWindow = _showWindow;
     _trayService!.onQuit = _quitApp;
 
@@ -358,6 +369,12 @@ class _AppShellState extends State<AppShell> {
     if (Platform.isWindows) {
       await windowManager.setSkipTaskbar(false);
     }
+
+    final isMinimized = await windowManager.isMinimized();
+    if (isMinimized) {
+      await windowManager.restore();
+    }
+
     await windowManager.show();
     await windowManager.focus();
   }
@@ -395,6 +412,11 @@ class _AppShellState extends State<AppShell> {
 
   Future<void> _handleClose() async {
     if (!PlatformUtils.isDesktop) return;
+
+    if (_trayService != null && !_trayService!.isInitialized) {
+      await _initTray();
+    }
+
     if (_settings.minimizeToTray) {
       // Minimize to tray instead of closing
       if (Platform.isWindows) {

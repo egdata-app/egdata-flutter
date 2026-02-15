@@ -53,6 +53,7 @@ class _TrayPopupWindowPageState extends State<TrayPopupWindowPage>
   late TrayPopupStats _stats;
   Timer? _outsideClickMonitor;
   bool _closeRequested = false;
+  bool _readyForOutsideClickClose = false;
   DateTime _openedAt = DateTime.now();
 
   @override
@@ -72,6 +73,7 @@ class _TrayPopupWindowPageState extends State<TrayPopupWindowPage>
         }
       } else if (call.method == 'tray_popup_on_show') {
         _closeRequested = false;
+        _readyForOutsideClickClose = false;
         _openedAt = DateTime.now();
         _startOutsideClickMonitor();
       }
@@ -80,6 +82,7 @@ class _TrayPopupWindowPageState extends State<TrayPopupWindowPage>
 
     WidgetsBinding.instance.addObserver(this);
     _notifyVisibility(true);
+    _readyForOutsideClickClose = false;
     _openedAt = DateTime.now();
     _startOutsideClickMonitor();
 
@@ -134,7 +137,16 @@ class _TrayPopupWindowPageState extends State<TrayPopupWindowPage>
         return;
       }
 
-      if (!WindowsCursorService.isMouseButtonDown()) {
+      final mouseDown = WindowsCursorService.isMouseButtonDown();
+
+      // Wait until the opening click is fully released before we start
+      // outside-click dismissal checks.
+      if (!mouseDown) {
+        _readyForOutsideClickClose = true;
+        return;
+      }
+
+      if (!_readyForOutsideClickClose) {
         return;
       }
 
