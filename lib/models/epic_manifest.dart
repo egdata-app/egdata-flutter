@@ -11,6 +11,10 @@ class EpicGameManifest {
   final String launchCommand;
   final String launchExecutable;
   final int installSize;
+  final String mainGameCatalogNamespace;
+  final String mainGameCatalogItemId;
+  final String mainGameAppName;
+  final List<String> appCategories;
 
   EpicGameManifest({
     required this.displayName,
@@ -25,6 +29,10 @@ class EpicGameManifest {
     required this.launchCommand,
     required this.launchExecutable,
     required this.installSize,
+    required this.mainGameCatalogNamespace,
+    required this.mainGameCatalogItemId,
+    required this.mainGameAppName,
+    required this.appCategories,
   });
 
   factory EpicGameManifest.fromJson(Map<String, dynamic> json) {
@@ -41,6 +49,12 @@ class EpicGameManifest {
       launchCommand: json['LaunchCommand'] ?? '',
       launchExecutable: json['LaunchExecutable'] ?? '',
       installSize: json['InstallSize'] ?? 0,
+      mainGameCatalogNamespace: json['MainGameCatalogNamespace'] ?? '',
+      mainGameCatalogItemId: json['MainGameCatalogItemId'] ?? '',
+      mainGameAppName: json['MainGameAppName'] ?? '',
+      appCategories: (json['AppCategories'] as List<dynamic>? ?? const [])
+          .map((category) => category.toString())
+          .toList(),
     );
   }
 
@@ -58,6 +72,10 @@ class EpicGameManifest {
       'LaunchCommand': launchCommand,
       'LaunchExecutable': launchExecutable,
       'InstallSize': installSize,
+      'MainGameCatalogNamespace': mainGameCatalogNamespace,
+      'MainGameCatalogItemId': mainGameCatalogItemId,
+      'MainGameAppName': mainGameAppName,
+      'AppCategories': appCategories,
     };
   }
 }

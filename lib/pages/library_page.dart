@@ -9,6 +9,7 @@ import 'move_game_page.dart';
 
 class LibraryPage extends StatefulWidget {
   final List<GameInfo> games;
+  final List<GameInfo> allGames;
   final Map<String, UploadStatus> uploadStatuses;
   final Set<String> uploadingGames;
   final bool isLoading;
@@ -25,6 +26,7 @@ class LibraryPage extends StatefulWidget {
   const LibraryPage({
     super.key,
     required this.games,
+    required this.allGames,
     required this.uploadStatuses,
     required this.uploadingGames,
     required this.isLoading,
@@ -70,13 +72,15 @@ class _LibraryPageState extends State<LibraryPage> {
       widget.addLog('Unfollowed ${game.displayName}');
     } else {
       final metadata = game.metadata;
-      await widget.followService.followGame(FollowedGame(
-        offerId: offerId,
-        title: game.displayName,
-        namespace: game.catalogNamespace,
-        thumbnailUrl: metadata?.dieselGameBoxTall ?? metadata?.firstImageUrl,
-        followedAt: DateTime.now(),
-      ));
+      await widget.followService.followGame(
+        FollowedGame(
+          offerId: offerId,
+          title: game.displayName,
+          namespace: game.catalogNamespace,
+          thumbnailUrl: metadata?.dieselGameBoxTall ?? metadata?.firstImageUrl,
+          followedAt: DateTime.now(),
+        ),
+      );
       widget.addLog('Following ${game.displayName}');
     }
     setState(() {});
@@ -85,15 +89,129 @@ class _LibraryPageState extends State<LibraryPage> {
   void _moveGame(GameInfo game) async {
     final result = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(
-        builder: (context) => MoveGamePage(game: game),
-      ),
+      MaterialPageRoute(builder: (context) => MoveGamePage(game: game)),
     );
 
     if (result == true) {
       widget.addLog('Game moved: ${game.displayName}');
       widget.onScanGames();
     }
+  }
+
+  String _groupKeyForGame(GameInfo game) {
+    final mainCatalogItemId = game.mainGameCatalogItemId.trim();
+    final mainCatalogNamespace = game.mainGameCatalogNamespace.trim();
+    final mainAppName = game.mainGameAppName.trim();
+
+    if (mainCatalogItemId.isNotEmpty) {
+      return 'main:${mainCatalogNamespace.toLowerCase()}:${mainCatalogItemId.toLowerCase()}:${mainAppName.toLowerCase()}';
+    }
+
+    final catalogItemId = game.catalogItemId.trim();
+    final catalogNamespace = game.catalogNamespace.trim();
+    if (catalogItemId.isNotEmpty) {
+      return 'catalog:${catalogNamespace.toLowerCase()}:${catalogItemId.toLowerCase()}';
+    }
+
+    final installLocation = game.installLocation.trim();
+    if (installLocation.isNotEmpty) {
+      return 'path:${installLocation.toLowerCase().replaceAll('/', '\\')}';
+    }
+
+    return 'guid:${game.installationGuid.toLowerCase()}';
+  }
+
+  bool _isPrimaryGameForGroup(GameInfo game) {
+    final mainCatalogItemId = game.mainGameCatalogItemId.trim();
+    final mainAppName = game.mainGameAppName.trim();
+    final catalogMatches =
+        mainCatalogItemId.isNotEmpty &&
+        game.catalogItemId.trim() == mainCatalogItemId;
+    final appMatches =
+        mainAppName.isNotEmpty && game.appName.trim() == mainAppName;
+    return catalogMatches || appMatches;
+  }
+
+  List<GameInfo> _getRelatedAddons(GameInfo game) {
+    final groupKey = _groupKeyForGame(game);
+    final related = widget.allGames.where((candidate) {
+      if (candidate.installationGuid == game.installationGuid) {
+        return false;
+      }
+      if (_groupKeyForGame(candidate) != groupKey) {
+        return false;
+      }
+      if (_isPrimaryGameForGroup(candidate)) {
+        return false;
+      }
+      return true;
+    }).toList();
+
+    related.sort(
+      (a, b) =>
+          a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()),
+    );
+    return related;
+  }
+
+  void _showRelatedAddons(GameInfo game, List<GameInfo> addons) {
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: Text(
+            '${game.displayName} Add-ons',
+            style: const TextStyle(color: AppColors.textPrimary),
+          ),
+          content: SizedBox(
+            width: 520,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 360),
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: addons.length,
+                separatorBuilder: (_, index) =>
+                    const Divider(color: AppColors.border),
+                itemBuilder: (_, index) {
+                  final addon = addons[index];
+                  return ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      addon.displayName,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: Text(
+                      '${addon.formattedSize} • ${addon.version}',
+                      style: const TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 12,
+                      ),
+                    ),
+                    trailing: const Icon(
+                      Icons.extension_rounded,
+                      color: AppColors.primary,
+                      size: 18,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -133,10 +251,7 @@ class _LibraryPageState extends State<LibraryPage> {
               const SizedBox(height: 4),
               Text(
                 'Manage your installed games',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textSecondary,
-                ),
+                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
               ),
             ],
           ),
@@ -281,7 +396,9 @@ class _LibraryPageState extends State<LibraryPage> {
                   : AppColors.surface,
               borderRadius: BorderRadius.circular(AppColors.radiusSmall),
               border: Border.all(
-                color: isActive ? AppColors.primary.withValues(alpha: 0.3) : AppColors.border,
+                color: isActive
+                    ? AppColors.primary.withValues(alpha: 0.3)
+                    : AppColors.border,
               ),
             ),
             child: Icon(
@@ -370,10 +487,7 @@ class _LibraryPageState extends State<LibraryPage> {
             const SizedBox(height: 8),
             const Text(
               'Looking for installed games...',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.textSecondary,
-              ),
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
           ],
         ),
@@ -459,17 +573,22 @@ class _LibraryPageState extends State<LibraryPage> {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
       itemCount: games.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, index) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final game = games[index];
+        final relatedAddons = _getRelatedAddons(game);
         return GameTile(
           game: game,
+          addonCount: relatedAddons.length,
           uploadStatus: widget.uploadStatuses[game.installationGuid],
           isUploading: widget.uploadingGames.contains(game.installationGuid),
           onUpload: () => widget.onUploadManifest(game),
           onMove: () => _moveGame(game),
           isFollowing: widget.followService.isFollowing(game.catalogItemId),
           onFollowToggle: () => _toggleFollow(game),
+          onTap: relatedAddons.isEmpty
+              ? null
+              : () => _showRelatedAddons(game, relatedAddons),
         );
       },
     );

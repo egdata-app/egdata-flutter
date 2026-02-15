@@ -14,6 +14,8 @@ class GameTile extends StatefulWidget {
   final bool isUploading;
   final bool isFollowing;
   final VoidCallback? onFollowToggle;
+  final int addonCount;
+  final VoidCallback? onTap;
 
   const GameTile({
     super.key,
@@ -24,6 +26,8 @@ class GameTile extends StatefulWidget {
     this.isUploading = false,
     this.isFollowing = false,
     this.onFollowToggle,
+    this.addonCount = 0,
+    this.onTap,
   });
 
   @override
@@ -36,106 +40,140 @@ class _GameTileState extends State<GameTile> {
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
+      cursor: widget.onTap != null
+          ? SystemMouseCursors.click
+          : MouseCursor.defer,
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        decoration: BoxDecoration(
-          color: _isHovered ? AppColors.surfaceLight : AppColors.surface,
-          border: Border.all(
-            color: _isHovered ? AppColors.borderLight : AppColors.border,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          decoration: BoxDecoration(
+            color: _isHovered ? AppColors.surfaceLight : AppColors.surface,
+            border: Border.all(
+              color: _isHovered ? AppColors.borderLight : AppColors.border,
+            ),
+            borderRadius: BorderRadius.circular(4),
           ),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              // Game image
-              _buildGameImage(),
-              const SizedBox(width: 16),
-              // Game info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Title row
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            widget.game.displayName,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                // Game image
+                _buildGameImage(),
+                const SizedBox(width: 16),
+                // Game info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Title row
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              widget.game.displayName,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        if (widget.uploadStatus != null) ...[
-                          const SizedBox(width: 12),
-                          _buildStatusBadge(),
+                          if (widget.uploadStatus != null) ...[
+                            const SizedBox(width: 12),
+                            _buildStatusBadge(),
+                          ],
+                          if (widget.addonCount > 0) ...[
+                            const SizedBox(width: 8),
+                            _buildAddonBadge(),
+                          ],
                         ],
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    // Details row
-                    Row(
-                      children: [
-                        Flexible(
-                          child: _buildDetailChip(
-                            icon: Icons.tag_rounded,
-                            label: widget.game.appName,
-                            isMono: true,
+                      ),
+                      const SizedBox(height: 6),
+                      // Details row
+                      Row(
+                        children: [
+                          Flexible(
+                            child: _buildDetailChip(
+                              icon: Icons.tag_rounded,
+                              label: widget.game.appName,
+                              isMono: true,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        _buildDetailChip(
-                          icon: Icons.storage_rounded,
-                          label: widget.game.formattedSize,
-                        ),
-                        const SizedBox(width: 12),
-                        _buildDetailChip(
-                          icon: Icons.update_rounded,
-                          label: widget.game.version,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    // Path row
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildPathChip(),
-                        ),
-                      ],
-                    ),
+                          const SizedBox(width: 12),
+                          _buildDetailChip(
+                            icon: Icons.storage_rounded,
+                            label: widget.game.formattedSize,
+                          ),
+                          const SizedBox(width: 12),
+                          _buildDetailChip(
+                            icon: Icons.update_rounded,
+                            label: widget.game.version,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      // Path row
+                      Row(children: [Expanded(child: _buildPathChip())]),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Action buttons
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (widget.onFollowToggle != null) ...[
+                      FollowButton(
+                        isFollowing: widget.isFollowing,
+                        onToggle: widget.onFollowToggle!,
+                        compact: true,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    _buildMoveButton(),
+                    const SizedBox(width: 8),
+                    _buildUploadButton(),
                   ],
                 ),
-              ),
-              const SizedBox(width: 16),
-              // Action buttons
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (widget.onFollowToggle != null) ...[
-                    FollowButton(
-                      isFollowing: widget.isFollowing,
-                      onToggle: widget.onFollowToggle!,
-                      compact: true,
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  _buildMoveButton(),
-                  const SizedBox(width: 8),
-                  _buildUploadButton(),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildAddonBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.extension_rounded,
+            size: 12,
+            color: AppColors.primary,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '${widget.addonCount} add-ons',
+            style: const TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.2,
+              color: AppColors.primary,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -158,11 +196,7 @@ class _GameTileState extends State<GameTile> {
         child: imageUrl != null
             ? Image.network(
                 // 64x64 thumbnail for desktop library tiles
-                ImageUtils.getOptimizedUrl(
-                  imageUrl,
-                  width: 128,
-                  height: 128,
-                ),
+                ImageUtils.getOptimizedUrl(imageUrl, width: 128, height: 128),
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) => _buildPlaceholder(),
                 loadingBuilder: (context, child, loadingProgress) {
@@ -179,11 +213,7 @@ class _GameTileState extends State<GameTile> {
     return Container(
       color: AppColors.surfaceLight,
       child: const Center(
-        child: Icon(
-          Icons.games_rounded,
-          size: 28,
-          color: AppColors.textMuted,
-        ),
+        child: Icon(Icons.games_rounded, size: 28, color: AppColors.textMuted),
       ),
     );
   }
@@ -196,11 +226,7 @@ class _GameTileState extends State<GameTile> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
-          size: 12,
-          color: AppColors.textMuted,
-        ),
+        Icon(icon, size: 12, color: AppColors.textMuted),
         const SizedBox(width: 4),
         Flexible(
           child: Text(

@@ -13,6 +13,10 @@ class GameInfo {
   final String? manifestLocation;
   final String? itemFilePath;
   final String? launchExecutable;
+  final String mainGameCatalogNamespace;
+  final String mainGameCatalogItemId;
+  final String mainGameAppName;
+  final List<String> appCategories;
   final GameMetadata? metadata;
 
   GameInfo({
@@ -28,12 +32,20 @@ class GameInfo {
     this.manifestLocation,
     this.itemFilePath,
     this.launchExecutable,
+    this.mainGameCatalogNamespace = '',
+    this.mainGameCatalogItemId = '',
+    this.mainGameAppName = '',
+    this.appCategories = const [],
     this.metadata,
   });
 
   String get formattedSize {
-    if (installSize < 1024) return '$installSize B';
-    if (installSize < 1024 * 1024) return '${(installSize / 1024).toStringAsFixed(1)} KB';
+    if (installSize < 1024) {
+      return '$installSize B';
+    }
+    if (installSize < 1024 * 1024) {
+      return '${(installSize / 1024).toStringAsFixed(1)} KB';
+    }
     if (installSize < 1024 * 1024 * 1024) {
       return '${(installSize / (1024 * 1024)).toStringAsFixed(1)} MB';
     }
@@ -53,6 +65,10 @@ class GameInfo {
     String? manifestLocation,
     String? itemFilePath,
     String? launchExecutable,
+    String? mainGameCatalogNamespace,
+    String? mainGameCatalogItemId,
+    String? mainGameAppName,
+    List<String>? appCategories,
     GameMetadata? metadata,
   }) {
     return GameInfo(
@@ -68,6 +84,12 @@ class GameInfo {
       manifestLocation: manifestLocation ?? this.manifestLocation,
       itemFilePath: itemFilePath ?? this.itemFilePath,
       launchExecutable: launchExecutable ?? this.launchExecutable,
+      mainGameCatalogNamespace:
+          mainGameCatalogNamespace ?? this.mainGameCatalogNamespace,
+      mainGameCatalogItemId:
+          mainGameCatalogItemId ?? this.mainGameCatalogItemId,
+      mainGameAppName: mainGameAppName ?? this.mainGameAppName,
+      appCategories: appCategories ?? this.appCategories,
       metadata: metadata ?? this.metadata,
     );
   }

@@ -14,8 +14,15 @@ class ManifestScanner {
       return r'C:\ProgramData\Epic\EpicGamesLauncher\Data\Manifests';
     } else if (Platform.isMacOS) {
       final home = _getMacOSHomeDirectory();
-      return p.join(home, 'Library', 'Application Support', 'Epic',
-          'EpicGamesLauncher', 'Data', 'Manifests');
+      return p.join(
+        home,
+        'Library',
+        'Application Support',
+        'Epic',
+        'EpicGamesLauncher',
+        'Data',
+        'Manifests',
+      );
     }
     throw UnsupportedError('Platform not supported');
   }
@@ -28,7 +35,8 @@ class ManifestScanner {
     }
 
     // Fallback: use /Users/<username> pattern
-    final user = Platform.environment['USER'] ?? Platform.environment['LOGNAME'];
+    final user =
+        Platform.environment['USER'] ?? Platform.environment['LOGNAME'];
     if (user != null && user.isNotEmpty) {
       return '/Users/$user';
     }
@@ -37,7 +45,7 @@ class ManifestScanner {
     throw UnsupportedError('Could not determine home directory on macOS');
   }
 
-  Future<List<GameInfo>> scanGames() async {
+  Future<List<GameInfo>> scanGames({bool groupByMainGame = true}) async {
     final manifestsPath = getManifestsPath();
     final dir = Directory(manifestsPath);
 
@@ -60,7 +68,112 @@ class ManifestScanner {
       }
     }
 
-    return games;
+    if (!groupByMainGame) {
+      return games;
+    }
+
+    return groupGamesByMainGame(games);
+  }
+
+  static List<GameInfo> groupGamesByMainGame(List<GameInfo> games) {
+    if (games.isEmpty) return [];
+
+    final grouped = <String, GameInfo>{};
+    for (final game in games) {
+      final groupKey = _buildGroupKey(game);
+      final existing = grouped[groupKey];
+      if (existing == null || _isBetterRepresentative(game, existing)) {
+        grouped[groupKey] = game;
+      }
+    }
+
+    final result = grouped.values.toList();
+    result.sort(
+      (a, b) =>
+          a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()),
+    );
+    return result;
+  }
+
+  static String _buildGroupKey(GameInfo game) {
+    final mainCatalogItemId = game.mainGameCatalogItemId.trim();
+    final mainCatalogNamespace = game.mainGameCatalogNamespace.trim();
+    final mainAppName = game.mainGameAppName.trim();
+
+    if (mainCatalogItemId.isNotEmpty) {
+      return 'main:${mainCatalogNamespace.toLowerCase()}:${mainCatalogItemId.toLowerCase()}:${mainAppName.toLowerCase()}';
+    }
+
+    final catalogItemId = game.catalogItemId.trim();
+    final catalogNamespace = game.catalogNamespace.trim();
+    if (catalogItemId.isNotEmpty) {
+      return 'catalog:${catalogNamespace.toLowerCase()}:${catalogItemId.toLowerCase()}';
+    }
+
+    final installLocation = game.installLocation.trim();
+    if (installLocation.isNotEmpty) {
+      return 'path:${installLocation.toLowerCase().replaceAll('/', '\\')}';
+    }
+
+    return 'guid:${game.installationGuid.toLowerCase()}';
+  }
+
+  static bool _isBetterRepresentative(
+    GameInfo candidate,
+    GameInfo currentBest,
+  ) {
+    final candidateIsMainGame = _isMainGameEntry(candidate);
+    final bestIsMainGame = _isMainGameEntry(currentBest);
+    if (candidateIsMainGame != bestIsMainGame) {
+      return candidateIsMainGame;
+    }
+
+    final candidateHasExecutable =
+        candidate.launchExecutable != null &&
+        candidate.launchExecutable!.trim().isNotEmpty;
+    final bestHasExecutable =
+        currentBest.launchExecutable != null &&
+        currentBest.launchExecutable!.trim().isNotEmpty;
+    if (candidateHasExecutable != bestHasExecutable) {
+      return candidateHasExecutable;
+    }
+
+    final candidateIsAddon = _isAddonEntry(candidate);
+    final bestIsAddon = _isAddonEntry(currentBest);
+    if (candidateIsAddon != bestIsAddon) {
+      return !candidateIsAddon;
+    }
+
+    if (candidate.installSize != currentBest.installSize) {
+      return candidate.installSize > currentBest.installSize;
+    }
+
+    return candidate.displayName.toLowerCase().compareTo(
+          currentBest.displayName.toLowerCase(),
+        ) <
+        0;
+  }
+
+  static bool _isMainGameEntry(GameInfo game) {
+    final mainCatalogItemId = game.mainGameCatalogItemId.trim();
+    final mainAppName = game.mainGameAppName.trim();
+
+    final catalogMatches =
+        mainCatalogItemId.isNotEmpty &&
+        game.catalogItemId.trim() == mainCatalogItemId;
+    final appMatches =
+        mainAppName.isNotEmpty && game.appName.trim() == mainAppName;
+
+    return catalogMatches || appMatches;
+  }
+
+  static bool _isAddonEntry(GameInfo game) {
+    for (final category in game.appCategories) {
+      if (category.toLowerCase() == 'addons') {
+        return true;
+      }
+    }
+    return false;
   }
 
   Future<GameInfo?> _parseManifestFile(File itemFile) async {
@@ -79,7 +192,9 @@ class ManifestScanner {
         manifestHash = p.basenameWithoutExtension(manifestLocation);
       } else {
         // ManifestLocation doesn't exist, try to find .manifest in .egstore folder
-        final egstoreDir = Directory(p.join(manifest.installLocation, '.egstore'));
+        final egstoreDir = Directory(
+          p.join(manifest.installLocation, '.egstore'),
+        );
         if (await egstoreDir.exists()) {
           await for (final entity in egstoreDir.list()) {
             if (entity is File && entity.path.endsWith('.manifest')) {
@@ -113,12 +228,17 @@ class ManifestScanner {
       launchExecutable: manifest.launchExecutable.isNotEmpty
           ? manifest.launchExecutable
           : null,
+      mainGameCatalogNamespace: manifest.mainGameCatalogNamespace,
+      mainGameCatalogItemId: manifest.mainGameCatalogItemId,
+      mainGameAppName: manifest.mainGameAppName,
+      appCategories: manifest.appCategories,
       metadata: metadata,
     );
   }
 
   Future<(String itemContent, List<int> manifestBytes)?> getManifestData(
-      String installationGuid) async {
+    String installationGuid,
+  ) async {
     final manifestsPath = getManifestsPath();
     final dir = Directory(manifestsPath);
 
@@ -172,8 +292,8 @@ class ManifestScanner {
   }
 
   /// Get manifest data using pre-stored paths from GameInfo
-  Future<(String itemContent, List<int> manifestBytes)?> getManifestDataFromGame(
-      GameInfo game) async {
+  Future<(String itemContent, List<int> manifestBytes)?>
+  getManifestDataFromGame(GameInfo game) async {
     // Use stored item file path
     if (game.itemFilePath != null) {
       final itemFile = File(game.itemFilePath!);

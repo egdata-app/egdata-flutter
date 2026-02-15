@@ -21,7 +21,8 @@ class UploadService {
       if (manifestData == null) {
         return UploadStatus(
           status: UploadStatusType.failed,
-          message: 'Could not find manifest file for ${game.displayName}. '
+          message:
+              'Could not find manifest file for ${game.displayName}. '
               'Check if the game is still installed.',
         );
       }
@@ -37,12 +38,14 @@ class UploadService {
       request.fields['os'] = Platform.isWindows ? 'Windows' : 'Mac';
 
       // Add manifest file
-      request.files.add(http.MultipartFile.fromBytes(
-        'manifest',
-        manifestBytes,
-        filename: '${game.installationGuid}.manifest',
-        contentType: MediaType('application', 'octet-stream'),
-      ));
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'manifest',
+          manifestBytes,
+          filename: '${game.installationGuid}.manifest',
+          contentType: MediaType('application', 'octet-stream'),
+        ),
+      );
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
@@ -73,19 +76,31 @@ class UploadService {
 
   Future<Map<String, UploadStatus>> uploadAllManifests(
     List<GameInfo> games, {
-    void Function(String gameName, UploadStatus status)? onProgress,
+    void Function(GameInfo game, UploadStatus status)? onProgress,
   }) async {
     final results = <String, UploadStatus>{};
+    List<GameInfo> gamesToUpload = games;
 
-    for (final game in games) {
+    // Upload all manifests (including DLC/add-ons), even if the UI list is grouped.
+    try {
+      gamesToUpload = await _scanner.scanGames(groupByMainGame: false);
+    } catch (_) {
+      // Fall back to provided list if a full rescan fails.
+    }
+
+    for (final game in gamesToUpload) {
       final status = await uploadManifest(game);
       results[game.installationGuid] = status;
-      onProgress?.call(game.displayName, status);
+      onProgress?.call(game, status);
     }
 
     // Track upload analytics
     final successCount = results.values
-        .where((s) => s.status == UploadStatusType.uploaded || s.status == UploadStatusType.alreadyUploaded)
+        .where(
+          (s) =>
+              s.status == UploadStatusType.uploaded ||
+              s.status == UploadStatusType.alreadyUploaded,
+        )
         .length;
     final success = successCount == results.length;
 

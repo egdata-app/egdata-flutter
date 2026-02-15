@@ -82,6 +82,7 @@ class _AppShellState extends State<AppShell> {
 
   // Shared state
   List<GameInfo> _games = [];
+  List<GameInfo> _allGames = [];
   final Map<String, UploadStatus> _uploadStatuses = {};
   final Set<String> _uploadingGames = {};
   bool _isLoading = true;
@@ -128,10 +129,7 @@ class _AppShellState extends State<AppShell> {
 
     // Initialize universal services
     _followService = FollowService(db: _db!);
-    _syncService = SyncService(
-      db: _db!,
-      notification: _notificationService,
-    );
+    _syncService = SyncService(db: _db!, notification: _notificationService);
 
     // Initialize desktop-only services
     if (PlatformUtils.isDesktop) {
@@ -147,10 +145,7 @@ class _AppShellState extends State<AppShell> {
 
     // Initialize mobile-only services
     if (PlatformUtils.isMobile) {
-      _pushService = PushService(
-        db: _db!,
-        notification: _notificationService,
-      );
+      _pushService = PushService(db: _db!, notification: _notificationService);
       await _pushService!.init();
 
       // Get or create persistent user ID
@@ -208,9 +203,11 @@ class _AppShellState extends State<AppShell> {
     if (result.error != null) {
       _addLog('Startup sync error: ${result.error}');
     } else if (result.hasChanges) {
-      _addLog('Startup sync: ${result.newFreeGames.length} new free games, '
-          '${result.gamesOnSale.length} games on sale, '
-          '${result.newChangelogs.length} changelog updates');
+      _addLog(
+        'Startup sync: ${result.newFreeGames.length} new free games, '
+        '${result.gamesOnSale.length} games on sale, '
+        '${result.newChangelogs.length} changelog updates',
+      );
     } else {
       _addLog('Startup sync complete: no changes detected');
     }
@@ -284,7 +281,9 @@ class _AppShellState extends State<AppShell> {
       });
 
       // Subscribe to active game changes
-      _trayActiveGameSubscription = _playtimeService!.activeGameStream.listen((_) {
+      _trayActiveGameSubscription = _playtimeService!.activeGameStream.listen((
+        _,
+      ) {
         _updateTrayPopupStats();
       });
     }
@@ -318,8 +317,8 @@ class _AppShellState extends State<AppShell> {
       currentSessionTime = hours > 0
           ? '${hours}h ${minutes}m ${seconds}s'
           : minutes > 0
-              ? '${minutes}m ${seconds}s'
-              : '${seconds}s';
+          ? '${minutes}m ${seconds}s'
+          : '${seconds}s';
     }
 
     await _trayService!.updatePopupStats(
@@ -338,7 +337,9 @@ class _AppShellState extends State<AppShell> {
     for (final entry in followedGames) {
       if (entry.notificationTopics.isEmpty) {
         // Auto-assign "all notifications" topic for existing followed games
-        final allTopic = OfferNotificationTopic.all.getTopicForOffer(entry.offerId);
+        final allTopic = OfferNotificationTopic.all.getTopicForOffer(
+          entry.offerId,
+        );
         entry.notificationTopics = [allTopic];
         await _db!.saveFollowedGame(entry);
         topicsToSubscribe.add(allTopic);
@@ -362,25 +363,26 @@ class _AppShellState extends State<AppShell> {
 
   Future<void> _quitApp() async {
     if (!PlatformUtils.isDesktop) return;
-    
+
     // Hide window immediately for responsive UI
     await windowManager.hide();
-    
+
     // Continue with cleanup in the background
     // We use a try-catch to ensure cleanup doesn't prevent app exit
     try {
       // Dispose all services before quitting to ensure proper cleanup
       _syncTimer?.cancel();
       _followService?.dispose();
-      await _playtimeService?.shutdown(); // Proper shutdown for playtime service
+      await _playtimeService
+          ?.shutdown(); // Proper shutdown for playtime service
       _pushService?.dispose();
       _chatSessionService?.dispose();
       _apiService.dispose();
       _notificationService.dispose();
-      
+
       // Close database connection
       await _db?.close();
-      
+
       // Destroy tray and window manager
       await _trayService?.destroy();
       await windowManager.destroy();
@@ -424,7 +426,9 @@ class _AppShellState extends State<AppShell> {
         Duration(minutes: _settings.syncIntervalMinutes),
         (_) => _performAutoSync(),
       );
-      _addLog('Auto-sync enabled: every ${_settings.syncIntervalMinutes} minutes');
+      _addLog(
+        'Auto-sync enabled: every ${_settings.syncIntervalMinutes} minutes',
+      );
     }
   }
 
@@ -440,9 +444,11 @@ class _AppShellState extends State<AppShell> {
       if (result.error != null) {
         _addLog('Auto-sync: API sync error - ${result.error}');
       } else if (result.hasChanges) {
-        _addLog('Auto-sync: ${result.newFreeGames.length} new free games, '
-            '${result.gamesOnSale.length} games on sale, '
-            '${result.newChangelogs.length} changelog updates');
+        _addLog(
+          'Auto-sync: ${result.newFreeGames.length} new free games, '
+          '${result.gamesOnSale.length} games on sale, '
+          '${result.newChangelogs.length} changelog updates',
+        );
       }
     }
 
@@ -450,11 +456,15 @@ class _AppShellState extends State<AppShell> {
     if (PlatformUtils.isDesktop && _scanner != null) {
       _addLog('Auto-sync: scanning for games...');
       try {
-        final games = await _scanner!.scanGames();
+        final allGames = await _scanner!.scanGames(groupByMainGame: false);
+        final games = ManifestScanner.groupGamesByMainGame(allGames);
         setState(() {
+          _allGames = allGames;
           _games = games;
         });
-        _addLog('Auto-sync: found ${games.length} games');
+        _addLog(
+          'Auto-sync: found ${games.length} games from ${allGames.length} manifests',
+        );
       } catch (e) {
         _addLog('Auto-sync: scan error - $e');
         return;
@@ -482,12 +492,16 @@ class _AppShellState extends State<AppShell> {
       _isLoading = true;
     });
     try {
-      final games = await _scanner!.scanGames();
+      final allGames = await _scanner!.scanGames(groupByMainGame: false);
+      final games = ManifestScanner.groupGamesByMainGame(allGames);
       setState(() {
+        _allGames = allGames;
         _games = games;
         _isLoading = false;
       });
-      _addLog('Found ${games.length} installed games');
+      _addLog(
+        'Found ${games.length} installed games from ${allGames.length} manifests',
+      );
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -530,12 +544,11 @@ class _AppShellState extends State<AppShell> {
     _addLog('Starting upload of all manifests...');
     await _uploadService!.uploadAllManifests(
       _games,
-      onProgress: (gameName, status) async {
+      onProgress: (game, status) async {
         setState(() {
-          final game = _games.firstWhere((g) => g.displayName == gameName);
           _uploadStatuses[game.installationGuid] = status;
         });
-        _addLog('$gameName: ${status.message}');
+        _addLog('${game.displayName}: ${status.message}');
 
         // Only increment count for newly uploaded manifests (not already existing)
         if (status.status == UploadStatusType.uploaded) {
@@ -558,8 +571,11 @@ class _AppShellState extends State<AppShell> {
     _setupAutoSync();
 
     // Sync minimize-to-tray setting with macOS native code
-    if (Platform.isMacOS && oldSettings.minimizeToTray != newSettings.minimizeToTray) {
-      await WindowChannelService().setMinimizeToTray(newSettings.minimizeToTray);
+    if (Platform.isMacOS &&
+        oldSettings.minimizeToTray != newSettings.minimizeToTray) {
+      await WindowChannelService().setMinimizeToTray(
+        newSettings.minimizeToTray,
+      );
     }
 
     // launch_at_startup only works on Windows until macOS native code is configured
@@ -658,48 +674,49 @@ class _AppShellState extends State<AppShell> {
           Container(decoration: AppColors.mobileAccentGlowBackground),
           // Main content - PageView for animations & state preservation
           SafeArea(
-            bottom: false, // Allow content to extend behind navbar for blur effect
+            bottom:
+                false, // Allow content to extend behind navbar for blur effect
             child: PageView(
               controller: _mobilePageController,
               physics: const NeverScrollableScrollPhysics(), // Disable swipe
               children: [
-              MobileDashboardPage(
-                followService: _followService!,
-                syncService: _syncService!,
-                db: _db!,
-                settings: _settings,
-                pushService: _pushService,
-                chatService: _chatSessionService,
-                onSettingsChanged: _onSettingsChanged,
-              ),
-              MobileBrowsePage(
-                settings: _settings,
-                followService: _followService!,
-                pushService: _pushService,
-                chatService: _chatSessionService,
-              ),
-              MobileChatSessionsPage(
-                settings: _settings,
-                apiService: _apiService,
-                chatService: _chatSessionService!,
-                followService: _followService!,
-                pushService: _pushService,
-              ),
-              FreeGamesPage(
-                followService: _followService!,
-                syncService: _syncService!,
-                db: _db!,
-                pushService: _pushService,
-                chatService: _chatSessionService,
-                settings: _settings,
-              ),
-              SettingsPage(
-                settings: _settings,
-                onSettingsChanged: _onSettingsChanged,
-                onClearProcessCache: () => _db!.clearProcessCache(),
-                pushService: _pushService,
-              ),
-            ],
+                MobileDashboardPage(
+                  followService: _followService!,
+                  syncService: _syncService!,
+                  db: _db!,
+                  settings: _settings,
+                  pushService: _pushService,
+                  chatService: _chatSessionService,
+                  onSettingsChanged: _onSettingsChanged,
+                ),
+                MobileBrowsePage(
+                  settings: _settings,
+                  followService: _followService!,
+                  pushService: _pushService,
+                  chatService: _chatSessionService,
+                ),
+                MobileChatSessionsPage(
+                  settings: _settings,
+                  apiService: _apiService,
+                  chatService: _chatSessionService!,
+                  followService: _followService!,
+                  pushService: _pushService,
+                ),
+                FreeGamesPage(
+                  followService: _followService!,
+                  syncService: _syncService!,
+                  db: _db!,
+                  pushService: _pushService,
+                  chatService: _chatSessionService,
+                  settings: _settings,
+                ),
+                SettingsPage(
+                  settings: _settings,
+                  onSettingsChanged: _onSettingsChanged,
+                  onClearProcessCache: () => _db!.clearProcessCache(),
+                  pushService: _pushService,
+                ),
+              ],
             ),
           ),
           // Glassmorphic bottom navbar - positioned at bottom of Stack
@@ -762,6 +779,7 @@ class _AppShellState extends State<AppShell> {
         }
         return LibraryPage(
           games: _games,
+          allGames: _allGames,
           uploadStatuses: _uploadStatuses,
           uploadingGames: _uploadingGames,
           isLoading: _isLoading,
@@ -850,7 +868,10 @@ class _AppShellState extends State<AppShell> {
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceLight,
                     borderRadius: BorderRadius.circular(10),
@@ -871,7 +892,10 @@ class _AppShellState extends State<AppShell> {
                     child: GestureDetector(
                       onTap: () => setState(() => _logs.clear()),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           border: Border.all(color: AppColors.borderLight),
                           borderRadius: BorderRadius.circular(6),
@@ -922,7 +946,10 @@ class _AppShellState extends State<AppShell> {
                         const SizedBox(height: 8),
                         const Text(
                           'No activity yet',
-                          style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textMuted,
+                          ),
                         ),
                       ],
                     ),
@@ -932,8 +959,10 @@ class _AppShellState extends State<AppShell> {
                     itemCount: _logs.length,
                     itemBuilder: (context, index) {
                       final log = _logs[index];
-                      final isError = log.contains('Error') || log.contains('failed');
-                      final isSuccess = log.contains('uploaded') ||
+                      final isError =
+                          log.contains('Error') || log.contains('failed');
+                      final isSuccess =
+                          log.contains('uploaded') ||
                           log.contains('complete') ||
                           log.contains('exists');
                       return Padding(
@@ -947,8 +976,8 @@ class _AppShellState extends State<AppShell> {
                             color: isError
                                 ? AppColors.error
                                 : isSuccess
-                                    ? AppColors.success
-                                    : AppColors.textSecondary,
+                                ? AppColors.success
+                                : AppColors.textSecondary,
                           ),
                         ),
                       );
