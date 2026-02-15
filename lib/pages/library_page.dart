@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../main.dart';
 import '../models/followed_game.dart';
+import '../models/daily_playtime_bucket.dart';
 import '../models/game_info.dart';
+import '../models/manifest_health_issue.dart';
 import '../models/upload_status.dart';
 import '../services/follow_service.dart';
+import '../services/playtime_service.dart';
 import '../widgets/game_tile.dart';
 import 'move_game_page.dart';
 
@@ -15,10 +19,13 @@ class LibraryPage extends StatefulWidget {
   final bool isLoading;
   final bool isUploadingAll;
   final FollowService followService;
+  final PlaytimeService? playtimeService;
   final String manifestPath;
-  final VoidCallback onScanGames;
-  final Function(GameInfo) onUploadManifest;
-  final VoidCallback onUploadAll;
+  final Future<void> Function() onScanGames;
+  final Future<void> Function(GameInfo) onUploadManifest;
+  final Future<void> Function() onUploadAll;
+  final Future<ManifestHealthReport> Function()? onManifestHealthCheck;
+  final Future<int> Function()? onManifestAutoRepair;
   final VoidCallback onToggleConsole;
   final bool showConsole;
   final Function(String) addLog;
@@ -32,10 +39,13 @@ class LibraryPage extends StatefulWidget {
     required this.isLoading,
     required this.isUploadingAll,
     required this.followService,
+    this.playtimeService,
     required this.manifestPath,
     required this.onScanGames,
     required this.onUploadManifest,
     required this.onUploadAll,
+    this.onManifestHealthCheck,
+    this.onManifestAutoRepair,
     required this.onToggleConsole,
     required this.showConsole,
     required this.addLog,
@@ -48,15 +58,49 @@ class LibraryPage extends StatefulWidget {
 class _LibraryPageState extends State<LibraryPage> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  bool _showGrouped = true;
+  bool _selectionMode = false;
+  final Set<String> _selectedGameIds = {};
+  bool _isQueueRunning = false;
+  bool _isQueuePaused = false;
+  bool _queueCancelRequested = false;
+  int _queueCompleted = 0;
+  int _queueTotal = 0;
+  final List<GameInfo> _queueFailed = [];
+  int _unplayedInstalledCount = 0;
+  GameInfo? _detailsGame;
+  bool _detailsLoading = false;
+  Duration? _detailsTotalPlaytime;
+  DateTime? _detailsLastPlayedAt;
+  List<DailyPlaytimeBucket> _detailsTimeline = const [];
+
+  List<GameInfo> get _displayGames =>
+      _showGrouped ? widget.games : widget.allGames;
 
   List<GameInfo> get _filteredGames {
-    if (_searchQuery.isEmpty) return widget.games;
+    final source = _displayGames;
+    if (_searchQuery.isEmpty) return source;
     final query = _searchQuery.toLowerCase();
-    return widget.games.where((game) {
+    return source.where((game) {
       return game.displayName.toLowerCase().contains(query) ||
           game.appName.toLowerCase().contains(query) ||
           game.installLocation.toLowerCase().contains(query);
     }).toList();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _computeUnplayedInstalledCount();
+  }
+
+  @override
+  void didUpdateWidget(covariant LibraryPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.games != widget.games ||
+        oldWidget.allGames != widget.allGames) {
+      _computeUnplayedInstalledCount();
+    }
   }
 
   @override
@@ -94,8 +138,276 @@ class _LibraryPageState extends State<LibraryPage> {
 
     if (result == true) {
       widget.addLog('Game moved: ${game.displayName}');
-      widget.onScanGames();
+      await widget.onScanGames();
     }
+  }
+
+  Future<void> _computeUnplayedInstalledCount() async {
+    final playtimeService = widget.playtimeService;
+    if (playtimeService == null) {
+      if (mounted) {
+        setState(() {
+          _unplayedInstalledCount = 0;
+        });
+      }
+      return;
+    }
+
+    var unplayed = 0;
+    for (final game in widget.games) {
+      final total = await playtimeService.getTotalPlaytime(game.catalogItemId);
+      if (total.inSeconds <= 0) {
+        unplayed++;
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _unplayedInstalledCount = unplayed;
+      });
+    }
+  }
+
+  Future<void> _runUploadQueue(List<GameInfo> games) async {
+    if (games.isEmpty || _isQueueRunning) {
+      return;
+    }
+
+    setState(() {
+      _isQueueRunning = true;
+      _isQueuePaused = false;
+      _queueCancelRequested = false;
+      _queueCompleted = 0;
+      _queueTotal = games.length;
+      _queueFailed.clear();
+    });
+
+    for (final game in games) {
+      if (_queueCancelRequested) {
+        break;
+      }
+
+      while (_isQueuePaused && !_queueCancelRequested) {
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+      }
+      if (_queueCancelRequested) {
+        break;
+      }
+
+      await widget.onUploadManifest(game);
+      final status = widget.uploadStatuses[game.installationGuid];
+      if (status != null && status.status == UploadStatusType.failed) {
+        _queueFailed.add(game);
+      }
+
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _queueCompleted++;
+      });
+    }
+
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isQueueRunning = false;
+      _isQueuePaused = false;
+      _queueCancelRequested = false;
+    });
+  }
+
+  Future<void> _openDetailsDrawer(GameInfo game) async {
+    setState(() {
+      _detailsGame = game;
+      _detailsLoading = true;
+      _detailsTimeline = const [];
+      _detailsTotalPlaytime = null;
+      _detailsLastPlayedAt = null;
+    });
+
+    final playtimeService = widget.playtimeService;
+    if (playtimeService != null) {
+      final total = await playtimeService.getTotalPlaytime(game.catalogItemId);
+      final sessions = await playtimeService.getRecentSessions(limit: 50);
+      final timeline = await playtimeService.getDailyTimeline(
+        game.catalogItemId,
+        days: 14,
+      );
+      DateTime? lastPlayedAt;
+      for (final session in sessions) {
+        if (session.gameId == game.catalogItemId) {
+          lastPlayedAt = session.startTime;
+          break;
+        }
+      }
+
+      if (mounted && _detailsGame?.installationGuid == game.installationGuid) {
+        setState(() {
+          _detailsTotalPlaytime = total;
+          _detailsLastPlayedAt = lastPlayedAt;
+          _detailsTimeline = timeline;
+        });
+      }
+    }
+
+    if (mounted && _detailsGame?.installationGuid == game.installationGuid) {
+      setState(() {
+        _detailsLoading = false;
+      });
+    }
+  }
+
+  Future<void> _showManifestHealthDialog() async {
+    final check = widget.onManifestHealthCheck;
+    final repair = widget.onManifestAutoRepair;
+    if (check == null) {
+      widget.addLog('Manifest health check is unavailable');
+      return;
+    }
+
+    final report = await check();
+    final hasRepairableIssues = report.issues.any(
+      (issue) => issue.type == ManifestHealthIssueType.staleManifestLocation,
+    );
+    if (!mounted) {
+      return;
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: const Text(
+            'Manifest Health',
+            style: TextStyle(color: AppColors.textPrimary),
+          ),
+          content: SizedBox(
+            width: 640,
+            child: report.issues.isEmpty
+                ? const Text(
+                    'No issues detected.',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  )
+                : ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: report.issues.length,
+                    separatorBuilder: (context, index) =>
+                        const Divider(color: AppColors.border),
+                    itemBuilder: (context, index) {
+                      final issue = report.issues[index];
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          issue.title,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          issue.description,
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            if (repair != null && hasRepairableIssues)
+              TextButton(
+                onPressed: () {
+                  final navigator = Navigator.of(context);
+                  repair().then((repaired) async {
+                    if (!mounted) {
+                      return;
+                    }
+                    widget.addLog(
+                      'Manifest auto-repair fixed $repaired entries',
+                    );
+                    navigator.pop();
+                    await widget.onScanGames();
+                  });
+                },
+                child: const Text('Auto-Repair'),
+              ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showProcessDebugDialog() async {
+    final playtimeService = widget.playtimeService;
+    if (playtimeService == null) {
+      widget.addLog('Process debug is unavailable');
+      return;
+    }
+    final entries = await playtimeService.getProcessDetectionDebugSnapshot();
+    if (!mounted) {
+      return;
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: const Text(
+            'Process Detection Debug',
+            style: TextStyle(color: AppColors.textPrimary),
+          ),
+          content: SizedBox(
+            width: 720,
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: entries.length,
+              separatorBuilder: (context, index) =>
+                  const Divider(color: AppColors.border),
+              itemBuilder: (context, index) {
+                final entry = entries[index];
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    entry.isRunning
+                        ? Icons.play_circle_outline_rounded
+                        : Icons.pause_circle_outline_rounded,
+                    color: entry.isRunning
+                        ? AppColors.success
+                        : AppColors.textMuted,
+                  ),
+                  title: Text(
+                    entry.gameName,
+                    style: const TextStyle(color: AppColors.textPrimary),
+                  ),
+                  subtitle: Text(
+                    entry.matchedProcessPath ?? entry.reason,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   String _groupKeyForGame(GameInfo game) {
@@ -154,83 +466,50 @@ class _LibraryPageState extends State<LibraryPage> {
     return related;
   }
 
-  void _showRelatedAddons(GameInfo game, List<GameInfo> addons) {
-    showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: AppColors.surface,
-          title: Text(
-            '${game.displayName} Add-ons',
-            style: const TextStyle(color: AppColors.textPrimary),
-          ),
-          content: SizedBox(
-            width: 520,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 360),
-              child: ListView.separated(
-                shrinkWrap: true,
-                itemCount: addons.length,
-                separatorBuilder: (_, index) =>
-                    const Divider(color: AppColors.border),
-                itemBuilder: (_, index) {
-                  final addon = addons[index];
-                  return ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      addon.displayName,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Text(
-                      '${addon.formattedSize} • ${addon.version}',
-                      style: const TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 12,
-                      ),
-                    ),
-                    trailing: const Icon(
-                      Icons.extension_rounded,
-                      color: AppColors.primary,
-                      size: 18,
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final filteredGames = _filteredGames;
+    final totalInstallSize = widget.games.fold<int>(
+      0,
+      (sum, game) => sum + game.installSize,
+    );
+    final addonsCount = widget.allGames.length - widget.games.length;
+    final uploadedCount = widget.uploadStatuses.values
+        .where(
+          (status) =>
+              status.status == UploadStatusType.uploaded ||
+              status.status == UploadStatusType.alreadyUploaded,
+        )
+        .length;
+    final uploadCoverage = widget.allGames.isEmpty
+        ? 0
+        : ((uploadedCount / widget.allGames.length) * 100).round();
 
     return Container(
       color: Colors.transparent,
       child: Column(
         children: [
-          _buildHeader(),
+          _buildHeader(totalInstallSize, addonsCount, uploadCoverage),
           _buildToolbar(filteredGames.length),
-          Expanded(child: _buildGameList(filteredGames)),
+          if (_selectionMode) _buildBulkActionBar(filteredGames),
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(child: _buildGameList(filteredGames)),
+                if (_detailsGame != null) _buildDetailsPanel(),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(
+    int totalInstallSize,
+    int addonsCount,
+    int uploadCoverage,
+  ) {
     return Container(
       padding: const EdgeInsets.fromLTRB(28, 24, 28, 20),
       child: Row(
@@ -256,6 +535,26 @@ class _LibraryPageState extends State<LibraryPage> {
             ],
           ),
           const Spacer(),
+          _buildInsightPill(
+            icon: Icons.storage_rounded,
+            label: '${_formatBytes(totalInstallSize)} installed',
+          ),
+          const SizedBox(width: 8),
+          _buildInsightPill(
+            icon: Icons.extension_rounded,
+            label: '$addonsCount add-ons',
+          ),
+          const SizedBox(width: 8),
+          _buildInsightPill(
+            icon: Icons.sports_esports_rounded,
+            label: '$_unplayedInstalledCount unplayed',
+          ),
+          const SizedBox(width: 8),
+          _buildInsightPill(
+            icon: Icons.cloud_done_rounded,
+            label: '$uploadCoverage% uploaded',
+          ),
+          const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
@@ -290,11 +589,39 @@ class _LibraryPageState extends State<LibraryPage> {
     );
   }
 
+  Widget _buildInsightPill({required IconData icon, required String label}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: AppColors.textSecondary),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildToolbar(int gameCount) {
     return Container(
       padding: const EdgeInsets.fromLTRB(28, 0, 28, 20),
       child: Row(
         children: [
+          _buildDisplayToggle(),
+          const SizedBox(width: 12),
           Expanded(
             child: Container(
               height: 46,
@@ -365,12 +692,94 @@ class _LibraryPageState extends State<LibraryPage> {
           const SizedBox(width: 8),
           _buildIconButton(
             icon: Icons.refresh_rounded,
-            onPressed: widget.isLoading ? () {} : widget.onScanGames,
+            onPressed: widget.isLoading ? () {} : () => widget.onScanGames(),
             tooltip: 'Rescan games',
+          ),
+          const SizedBox(width: 8),
+          _buildIconButton(
+            icon: _selectionMode
+                ? Icons.checklist_rounded
+                : Icons.checklist_rtl_rounded,
+            onPressed: () {
+              setState(() {
+                _selectionMode = !_selectionMode;
+                _selectedGameIds.clear();
+              });
+            },
+            tooltip: _selectionMode ? 'Disable bulk mode' : 'Enable bulk mode',
+            isActive: _selectionMode,
+          ),
+          const SizedBox(width: 8),
+          _buildIconButton(
+            icon: Icons.health_and_safety_rounded,
+            onPressed: _showManifestHealthDialog,
+            tooltip: 'Manifest health and repair',
+          ),
+          const SizedBox(width: 8),
+          _buildIconButton(
+            icon: Icons.bug_report_rounded,
+            onPressed: _showProcessDebugDialog,
+            tooltip: 'Process detection debug',
           ),
           const SizedBox(width: 12),
           _buildUploadButton(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDisplayToggle() {
+    return Container(
+      height: 46,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          _buildDisplayToggleButton(
+            label: 'Grouped',
+            selected: _showGrouped,
+            onTap: () => setState(() => _showGrouped = true),
+          ),
+          _buildDisplayToggleButton(
+            label: 'All',
+            selected: !_showGrouped,
+            onTap: () => setState(() => _showGrouped = false),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDisplayToggleButton({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.primary.withValues(alpha: 0.15)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: selected ? AppColors.primary : AppColors.textSecondary,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -418,7 +827,7 @@ class _LibraryPageState extends State<LibraryPage> {
     return MouseRegion(
       cursor: isDisabled ? SystemMouseCursors.basic : SystemMouseCursors.click,
       child: GestureDetector(
-        onTap: isDisabled ? null : widget.onUploadAll,
+        onTap: isDisabled ? null : () => widget.onUploadAll(),
         child: Container(
           height: 46,
           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -461,6 +870,316 @@ class _LibraryPageState extends State<LibraryPage> {
     );
   }
 
+  Widget _buildBulkActionBar(List<GameInfo> filteredGames) {
+    final selectedGames = filteredGames
+        .where((game) => _selectedGameIds.contains(game.installationGuid))
+        .toList();
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(28, 0, 28, 16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppColors.radiusMedium),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Text(
+            '${selectedGames.length} selected',
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: 12),
+          TextButton.icon(
+            onPressed: selectedGames.isEmpty
+                ? null
+                : () {
+                    for (final game in selectedGames) {
+                      _toggleFollow(game);
+                    }
+                  },
+            icon: const Icon(Icons.favorite_border_rounded, size: 16),
+            label: const Text('Toggle Follow'),
+          ),
+          TextButton.icon(
+            onPressed: selectedGames.isEmpty
+                ? null
+                : () => _runUploadQueue(selectedGames),
+            icon: const Icon(Icons.queue_rounded, size: 16),
+            label: const Text('Queue Upload'),
+          ),
+          TextButton.icon(
+            onPressed: selectedGames.isEmpty
+                ? null
+                : () {
+                    final paths = selectedGames
+                        .map((game) => game.installLocation)
+                        .join('\n');
+                    Clipboard.setData(ClipboardData(text: paths));
+                    widget.addLog(
+                      'Copied ${selectedGames.length} install paths',
+                    );
+                  },
+            icon: const Icon(Icons.copy_rounded, size: 16),
+            label: const Text('Copy Paths'),
+          ),
+          const Spacer(),
+          if (_isQueueRunning)
+            Row(
+              children: [
+                Text(
+                  'Queue $_queueCompleted/$_queueTotal',
+                  style: const TextStyle(color: AppColors.textSecondary),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () =>
+                      setState(() => _isQueuePaused = !_isQueuePaused),
+                  icon: Icon(
+                    _isQueuePaused
+                        ? Icons.play_arrow_rounded
+                        : Icons.pause_rounded,
+                    color: AppColors.primary,
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => setState(() => _queueCancelRequested = true),
+                  icon: const Icon(Icons.stop_rounded, color: AppColors.error),
+                ),
+              ],
+            )
+          else if (_queueFailed.isNotEmpty)
+            TextButton.icon(
+              onPressed: () =>
+                  _runUploadQueue(List<GameInfo>.from(_queueFailed)),
+              icon: const Icon(Icons.replay_rounded, size: 16),
+              label: Text('Retry Failed (${_queueFailed.length})'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailsPanel() {
+    final game = _detailsGame;
+    if (game == null) {
+      return const SizedBox.shrink();
+    }
+
+    final relatedAddons = _getRelatedAddons(game);
+
+    return Container(
+      width: 360,
+      margin: const EdgeInsets.only(right: 28, bottom: 28),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppColors.radiusMedium),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  game.displayName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () => setState(() => _detailsGame = null),
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            game.installLocation,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontFamily: 'JetBrainsMono',
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (_detailsLoading)
+            const LinearProgressIndicator(color: AppColors.primary)
+          else ...[
+            _buildDetailRow('Version', game.version),
+            _buildDetailRow('Install size', game.formattedSize),
+            _buildDetailRow('Manifest hash', game.manifestHash ?? 'Unknown'),
+            _buildDetailRow(
+              'Last played',
+              _detailsLastPlayedAt?.toLocal().toString().substring(0, 16) ??
+                  'Never',
+            ),
+            _buildDetailRow(
+              'Total playtime',
+              _formatDuration(_detailsTotalPlaytime ?? Duration.zero),
+            ),
+            const SizedBox(height: 12),
+            _buildTimelineChart(),
+            if (relatedAddons.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              const Text(
+                'Add-ons',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...relatedAddons
+                  .take(5)
+                  .map(
+                    (addon) => Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.extension_rounded,
+                            size: 14,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              addon.displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 96,
+            child: Text(
+              label,
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimelineChart() {
+    if (_detailsTimeline.isEmpty) {
+      return const Text(
+        'No timeline data yet',
+        style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+      );
+    }
+
+    final maxSeconds = _detailsTimeline
+        .map((bucket) => bucket.playtime.inSeconds)
+        .fold<int>(0, (a, b) => a > b ? a : b);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '14-day Timeline',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 64,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: _detailsTimeline.map((bucket) {
+              final ratio = maxSeconds == 0
+                  ? 0.0
+                  : bucket.playtime.inSeconds / maxSeconds;
+              final height = (ratio * 52).clamp(4.0, 52.0);
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 1),
+                  child: Tooltip(
+                    message:
+                        '${bucket.day.month}/${bucket.day.day}: ${_formatDuration(bucket.playtime)}',
+                    child: Container(
+                      height: height,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.8),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    }
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+  }
+
+  String _formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes % 60;
+    if (hours > 0) {
+      return '${hours}h ${minutes}m';
+    }
+    return '${minutes}m';
+  }
+
   Widget _buildGameList(List<GameInfo> games) {
     if (widget.isLoading) {
       return Center(
@@ -494,7 +1213,7 @@ class _LibraryPageState extends State<LibraryPage> {
       );
     }
 
-    if (widget.games.isEmpty) {
+    if (_displayGames.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -531,7 +1250,7 @@ class _LibraryPageState extends State<LibraryPage> {
             ),
             const SizedBox(height: 24),
             FilledButton.icon(
-              onPressed: widget.onScanGames,
+              onPressed: () => widget.onScanGames(),
               icon: const Icon(Icons.refresh_rounded, size: 18),
               label: const Text('Scan Again'),
             ),
@@ -580,15 +1299,24 @@ class _LibraryPageState extends State<LibraryPage> {
         return GameTile(
           game: game,
           addonCount: relatedAddons.length,
+          showSelection: _selectionMode,
+          selected: _selectedGameIds.contains(game.installationGuid),
+          onSelected: (selected) {
+            setState(() {
+              if (selected) {
+                _selectedGameIds.add(game.installationGuid);
+              } else {
+                _selectedGameIds.remove(game.installationGuid);
+              }
+            });
+          },
           uploadStatus: widget.uploadStatuses[game.installationGuid],
           isUploading: widget.uploadingGames.contains(game.installationGuid),
           onUpload: () => widget.onUploadManifest(game),
           onMove: () => _moveGame(game),
           isFollowing: widget.followService.isFollowing(game.catalogItemId),
           onFollowToggle: () => _toggleFollow(game),
-          onTap: relatedAddons.isEmpty
-              ? null
-              : () => _showRelatedAddons(game, relatedAddons),
+          onTap: () => _openDetailsDrawer(game),
         );
       },
     );

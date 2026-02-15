@@ -3,7 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
-import 'tray_popup_service.dart';
+import '../models/tray_popup_stats.dart';
+import 'tray_popup_window_service.dart';
 
 class TrayService with TrayListener {
   static final TrayService _instance = TrayService._internal();
@@ -13,7 +14,7 @@ class TrayService with TrayListener {
   bool _isInitialized = false;
   Function()? onShowWindow;
   Function()? onQuit;
-  final TrayPopupService _popupService = TrayPopupService();
+  final TrayPopupWindowService _popupService = TrayPopupWindowService();
 
   Future<void> init() async {
     if (_isInitialized) return;
@@ -23,6 +24,9 @@ class TrayService with TrayListener {
       _popupService.init();
       _popupService.onOpenApp = () {
         onShowWindow?.call();
+      };
+      _popupService.onQuit = () {
+        onQuit?.call();
       };
 
       // Copy tray icon from assets to temp directory
@@ -58,7 +62,9 @@ class TrayService with TrayListener {
     // Windows requires .ico, macOS uses .png
     final isWindows = Platform.isWindows;
     final extension = isWindows ? 'ico' : 'png';
-    final iconFile = File(path.join(tempDir.path, 'egdata_tray_icon.$extension'));
+    final iconFile = File(
+      path.join(tempDir.path, 'egdata_tray_icon.$extension'),
+    );
 
     // Always extract to ensure latest version
     final byteData = await rootBundle.load('assets/tray_icon.$extension');
@@ -69,32 +75,30 @@ class TrayService with TrayListener {
 
   @override
   void onTrayIconMouseDown() async {
-    // Show the popup on left-click (macOS only)
-    if (Platform.isMacOS) {
-      try {
-        final bounds = await trayManager.getBounds();
-        if (bounds != null) {
-          print('TrayService: Tray bounds - left: ${bounds.left}, top: ${bounds.top}, right: ${bounds.right}, bottom: ${bounds.bottom}');
-          // Position popup below the tray icon
-          // Use bottom coordinate since macOS origin is at bottom-left
-          _popupService.showPopup(
-            x: bounds.left + bounds.width / 2,
-            y: bounds.bottom,
-          );
-        }
-      } catch (e) {
-        print('TrayService: Error showing popup: $e');
-        // Fallback to showing window
-        _showWindow();
-      }
-    } else {
-      _showWindow();
-    }
+    _showWindow();
   }
 
   @override
-  void onTrayIconRightMouseDown() {
-    trayManager.popUpContextMenu();
+  void onTrayIconRightMouseDown() async {
+    if (!Platform.isWindows && !Platform.isMacOS) {
+      _showWindow();
+      return;
+    }
+
+    try {
+      final bounds = await trayManager.getBounds();
+      if (bounds != null) {
+        await _popupService.showPopup(
+          x: bounds.left + bounds.width / 2,
+          y: Platform.isWindows ? bounds.top : bounds.bottom,
+        );
+      } else {
+        _showWindow();
+      }
+    } catch (e) {
+      print('TrayService: Error showing popup: $e');
+      _showWindow();
+    }
   }
 
   @override
@@ -122,17 +126,20 @@ class TrayService with TrayListener {
     String? currentSessionTime,
   }) async {
     await _popupService.updateStats(
-      weeklyPlaytime: weeklyPlaytime,
-      gamesInstalled: gamesInstalled,
-      mostPlayedGame: mostPlayedGame,
-      currentGame: currentGame,
-      currentSessionTime: currentSessionTime,
+      TrayPopupStats(
+        weeklyPlaytime: weeklyPlaytime,
+        gamesInstalled: gamesInstalled,
+        mostPlayedGame: mostPlayedGame,
+        currentGame: currentGame,
+        currentSessionTime: currentSessionTime,
+      ),
     );
   }
 
   Future<void> destroy() async {
     if (_isInitialized) {
       trayManager.removeListener(this);
+      await _popupService.destroy();
       await trayManager.destroy();
       _isInitialized = false;
     }

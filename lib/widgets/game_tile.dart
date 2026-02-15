@@ -16,6 +16,9 @@ class GameTile extends StatefulWidget {
   final VoidCallback? onFollowToggle;
   final int addonCount;
   final VoidCallback? onTap;
+  final bool showSelection;
+  final bool selected;
+  final ValueChanged<bool>? onSelected;
 
   const GameTile({
     super.key,
@@ -28,6 +31,9 @@ class GameTile extends StatefulWidget {
     this.onFollowToggle,
     this.addonCount = 0,
     this.onTap,
+    this.showSelection = false,
+    this.selected = false,
+    this.onSelected,
   });
 
   @override
@@ -61,6 +67,16 @@ class _GameTileState extends State<GameTile> {
             child: Row(
               children: [
                 // Game image
+                if (widget.showSelection) ...[
+                  Checkbox(
+                    value: widget.selected,
+                    onChanged: (value) =>
+                        widget.onSelected?.call(value ?? false),
+                    activeColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.borderLight),
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 _buildGameImage(),
                 const SizedBox(width: 16),
                 // Game info

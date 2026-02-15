@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:ui';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_in_app_messaging/firebase_in_app_messaging.dart';
@@ -20,6 +21,7 @@ import 'services/sync_service.dart';
 import 'database/database_service.dart';
 import 'pages/mobile_offer_detail_page.dart';
 import 'pages/free_games_page.dart';
+import 'tray_popup_window_app.dart';
 
 // Desktop-only imports (conditionally used)
 import 'package:window_manager/window_manager.dart';
@@ -34,6 +36,12 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  final trayPopupPayload = _getTrayPopupPayload(args);
+  if (trayPopupPayload != null) {
+    runApp(TrayPopupWindowApp(initialPayload: trayPopupPayload));
+    return;
+  }
 
   // Load environment variables (currently not used, but kept for future configuration)
   try {
@@ -69,7 +77,8 @@ void main(List<String> args) async {
       );
 
       // Initialize Crashlytics
-      FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+      FlutterError.onError =
+          FirebaseCrashlytics.instance.recordFlutterFatalError;
       PlatformDispatcher.instance.onError = (error, stack) {
         FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
         return true;
@@ -98,10 +107,26 @@ void main(List<String> args) async {
     await _initDesktop(args);
   }
 
-  runApp(EGDataApp(
-    dbService: dbService,
-    notificationService: notificationService,
-  ));
+  runApp(
+    EGDataApp(dbService: dbService, notificationService: notificationService),
+  );
+}
+
+Map<String, dynamic>? _getTrayPopupPayload(List<String> args) {
+  if (args.length < 3 || args[0] != 'multi_window') {
+    return null;
+  }
+
+  try {
+    final payload = jsonDecode(args[2]) as Map<String, dynamic>;
+    if (payload['windowType'] == 'trayPopup') {
+      return payload;
+    }
+  } catch (_) {
+    return null;
+  }
+
+  return null;
 }
 
 /// Initialize desktop-specific features
@@ -187,11 +212,7 @@ class AppColors {
     gradient: RadialGradient(
       center: Alignment(-0.5, -0.8),
       radius: 1.5,
-      colors: [
-        Color(0xFF1A1A2E),
-        Color(0xFF0F0F14),
-        Color(0xFF0A0A0A),
-      ],
+      colors: [Color(0xFF1A1A2E), Color(0xFF0F0F14), Color(0xFF0A0A0A)],
       stops: [0.0, 0.4, 0.8],
     ),
   );
@@ -205,18 +226,15 @@ class AppColors {
     ),
   );
 
-  static BoxDecoration get mobileRadialGradientBackground => const BoxDecoration(
-    gradient: RadialGradient(
-      center: Alignment(0.0, -0.3),
-      radius: 1.8,
-      colors: [
-        Color(0xFF1A1A2E),
-        Color(0xFF0F0F14),
-        Color(0xFF0A0A0A),
-      ],
-      stops: [0.0, 0.35, 0.7],
-    ),
-  );
+  static BoxDecoration get mobileRadialGradientBackground =>
+      const BoxDecoration(
+        gradient: RadialGradient(
+          center: Alignment(0.0, -0.3),
+          radius: 1.8,
+          colors: [Color(0xFF1A1A2E), Color(0xFF0F0F14), Color(0xFF0A0A0A)],
+          stops: [0.0, 0.35, 0.7],
+        ),
+      );
 
   static BoxDecoration get mobileAccentGlowBackground => BoxDecoration(
     gradient: RadialGradient(
@@ -290,8 +308,9 @@ class _EGDataAppState extends State<EGDataApp> {
   Future<void> _checkInitialWidgetClick() async {
     try {
       // First check for wear tile actions (supports both free_games and open_offer)
-      final Map<dynamic, dynamic>? pendingAction =
-          await platform.invokeMethod('getPendingAction');
+      final Map<dynamic, dynamic>? pendingAction = await platform.invokeMethod(
+        'getPendingAction',
+      );
 
       if (pendingAction != null) {
         final String? action = pendingAction['action'] as String?;
@@ -349,7 +368,6 @@ class _EGDataAppState extends State<EGDataApp> {
 
   @override
   Widget build(BuildContext context) {
-
     final baseTextTheme = ThemeData.dark().textTheme.apply(fontFamily: 'Inter');
 
     return QueryClientProvider(
@@ -360,8 +378,7 @@ class _EGDataAppState extends State<EGDataApp> {
         debugShowCheckedModeBanner: false,
         themeMode: ThemeMode.dark,
         navigatorObservers: [
-          if (AnalyticsService().observer != null)
-            AnalyticsService().observer!,
+          if (AnalyticsService().observer != null) AnalyticsService().observer!,
         ],
         darkTheme: ThemeData(
           brightness: Brightness.dark,

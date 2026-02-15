@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import '../models/epic_manifest.dart';
 import '../models/game_info.dart';
+import '../models/manifest_health_issue.dart';
 import '../models/game_metadata.dart';
 import 'metadata_service.dart';
 
@@ -324,5 +325,124 @@ class ManifestScanner {
 
     // Fallback to old method
     return getManifestData(game.installationGuid);
+  }
+
+  ManifestHealthReport analyzeManifestHealth(List<GameInfo> allGames) {
+    final issues = <ManifestHealthIssue>[];
+
+    final byInstallPath = <String, List<GameInfo>>{};
+    for (final game in allGames) {
+      final key = game.installLocation.toLowerCase().replaceAll('/', '\\');
+      byInstallPath.putIfAbsent(key, () => []).add(game);
+    }
+
+    for (final entry in byInstallPath.entries) {
+      if (entry.value.length < 2) {
+        continue;
+      }
+
+      final hasAddonStyleEntry = entry.value.any(
+        (game) =>
+            game.mainGameCatalogItemId.trim().isNotEmpty ||
+            game.appCategories.any(
+              (category) => category.toLowerCase() == 'addons',
+            ),
+      );
+
+      for (final game in entry.value) {
+        issues.add(
+          ManifestHealthIssue(
+            type: ManifestHealthIssueType.duplicateInstallLocation,
+            title: 'Duplicate install location',
+            description: hasAddonStyleEntry
+                ? '${game.displayName} shares this install folder with ${entry.value.length - 1} other entries. This is often expected for a base game with add-ons.'
+                : '${game.displayName} shares this install folder with ${entry.value.length - 1} other manifest entries.',
+            installationGuid: game.installationGuid,
+          ),
+        );
+      }
+    }
+
+    final baseCatalogIds = allGames
+        .map((game) => game.catalogItemId.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+
+    for (final game in allGames) {
+      if (game.mainGameCatalogItemId.isNotEmpty &&
+          !baseCatalogIds.contains(game.mainGameCatalogItemId.trim())) {
+        issues.add(
+          ManifestHealthIssue(
+            type: ManifestHealthIssueType.orphanAddon,
+            title: 'Orphan add-on',
+            description:
+                '${game.displayName} references a base game that is not currently installed.',
+            installationGuid: game.installationGuid,
+          ),
+        );
+      }
+
+      if (game.manifestLocation != null && game.manifestLocation!.isNotEmpty) {
+        final exists = File(game.manifestLocation!).existsSync();
+        if (!exists) {
+          issues.add(
+            ManifestHealthIssue(
+              type: ManifestHealthIssueType.staleManifestLocation,
+              title: 'Stale manifest path',
+              description:
+                  '${game.displayName} points to a manifest file path that no longer exists.',
+              installationGuid: game.installationGuid,
+            ),
+          );
+        }
+      }
+    }
+
+    return ManifestHealthReport(issues: issues);
+  }
+
+  Future<int> autoRepairManifestLocations(List<GameInfo> games) async {
+    var repaired = 0;
+
+    for (final game in games) {
+      if (game.itemFilePath == null || game.itemFilePath!.isEmpty) {
+        continue;
+      }
+
+      final itemFile = File(game.itemFilePath!);
+      if (!await itemFile.exists()) {
+        continue;
+      }
+
+      final currentManifestLocation = game.manifestLocation ?? '';
+      if (currentManifestLocation.isNotEmpty &&
+          await File(currentManifestLocation).exists()) {
+        continue;
+      }
+
+      final egstoreDir = Directory(p.join(game.installLocation, '.egstore'));
+      if (!await egstoreDir.exists()) {
+        continue;
+      }
+
+      final manifestCandidates = <File>[];
+      await for (final entity in egstoreDir.list()) {
+        if (entity is File && entity.path.endsWith('.manifest')) {
+          manifestCandidates.add(entity);
+        }
+      }
+
+      if (manifestCandidates.length != 1) {
+        continue;
+      }
+
+      final content = await itemFile.readAsString();
+      final json = jsonDecode(content) as Map<String, dynamic>;
+      json['ManifestLocation'] = manifestCandidates.first.path;
+      await itemFile.writeAsString(jsonEncode(json));
+      repaired++;
+    }
+
+    return repaired;
   }
 }

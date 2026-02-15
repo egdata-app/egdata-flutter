@@ -13,6 +13,7 @@ import 'models/notification_topics.dart';
 import 'models/playtime_stats.dart';
 import 'models/settings.dart';
 import 'models/upload_status.dart';
+import 'models/manifest_health_issue.dart';
 import 'services/api_service.dart';
 import 'services/browse_prefetch_cache.dart';
 import 'services/follow_service.dart';
@@ -270,8 +271,8 @@ class _AppShellState extends State<AppShell> {
     _trayService!.onShowWindow = _showWindow;
     _trayService!.onQuit = _quitApp;
 
-    // Set up tray popup stats updates (macOS only)
-    if (Platform.isMacOS && _playtimeService != null) {
+    // Set up tray popup stats updates (desktop)
+    if (PlatformUtils.isDesktop && _playtimeService != null) {
       // Initial stats update
       _updateTrayPopupStats();
 
@@ -562,6 +563,24 @@ class _AppShellState extends State<AppShell> {
     _addLog('Upload complete');
   }
 
+  Future<ManifestHealthReport> _runManifestHealthCheck() async {
+    if (!PlatformUtils.isDesktop || _scanner == null) {
+      return const ManifestHealthReport(issues: []);
+    }
+    return _scanner!.analyzeManifestHealth(_allGames);
+  }
+
+  Future<int> _autoRepairManifestFiles() async {
+    if (!PlatformUtils.isDesktop || _scanner == null) {
+      return 0;
+    }
+    final repaired = await _scanner!.autoRepairManifestLocations(_allGames);
+    if (repaired > 0) {
+      await _scanGames();
+    }
+    return repaired;
+  }
+
   void _onSettingsChanged(AppSettings newSettings) async {
     final oldSettings = _settings;
     setState(() {
@@ -785,10 +804,13 @@ class _AppShellState extends State<AppShell> {
           isLoading: _isLoading,
           isUploadingAll: _isUploadingAll,
           followService: _followService!,
+          playtimeService: _playtimeService,
           manifestPath: _scanner?.getManifestsPath() ?? '',
           onScanGames: _scanGames,
           onUploadManifest: _uploadManifest,
           onUploadAll: _uploadAll,
+          onManifestHealthCheck: _runManifestHealthCheck,
+          onManifestAutoRepair: _autoRepairManifestFiles,
           onToggleConsole: () => setState(() => _showConsole = !_showConsole),
           showConsole: _showConsole,
           addLog: _addLog,

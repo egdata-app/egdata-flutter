@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 import '../database/database_service.dart';
+import '../models/daily_playtime_bucket.dart';
 import '../models/game_info.dart';
+import '../models/process_detection_debug_entry.dart';
 import '../models/playtime_stats.dart';
 import 'game_process_api_service.dart';
 import 'windows_process_service.dart';
@@ -36,9 +38,9 @@ class PlaytimeService {
     required DatabaseService db,
     required List<GameInfo> Function() getInstalledGames,
     GameProcessApiService? processApiService,
-  })  : _db = db,
-        _getInstalledGames = getInstalledGames,
-        _processApiService = processApiService ?? GameProcessApiService();
+  }) : _db = db,
+       _getInstalledGames = getInstalledGames,
+       _processApiService = processApiService ?? GameProcessApiService();
 
   /// Start tracking (called when app initializes)
   void startTracking() {
@@ -92,7 +94,8 @@ class PlaytimeService {
         if (_activeSessionId == null ||
             _activeGameId != runningGame.catalogItemId) {
           // Start a new session (end previous if different game)
-          if (_activeSessionId != null && _activeGameId != runningGame.catalogItemId) {
+          if (_activeSessionId != null &&
+              _activeGameId != runningGame.catalogItemId) {
             await _endCurrentSession();
           }
           await _startSession(runningGame);
@@ -183,8 +186,9 @@ class PlaytimeService {
 
     // Fallback: Try API if local manifest didn't have launchExecutable
     if (processNames.isEmpty && game.catalogItemId.isNotEmpty) {
-      processNames =
-          await _processApiService.fetchProcessNames(game.catalogItemId);
+      processNames = await _processApiService.fetchProcessNames(
+        game.catalogItemId,
+      );
     }
 
     // Last resort fallback: use appName as a guess
@@ -231,7 +235,8 @@ class PlaytimeService {
     final session = PlaytimeSessionEntry()
       ..gameId = game.catalogItemId
       ..gameName = game.displayName
-      ..thumbnailUrl = game.metadata?.dieselGameBoxTall ?? game.metadata?.firstImageUrl
+      ..thumbnailUrl =
+          game.metadata?.dieselGameBoxTall ?? game.metadata?.firstImageUrl
       ..startTime = DateTime.now()
       ..durationSeconds = 0
       ..installationGuid = game.installationGuid;
@@ -314,7 +319,8 @@ class PlaytimeService {
 
   /// Get game names mapping for the chart
   Future<Map<String, String>> getGameNamesForStats(
-      Map<String, Duration> playtimeByGame) async {
+    Map<String, Duration> playtimeByGame,
+  ) async {
     final gameNames = <String, String>{};
 
     for (final gameId in playtimeByGame.keys) {
@@ -329,7 +335,8 @@ class PlaytimeService {
 
   /// Get game thumbnails mapping for the chart
   Future<Map<String, String?>> getGameThumbnailsForStats(
-      Map<String, Duration> playtimeByGame) async {
+    Map<String, Duration> playtimeByGame,
+  ) async {
     final gameThumbnails = <String, String?>{};
 
     for (final gameId in playtimeByGame.keys) {
@@ -340,6 +347,113 @@ class PlaytimeService {
     }
 
     return gameThumbnails;
+  }
+
+  Future<List<DailyPlaytimeBucket>> getDailyTimeline(
+    String gameId, {
+    int days = 14,
+  }) async {
+    final sessions = await _db.getSessionsForGame(gameId);
+    final today = DateTime.now();
+    final start = DateTime(
+      today.year,
+      today.month,
+      today.day,
+    ).subtract(Duration(days: days - 1));
+
+    final secondsByDay = <DateTime, int>{};
+    for (var i = 0; i < days; i++) {
+      final day = start.add(Duration(days: i));
+      secondsByDay[day] = 0;
+    }
+
+    for (final session in sessions) {
+      if (session.endTime == null) {
+        continue;
+      }
+      final day = DateTime(
+        session.startTime.year,
+        session.startTime.month,
+        session.startTime.day,
+      );
+      if (day.isBefore(start)) {
+        continue;
+      }
+      if (!secondsByDay.containsKey(day)) {
+        continue;
+      }
+      secondsByDay[day] = (secondsByDay[day] ?? 0) + session.durationSeconds;
+    }
+
+    return secondsByDay.entries
+        .map(
+          (entry) => DailyPlaytimeBucket(
+            day: entry.key,
+            playtime: Duration(seconds: entry.value),
+          ),
+        )
+        .toList();
+  }
+
+  Future<List<ProcessDetectionDebugEntry>>
+  getProcessDetectionDebugSnapshot() async {
+    final games = _getInstalledGames();
+    if (games.isEmpty) {
+      return const [];
+    }
+
+    if (!Platform.isWindows) {
+      return games
+          .map(
+            (game) => ProcessDetectionDebugEntry(
+              gameName: game.displayName,
+              installLocation: game.installLocation,
+              isRunning: false,
+              reason:
+                  'Detailed process path debug is available on Windows only.',
+            ),
+          )
+          .toList();
+    }
+
+    final processPaths = WindowsProcessService.getAllProcessPaths();
+    final entries = <ProcessDetectionDebugEntry>[];
+
+    for (final game in games) {
+      final normalizedInstall = game.installLocation.toLowerCase().replaceAll(
+        '/',
+        '\\',
+      );
+      String? matchedProcess;
+
+      for (final processPath in processPaths) {
+        if (processPath.toLowerCase().contains(normalizedInstall)) {
+          matchedProcess = processPath;
+          break;
+        }
+      }
+
+      entries.add(
+        ProcessDetectionDebugEntry(
+          gameName: game.displayName,
+          installLocation: game.installLocation,
+          isRunning: matchedProcess != null,
+          matchedProcessPath: matchedProcess,
+          reason: matchedProcess != null
+              ? 'Matched by install directory.'
+              : 'No running process matched this install directory.',
+        ),
+      );
+    }
+
+    entries.sort((a, b) {
+      if (a.isRunning == b.isRunning) {
+        return a.gameName.toLowerCase().compareTo(b.gameName.toLowerCase());
+      }
+      return a.isRunning ? -1 : 1;
+    });
+
+    return entries;
   }
 
   void dispose() {
