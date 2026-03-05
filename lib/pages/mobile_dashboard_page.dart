@@ -10,6 +10,7 @@ import '../models/settings.dart';
 import '../services/api_service.dart';
 import '../services/chat_session_service.dart';
 import '../services/follow_service.dart';
+import '../services/playtime_service.dart';
 import '../services/push_service.dart';
 import '../services/sync_service.dart';
 import '../widgets/progressive_image.dart';
@@ -27,6 +28,7 @@ class MobileDashboardPage extends HookWidget {
   final AppSettings settings;
   final PushService? pushService;
   final ChatSessionService? chatService;
+  final PlaytimeService? playtimeService;
   final ValueChanged<AppSettings> onSettingsChanged;
 
   const MobileDashboardPage({
@@ -37,6 +39,7 @@ class MobileDashboardPage extends HookWidget {
     required this.settings,
     this.pushService,
     this.chatService,
+    this.playtimeService,
     required this.onSettingsChanged,
   });
 
@@ -90,6 +93,7 @@ class MobileDashboardPage extends HookWidget {
           followService: followService,
           pushService: pushService,
           chatService: chatService,
+          playtimeService: playtimeService,
           settings: settings,
           initialTitle: title,
           initialImageUrl: imageUrl,
@@ -497,7 +501,7 @@ class MobileDashboardPage extends HookWidget {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: activeFreeGames.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  separatorBuilder: (_, _) => const SizedBox(width: 12),
                   itemBuilder: (context, index) {
                     final game = activeFreeGames[index];
                     return _buildFreeGameCard(context, game);
@@ -543,7 +547,7 @@ class MobileDashboardPage extends HookWidget {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: genres.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 14),
+                  separatorBuilder: (_, _) => const SizedBox(width: 14),
                   itemBuilder: (context, index) {
                     final genre = genres[index];
                     return SizedBox(
@@ -950,8 +954,9 @@ class _CreatorCodeBanner extends HookWidget {
       SharedPreferences.getInstance().then((prefs) {
         final dismissedAt = prefs.getInt(_dismissedKey);
         if (dismissedAt != null) {
-          final dismissedDate =
-              DateTime.fromMillisecondsSinceEpoch(dismissedAt);
+          final dismissedDate = DateTime.fromMillisecondsSinceEpoch(
+            dismissedAt,
+          );
           final now = DateTime.now();
           final difference = now.difference(dismissedDate);
           // Show again after 30 days
@@ -1101,11 +1106,11 @@ class _CreatorCodeMiniBanner extends HookWidget {
     // Check if main banner was dismissed (show mini banner only when dismissed)
     useEffect(() {
       SharedPreferences.getInstance().then((prefs) {
-        final dismissedAt =
-            prefs.getInt(_CreatorCodeBanner._dismissedKey);
+        final dismissedAt = prefs.getInt(_CreatorCodeBanner._dismissedKey);
         if (dismissedAt != null) {
-          final dismissedDate =
-              DateTime.fromMillisecondsSinceEpoch(dismissedAt);
+          final dismissedDate = DateTime.fromMillisecondsSinceEpoch(
+            dismissedAt,
+          );
           final now = DateTime.now();
           final difference = now.difference(dismissedDate);
           // Show mini banner only when main banner is dismissed (within 30 days)
@@ -1146,18 +1151,11 @@ class _CreatorCodeMiniBanner extends HookWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.favorite_rounded,
-                color: AppColors.primary,
-                size: 16,
-              ),
+              Icon(Icons.favorite_rounded, color: AppColors.primary, size: 16),
               const SizedBox(width: 8),
               Text(
                 'Support us with creator code ',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textMuted,
-                ),
+                style: TextStyle(fontSize: 12, color: AppColors.textMuted),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

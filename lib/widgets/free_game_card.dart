@@ -103,8 +103,12 @@ class _FreeGameCardState extends State<FreeGameCard> {
     try {
       if (_isFollowing) {
         // Unfollow: unsubscribe from all topics and delete from database
-        final topics = await widget.followService.getNotificationTopics(widget.game.offerId);
-        if (topics.isNotEmpty && widget.pushService != null && PlatformUtils.isMobile) {
+        final topics = await widget.followService.getNotificationTopics(
+          widget.game.offerId,
+        );
+        if (topics.isNotEmpty &&
+            widget.pushService != null &&
+            PlatformUtils.isMobile) {
           await widget.pushService!.unsubscribeFromTopics(topics: topics);
         }
         await widget.followService.unfollowGame(widget.game.offerId);
@@ -121,7 +125,9 @@ class _FreeGameCardState extends State<FreeGameCard> {
 
         // Auto-subscribe to "all notifications" by default on mobile
         if (widget.pushService != null && PlatformUtils.isMobile) {
-          final allTopic = OfferNotificationTopic.all.getTopicForOffer(widget.game.offerId);
+          final allTopic = OfferNotificationTopic.all.getTopicForOffer(
+            widget.game.offerId,
+          );
           await _updateTopics([allTopic]);
         }
       }
@@ -136,7 +142,9 @@ class _FreeGameCardState extends State<FreeGameCard> {
   Future<void> _showTopicSelector() async {
     if (!_isFollowing || !PlatformUtils.isMobile) return;
 
-    final currentTopics = await widget.followService.getNotificationTopics(widget.game.offerId);
+    final currentTopics = await widget.followService.getNotificationTopics(
+      widget.game.offerId,
+    );
 
     if (!mounted) return;
 
@@ -156,11 +164,15 @@ class _FreeGameCardState extends State<FreeGameCard> {
     setState(() => _isFollowLoading = true);
 
     try {
-      final currentTopics = await widget.followService.getNotificationTopics(widget.game.offerId);
+      final currentTopics = await widget.followService.getNotificationTopics(
+        widget.game.offerId,
+      );
 
       // Calculate topics to add and remove
       final toAdd = newTopics.where((t) => !currentTopics.contains(t)).toList();
-      final toRemove = currentTopics.where((t) => !newTopics.contains(t)).toList();
+      final toRemove = currentTopics
+          .where((t) => !newTopics.contains(t))
+          .toList();
 
       // Update FCM subscriptions
       if (widget.pushService != null && PlatformUtils.isMobile) {
@@ -173,7 +185,10 @@ class _FreeGameCardState extends State<FreeGameCard> {
       }
 
       // Update database
-      await widget.followService.updateNotificationTopics(widget.game.offerId, newTopics);
+      await widget.followService.updateNotificationTopics(
+        widget.game.offerId,
+        newTopics,
+      );
     } finally {
       if (mounted) {
         setState(() => _isFollowLoading = false);
@@ -260,11 +275,15 @@ class _FreeGameCardState extends State<FreeGameCard> {
                             Text(
                               widget.isActive
                                   ? (widget.game.endDate != null
-                                      ? _formatTimeRemaining(widget.game.endDate!)
-                                      : 'Available')
+                                        ? _formatTimeRemaining(
+                                            widget.game.endDate!,
+                                          )
+                                        : 'Available')
                                   : (widget.game.startDate != null
-                                      ? _formatStartDate(widget.game.startDate!)
-                                      : 'Coming soon'),
+                                        ? _formatStartDate(
+                                            widget.game.startDate!,
+                                          )
+                                        : 'Coming soon'),
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,

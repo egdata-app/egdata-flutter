@@ -105,7 +105,10 @@ class _WearInstallSheetState extends State<_WearInstallSheet> {
   bool _isInstalling = false;
 
   Future<void> _installOnWatch() async {
-    developer.log('Install button tapped for device: ${widget.device}', name: 'WearInstallPrompt');
+    developer.log(
+      'Install button tapped for device: ${widget.device}',
+      name: 'WearInstallPrompt',
+    );
 
     // Capture ScaffoldMessenger before any async work or navigation
     final scaffoldMessenger = ScaffoldMessenger.of(context);
@@ -115,9 +118,15 @@ class _WearInstallSheetState extends State<_WearInstallSheet> {
 
     setState(() => _isInstalling = true);
 
-    developer.log('Calling openPlayStoreOnWatch with id: $deviceId', name: 'WearInstallPrompt');
+    developer.log(
+      'Calling openPlayStoreOnWatch with id: $deviceId',
+      name: 'WearInstallPrompt',
+    );
     final success = await widget.wearService.openPlayStoreOnWatch(deviceId);
-    developer.log('openPlayStoreOnWatch returned: $success', name: 'WearInstallPrompt');
+    developer.log(
+      'openPlayStoreOnWatch returned: $success',
+      name: 'WearInstallPrompt',
+    );
 
     if (mounted) {
       setState(() => _isInstalling = false);

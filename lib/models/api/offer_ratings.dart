@@ -23,8 +23,8 @@ class OfferRatings {
       recommendPercentage: json['recommendPercentage'] as int?,
       reviews: json['reviews'] != null
           ? (json['reviews'] as List)
-              .map((r) => Review.fromJson(r as Map<String, dynamic>))
-              .toList()
+                .map((r) => Review.fromJson(r as Map<String, dynamic>))
+                .toList()
           : null,
       url: json['url'] as String?,
     );
@@ -49,13 +49,7 @@ class Review {
   final ReviewScore? score;
   final String? url;
 
-  Review({
-    this.author,
-    this.body,
-    this.outlet,
-    this.score,
-    this.url,
-  });
+  Review({this.author, this.body, this.outlet, this.score, this.url});
 
   factory Review.fromJson(Map<String, dynamic> json) {
     return Review(
@@ -85,11 +79,7 @@ class ReviewScore {
   final double? totalScore;
   final String? score; // For qualitative scores like "Recommended"
 
-  ReviewScore({
-    this.earnedScore,
-    this.totalScore,
-    this.score,
-  });
+  ReviewScore({this.earnedScore, this.totalScore, this.score});
 
   factory ReviewScore.fromJson(Map<String, dynamic> json) {
     return ReviewScore(
@@ -119,4 +109,3 @@ class ReviewScore {
     return '';
   }
 }
-

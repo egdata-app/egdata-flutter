@@ -45,9 +45,7 @@ class WeeklyActivityChart extends StatelessWidget {
           final barWidthPercent = duration.inMinutes / maxPlaytime;
 
           return Padding(
-            padding: EdgeInsets.only(
-              bottom: entry != topGames.last ? 12 : 0,
-            ),
+            padding: EdgeInsets.only(bottom: entry != topGames.last ? 12 : 0),
             child: _buildGameBar(
               gameName: gameName,
               thumbnail: thumbnail,
@@ -81,7 +79,7 @@ class WeeklyActivityChart extends StatelessWidget {
               ? Image.network(
                   thumbnail,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const Icon(
+                  errorBuilder: (_, _, _) => const Icon(
                     Icons.games_rounded,
                     size: 16,
                     color: AppColors.textMuted,
@@ -147,10 +145,7 @@ class WeeklyActivityChart extends StatelessWidget {
                         width: constraints.maxWidth * barWidthPercent,
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [
-                              AppColors.primary,
-                              AppColors.primaryLight,
-                            ],
+                            colors: [AppColors.primary, AppColors.primaryLight],
                           ),
                           borderRadius: BorderRadius.circular(4),
                         ),
@@ -178,26 +173,16 @@ class WeeklyActivityChart extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.bar_chart_rounded,
-              size: 32,
-              color: AppColors.textMuted,
-            ),
+            Icon(Icons.bar_chart_rounded, size: 32, color: AppColors.textMuted),
             SizedBox(height: 8),
             Text(
               'No playtime data yet',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.textMuted,
-              ),
+              style: TextStyle(fontSize: 13, color: AppColors.textMuted),
             ),
             SizedBox(height: 4),
             Text(
               'Play some games to see your weekly activity',
-              style: TextStyle(
-                fontSize: 11,
-                color: AppColors.textMuted,
-              ),
+              style: TextStyle(fontSize: 11, color: AppColors.textMuted),
             ),
           ],
         ),

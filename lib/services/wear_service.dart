@@ -62,19 +62,27 @@ class WearService {
 
   /// Open Play Store on the specified watch to install the app.
   Future<bool> openPlayStoreOnWatch(String nodeId) async {
-    developer.log('openPlayStoreOnWatch called with nodeId: $nodeId', name: 'WearService');
+    developer.log(
+      'openPlayStoreOnWatch called with nodeId: $nodeId',
+      name: 'WearService',
+    );
     if (!isAvailable) {
       developer.log('Wear not available (not Android)', name: 'WearService');
       return false;
     }
 
     try {
-      developer.log('Invoking openPlayStoreOnWatch method channel', name: 'WearService');
-      final result = await _channel.invokeMethod<bool>(
-        'openPlayStoreOnWatch',
-        {'nodeId': nodeId},
+      developer.log(
+        'Invoking openPlayStoreOnWatch method channel',
+        name: 'WearService',
       );
-      developer.log('openPlayStoreOnWatch result: $result', name: 'WearService');
+      final result = await _channel.invokeMethod<bool>('openPlayStoreOnWatch', {
+        'nodeId': nodeId,
+      });
+      developer.log(
+        'openPlayStoreOnWatch result: $result',
+        name: 'WearService',
+      );
       return result ?? false;
     } catch (e) {
       developer.log('openPlayStoreOnWatch error: $e', name: 'WearService');
@@ -108,5 +116,6 @@ class WearDevice {
   });
 
   @override
-  String toString() => 'WearDevice(id: $id, displayName: $displayName, isNearby: $isNearby)';
+  String toString() =>
+      'WearDevice(id: $id, displayName: $displayName, isNearby: $isNearby)';
 }

@@ -35,9 +35,9 @@ class SyncService {
     required DatabaseService db,
     required NotificationService notification,
     ApiService? api,
-  })  : _db = db,
-        _notification = notification,
-        _api = api ?? ApiService();
+  }) : _db = db,
+       _notification = notification,
+       _api = api ?? ApiService();
 
   bool get isSyncing => _isSyncing;
 
@@ -75,17 +75,13 @@ class SyncService {
 
       // 2. Sync followed games prices (check for sales)
       if (settings.notifySales) {
-        final saleResults = await _syncFollowedGamePrices(
-          notify: shouldNotify,
-        );
+        final saleResults = await _syncFollowedGamePrices(notify: shouldNotify);
         gamesOnSale.addAll(saleResults);
       }
 
       // 3. Sync changelogs for followed games
       if (settings.notifyFollowedUpdates) {
-        final changelogResults = await _syncChangelogs(
-          notify: shouldNotify,
-        );
+        final changelogResults = await _syncChangelogs(notify: shouldNotify);
         newChangelogs.addAll(changelogResults);
       }
 
@@ -159,7 +155,11 @@ class SyncService {
 
   FreeGameEntry _freeGameEntryFromApi(FreeGame game) {
     String? imageUrl;
-    final preferredTypes = ['OfferImageWide', 'DieselStoreFrontWide', 'DieselGameBoxTall'];
+    final preferredTypes = [
+      'OfferImageWide',
+      'DieselStoreFrontWide',
+      'DieselGameBoxTall',
+    ];
     for (final type in preferredTypes) {
       for (final img in game.keyImages) {
         if (img.type == type) {
@@ -210,9 +210,12 @@ class SyncService {
           game.priceCurrency = currencyCode;
 
           // Check if this is a new sale (wasn't on sale before, or discount increased)
-          final isNewSale = discountPercent != null &&
+          final isNewSale =
+              discountPercent != null &&
               discountPercent > 0 &&
-              (!wasOnSale || (previousDiscountPercent != null && discountPercent > previousDiscountPercent)) &&
+              (!wasOnSale ||
+                  (previousDiscountPercent != null &&
+                      discountPercent > previousDiscountPercent)) &&
               !game.notifiedSale;
 
           if (isNewSale) {
@@ -242,9 +245,7 @@ class SyncService {
     return gamesOnSale;
   }
 
-  Future<List<ChangelogEntry>> _syncChangelogs({
-    bool notify = true,
-  }) async {
+  Future<List<ChangelogEntry>> _syncChangelogs({bool notify = true}) async {
     final followedGames = await _db.getAllFollowedGames();
     final newChangelogs = <ChangelogEntry>[];
 
@@ -263,7 +264,9 @@ class SyncService {
           if (exists) continue;
 
           // Only include changes from the last 30 days
-          final daysSinceChange = DateTime.now().difference(change.timestamp).inDays;
+          final daysSinceChange = DateTime.now()
+              .difference(change.timestamp)
+              .inDays;
           if (daysSinceChange > 30) continue;
 
           // Get the primary change type from metadata

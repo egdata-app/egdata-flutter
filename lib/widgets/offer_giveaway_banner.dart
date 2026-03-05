@@ -5,10 +5,7 @@ import '../models/api/free_game.dart';
 class OfferGiveawayBanner extends StatelessWidget {
   final List<Giveaway> giveaways;
 
-  const OfferGiveawayBanner({
-    super.key,
-    required this.giveaways,
-  });
+  const OfferGiveawayBanner({super.key, required this.giveaways});
 
   Giveaway? get mostRecent => giveaways.isNotEmpty ? giveaways.first : null;
 
@@ -114,7 +111,9 @@ class OfferGiveawayBanner extends StatelessWidget {
                           'Free ${giveaways.length} times',
                           style: TextStyle(
                             fontSize: 12,
-                            color: AppColors.textSecondary.withValues(alpha: 0.8),
+                            color: AppColors.textSecondary.withValues(
+                              alpha: 0.8,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 4),

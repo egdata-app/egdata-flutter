@@ -34,7 +34,9 @@ void main() {
           'tags': [],
           'catalogNs': {'mappings': []},
           'offerMappings': [],
-          'price': {'totalPrice': {'discountPrice': 0, 'originalPrice': 100}},
+          'price': {
+            'totalPrice': {'discountPrice': 0, 'originalPrice': 100},
+          },
           'promotions': {
             'promotionalOffers': [
               {
@@ -42,14 +44,17 @@ void main() {
                   {
                     'startDate': '2023-01-01T00:00:00.000Z',
                     'endDate': '2023-01-08T00:00:00.000Z',
-                    'discountSetting': {'discountType': 'PERCENTAGE', 'discountPercentage': 0}
-                  }
-                ]
-              }
+                    'discountSetting': {
+                      'discountType': 'PERCENTAGE',
+                      'discountPercentage': 0,
+                    },
+                  },
+                ],
+              },
             ],
-            'upcomingPromotionalOffers': []
-          }
-        }
+            'upcomingPromotionalOffers': [],
+          },
+        },
       ];
 
       final client = MockClient((request) async {
@@ -84,7 +89,9 @@ void main() {
         'tags': [],
         'catalogNs': {'mappings': []},
         'offerMappings': [],
-        'price': {'totalPrice': {'discountPrice': 100, 'originalPrice': 100}},
+        'price': {
+          'totalPrice': {'discountPrice': 100, 'originalPrice': 100},
+        },
       };
 
       final client = MockClient((request) async {
@@ -116,19 +123,22 @@ void main() {
     test('getOfferPrice returns TotalPrice on 200', () async {
       final mockResponse = {
         'price': {
-            'currencyCode': 'USD',
-            'discountPrice': 1000,
-            'originalPrice': 2000,
-            'fmtPrice': {
-                'originalPrice': '\$20.00',
-                'discountPrice': '\$10.00',
-                'intermediatePrice': '\$10.00'
-            }
-        }
+          'currencyCode': 'USD',
+          'discountPrice': 1000,
+          'originalPrice': 2000,
+          'fmtPrice': {
+            'originalPrice': '\$20.00',
+            'discountPrice': '\$10.00',
+            'intermediatePrice': '\$10.00',
+          },
+        },
       };
 
       final client = MockClient((request) async {
-        expect(request.url.toString(), '$baseUrl/offers/offer1/price?country=US');
+        expect(
+          request.url.toString(),
+          '$baseUrl/offers/offer1/price?country=US',
+        );
         return http.Response(jsonEncode(mockResponse), 200);
       });
 
@@ -160,7 +170,11 @@ void main() {
 
       expect(
         () => apiService.getFreeGames(),
-        throwsA(predicate((e) => e is ApiException && e.message.contains('Network error'))),
+        throwsA(
+          predicate(
+            (e) => e is ApiException && e.message.contains('Network error'),
+          ),
+        ),
       );
     });
   });

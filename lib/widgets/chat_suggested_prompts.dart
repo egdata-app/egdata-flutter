@@ -4,36 +4,15 @@ import '../main.dart';
 class ChatSuggestedPrompts extends StatelessWidget {
   final ValueChanged<String> onPromptTapped;
 
-  const ChatSuggestedPrompts({
-    super.key,
-    required this.onPromptTapped,
-  });
+  const ChatSuggestedPrompts({super.key, required this.onPromptTapped});
 
   static const List<Map<String, String>> _prompts = [
-    {
-      'icon': '🎮',
-      'text': 'What are the current free games?',
-    },
-    {
-      'icon': '💰',
-      'text': 'Show me RPGs under \$20',
-    },
-    {
-      'icon': '🔥',
-      'text': 'What\'s on sale this week?',
-    },
-    {
-      'icon': '⭐',
-      'text': 'Best indie games right now',
-    },
-    {
-      'icon': '🎯',
-      'text': 'Show me multiplayer games',
-    },
-    {
-      'icon': '🏆',
-      'text': 'Latest AAA releases',
-    },
+    {'icon': '🎮', 'text': 'What are the current free games?'},
+    {'icon': '💰', 'text': 'Show me RPGs under \$20'},
+    {'icon': '🔥', 'text': 'What\'s on sale this week?'},
+    {'icon': '⭐', 'text': 'Best indie games right now'},
+    {'icon': '🎯', 'text': 'Show me multiplayer games'},
+    {'icon': '🏆', 'text': 'Latest AAA releases'},
   ];
 
   @override
@@ -84,10 +63,7 @@ class _PromptChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                icon,
-                style: const TextStyle(fontSize: 16),
-              ),
+              Text(icon, style: const TextStyle(fontSize: 16)),
               const SizedBox(width: 8),
               Text(
                 text,

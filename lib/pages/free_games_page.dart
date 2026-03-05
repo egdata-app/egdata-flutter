@@ -7,6 +7,7 @@ import '../models/settings.dart';
 import '../services/api_service.dart';
 import '../services/chat_session_service.dart';
 import '../services/follow_service.dart';
+import '../services/playtime_service.dart';
 import '../services/push_service.dart';
 import '../services/sync_service.dart';
 import '../widgets/free_game_card.dart';
@@ -18,6 +19,7 @@ class FreeGamesPage extends HookWidget {
   final DatabaseService db;
   final PushService? pushService;
   final ChatSessionService? chatService;
+  final PlaytimeService? playtimeService;
   final AppSettings? settings;
 
   const FreeGamesPage({
@@ -27,6 +29,7 @@ class FreeGamesPage extends HookWidget {
     required this.db,
     this.pushService,
     this.chatService,
+    this.playtimeService,
     this.settings,
   });
 
@@ -38,8 +41,14 @@ class FreeGamesPage extends HookWidget {
     return allGames.map((game) {
       // Find thumbnail from key images
       String? thumbnail;
-      for (final type in ['OfferImageWide', 'DieselStoreFrontWide', 'DieselGameBoxTall']) {
-        final image = game.keyImages.where((img) => img.type == type).firstOrNull;
+      for (final type in [
+        'OfferImageWide',
+        'DieselStoreFrontWide',
+        'DieselGameBoxTall',
+      ]) {
+        final image = game.keyImages
+            .where((img) => img.type == type)
+            .firstOrNull;
         if (image != null) {
           thumbnail = image.url;
           break;
@@ -56,7 +65,8 @@ class FreeGamesPage extends HookWidget {
         ..thumbnailUrl = thumbnail
         ..startDate = game.giveaway?.startDate
         ..endDate = game.giveaway?.endDate
-        ..platforms = ['epic'] // Default to Epic platform
+        ..platforms =
+            ['epic'] // Default to Epic platform
         ..syncedAt = DateTime.now()
         ..notifiedNewGame = false;
     }).toList();
@@ -71,6 +81,7 @@ class FreeGamesPage extends HookWidget {
           followService: followService,
           pushService: pushService,
           chatService: chatService,
+          playtimeService: playtimeService,
           settings: settings,
           initialTitle: game.title,
           initialImageUrl: game.thumbnailUrl,

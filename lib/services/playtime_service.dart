@@ -306,6 +306,14 @@ class PlaytimeService {
     );
   }
 
+  /// Get all historical playtime for all games ever played
+  Future<Map<String, Duration>> getAllPlaytimeStats() async {
+    final rawPlaytime = await _db.getAllPlaytimeByGame();
+    return rawPlaytime.map(
+      (key, value) => MapEntry(key, Duration(seconds: value)),
+    );
+  }
+
   /// Get total playtime for a specific game
   Future<Duration> getTotalPlaytime(String gameId) async {
     final seconds = await _db.getTotalPlaytimeSeconds(gameId);

@@ -7,7 +7,9 @@ class TrayPopupService {
   factory TrayPopupService() => _instance;
   TrayPopupService._internal();
 
-  static const MethodChannel _channel = MethodChannel('com.egdata.app/tray_popup');
+  static const MethodChannel _channel = MethodChannel(
+    'com.egdata.app/tray_popup',
+  );
 
   Function()? onOpenApp;
 

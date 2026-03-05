@@ -5,8 +5,9 @@ import '../main.dart'; // For AppColors
 enum AppPage {
   dashboard,
   library,
-  browse,    // Mobile only: browse/search games
-  chat,      // Mobile only: AI chat assistant
+  playtime,
+  browse, // Mobile only: browse/search games
+  chat, // Mobile only: AI chat assistant
   freeGames, // Mobile only: free games list
   settings,
 }
@@ -67,15 +68,18 @@ class _AppSidebarState extends State<AppSidebar> {
                     label: 'Library',
                     page: AppPage.library,
                   ),
+                  const SizedBox(height: 4),
+                  _buildNavItem(
+                    icon: Icons.timer_rounded,
+                    label: 'Playtime',
+                    page: AppPage.playtime,
+                  ),
                   const Spacer(),
                   if (widget.hasUpdate) ...[
                     _buildUpdateButton(),
                     const SizedBox(height: 12),
                   ],
-                  Container(
-                    height: 1,
-                    color: AppColors.border,
-                  ),
+                  Container(height: 1, color: AppColors.border),
                   const SizedBox(height: 12),
                   _buildNavItem(
                     icon: Icons.settings_rounded,
@@ -102,7 +106,7 @@ class _AppSidebarState extends State<AppSidebar> {
             width: 36,
             height: 36,
             fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) => Container(
+            errorBuilder: (_, _, _) => Container(
               width: 36,
               height: 36,
               decoration: BoxDecoration(
@@ -170,8 +174,8 @@ class _AppSidebarState extends State<AppSidebar> {
               color: isActive
                   ? AppColors.primary.withValues(alpha: 0.25)
                   : isHovered
-                      ? AppColors.primary.withValues(alpha: 0.4)
-                      : Colors.transparent,
+                  ? AppColors.primary.withValues(alpha: 0.4)
+                  : Colors.transparent,
               width: 1,
             ),
           ),
@@ -183,8 +187,8 @@ class _AppSidebarState extends State<AppSidebar> {
                 color: isActive
                     ? AppColors.primary
                     : isHovered
-                        ? AppColors.textPrimary
-                        : AppColors.textSecondary,
+                    ? AppColors.textPrimary
+                    : AppColors.textSecondary,
               ),
               const SizedBox(width: 12),
               Text(
@@ -195,8 +199,8 @@ class _AppSidebarState extends State<AppSidebar> {
                   color: isActive
                       ? AppColors.primary
                       : isHovered
-                          ? AppColors.textPrimary
-                          : AppColors.textSecondary,
+                      ? AppColors.textPrimary
+                      : AppColors.textSecondary,
                 ),
               ),
             ],

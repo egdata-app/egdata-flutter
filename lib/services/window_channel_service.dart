@@ -4,7 +4,8 @@ import 'package:flutter/services.dart';
 /// Service to communicate window settings to native macOS code.
 /// Used to sync the minimize-to-tray preference with the native window delegate.
 class WindowChannelService {
-  static final WindowChannelService _instance = WindowChannelService._internal();
+  static final WindowChannelService _instance =
+      WindowChannelService._internal();
   factory WindowChannelService() => _instance;
   WindowChannelService._internal();
 

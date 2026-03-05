@@ -13,7 +13,10 @@ class WindowsProcessService {
     if (!Platform.isWindows) return false;
 
     // Normalize the path for comparison (lowercase, backslashes)
-    final normalizedInstallPath = installPath.toLowerCase().replaceAll('/', '\\');
+    final normalizedInstallPath = installPath.toLowerCase().replaceAll(
+      '/',
+      '\\',
+    );
 
     // Allocate buffer for process IDs (up to 4096 processes)
     const maxProcesses = 4096;
@@ -61,11 +64,7 @@ class WindowsProcessService {
     // Open process with query limited information access
     // PROCESS_QUERY_LIMITED_INFORMATION (0x1000) works for most processes
     // even without admin rights
-    final hProcess = OpenProcess(
-      PROCESS_QUERY_LIMITED_INFORMATION,
-      FALSE,
-      pid,
-    );
+    final hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
 
     if (hProcess == NULL) {
       return null;

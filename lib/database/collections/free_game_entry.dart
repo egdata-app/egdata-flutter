@@ -26,8 +26,15 @@ class FreeGameEntry {
     final keyImages = json['keyImages'] as List<dynamic>? ?? [];
 
     String? thumbnail;
-    for (final type in ['OfferImageWide', 'DieselStoreFrontWide', 'DieselGameBoxTall']) {
-      final image = keyImages.cast<Map<String, dynamic>>().where((img) => img['type'] == type).firstOrNull;
+    for (final type in [
+      'OfferImageWide',
+      'DieselStoreFrontWide',
+      'DieselGameBoxTall',
+    ]) {
+      final image = keyImages
+          .cast<Map<String, dynamic>>()
+          .where((img) => img['type'] == type)
+          .firstOrNull;
       if (image != null) {
         thumbnail = image['url'] as String?;
         break;

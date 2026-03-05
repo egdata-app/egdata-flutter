@@ -62,10 +62,7 @@ extension AchievementTierExtension on AchievementTier {
 class AchievementsBottomSheet extends HookWidget {
   final List<Achievement> achievements;
 
-  const AchievementsBottomSheet({
-    super.key,
-    required this.achievements,
-  });
+  const AchievementsBottomSheet({super.key, required this.achievements});
 
   @override
   Widget build(BuildContext context) {
@@ -214,10 +211,16 @@ class AchievementsBottomSheet extends HookWidget {
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
                 ),
-                prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textMuted),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  color: AppColors.textMuted,
+                ),
                 suffixIcon: searchQuery.value.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear_rounded, color: AppColors.textMuted),
+                        icon: const Icon(
+                          Icons.clear_rounded,
+                          color: AppColors.textMuted,
+                        ),
                         onPressed: () {
                           searchController.clear();
                           searchQuery.value = '';
@@ -234,14 +237,10 @@ class AchievementsBottomSheet extends HookWidget {
             child: Row(
               children: [
                 // Filter dropdown
-                Expanded(
-                  child: _buildFilterDropdown(filter),
-                ),
+                Expanded(child: _buildFilterDropdown(filter)),
                 const SizedBox(width: 12),
                 // Sort dropdown
-                Expanded(
-                  child: _buildSortDropdown(sortBy),
-                ),
+                Expanded(child: _buildSortDropdown(sortBy)),
               ],
             ),
           ),
@@ -270,7 +269,8 @@ class AchievementsBottomSheet extends HookWidget {
                       bottom: bottomPadding + 16,
                     ),
                     itemCount: filteredAchievements.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 12),
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final achievement = filteredAchievements[index];
                       return _buildAchievementCard(achievement);
@@ -294,7 +294,10 @@ class AchievementsBottomSheet extends HookWidget {
         onChanged: (value) => filter.value = value!,
         isExpanded: true,
         underline: const SizedBox.shrink(),
-        icon: const Icon(Icons.arrow_drop_down_rounded, color: AppColors.textMuted),
+        icon: const Icon(
+          Icons.arrow_drop_down_rounded,
+          color: AppColors.textMuted,
+        ),
         dropdownColor: AppColors.surface,
         style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
         items: const [
@@ -327,7 +330,10 @@ class AchievementsBottomSheet extends HookWidget {
         onChanged: (value) => sortBy.value = value!,
         isExpanded: true,
         underline: const SizedBox.shrink(),
-        icon: const Icon(Icons.arrow_drop_down_rounded, color: AppColors.textMuted),
+        icon: const Icon(
+          Icons.arrow_drop_down_rounded,
+          color: AppColors.textMuted,
+        ),
         dropdownColor: AppColors.surface,
         style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
         items: const [
@@ -370,10 +376,7 @@ class AchievementsBottomSheet extends HookWidget {
           const SizedBox(height: 8),
           const Text(
             'Try adjusting your search or filters',
-            style: TextStyle(
-              fontSize: 13,
-              color: AppColors.textMuted,
-            ),
+            style: TextStyle(fontSize: 13, color: AppColors.textMuted),
           ),
         ],
       ),

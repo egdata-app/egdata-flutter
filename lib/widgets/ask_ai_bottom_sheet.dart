@@ -105,10 +105,7 @@ class _AskAIBottomSheetState extends State<AskAIBottomSheet> {
       final userId = await UserService.getUserId();
       _wsService = ChatWebSocketService();
 
-      await _wsService!.connect(
-        userId: userId,
-        sessionId: _session!.id,
-      );
+      await _wsService!.connect(userId: userId, sessionId: _session!.id);
 
       setState(() {
         _isConnecting = false;
@@ -119,10 +116,7 @@ class _AskAIBottomSheetState extends State<AskAIBottomSheet> {
       _eventSubscription = _wsService!.events.listen(_handleEvent);
 
       // Send the message
-      await _wsService!.sendMessage(
-        message: message,
-        sessionId: _session!.id,
-      );
+      await _wsService!.sendMessage(message: message, sessionId: _session!.id);
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -212,12 +206,14 @@ class _AskAIBottomSheetState extends State<AskAIBottomSheet> {
     if (_session == null || widget.onContinueInChat == null) return;
 
     Navigator.of(context).pop();
-    widget.onContinueInChat!(AskAIContinueResult(
-      session: _session!,
-      userMessage: _userMessage,
-      aiResponse: _aiResponse,
-      referencedOffers: _referencedOffers,
-    ));
+    widget.onContinueInChat!(
+      AskAIContinueResult(
+        session: _session!,
+        userMessage: _userMessage,
+        aiResponse: _aiResponse,
+        referencedOffers: _referencedOffers,
+      ),
+    );
   }
 
   String _formatOfferType(String type) {
@@ -253,10 +249,7 @@ class _AskAIBottomSheetState extends State<AskAIBottomSheet> {
           decoration: BoxDecoration(
             color: AppColors.background.withValues(alpha: 0.9),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            border: Border.all(
-              color: AppColors.borderLight,
-              width: 1,
-            ),
+            border: Border.all(color: AppColors.borderLight, width: 1),
           ),
           child: Padding(
             padding: EdgeInsets.only(bottom: bottomPadding),
@@ -309,10 +302,7 @@ class _AskAIBottomSheetState extends State<AskAIBottomSheet> {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  AppColors.primary,
-                  AppColors.primaryDark,
-                ],
+                colors: [AppColors.primary, AppColors.primaryDark],
               ),
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
@@ -395,10 +385,7 @@ class _AskAIBottomSheetState extends State<AskAIBottomSheet> {
                 decoration: BoxDecoration(
                   color: AppColors.surface,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: AppColors.borderLight,
-                    width: 1,
-                  ),
+                  border: Border.all(color: AppColors.borderLight, width: 1),
                 ),
                 child: const Icon(
                   Icons.close_rounded,
@@ -452,10 +439,7 @@ class _AskAIBottomSheetState extends State<AskAIBottomSheet> {
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: AppColors.borderLight,
-            width: 1,
-          ),
+          border: Border.all(color: AppColors.borderLight, width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -541,10 +525,7 @@ class _AskAIBottomSheetState extends State<AskAIBottomSheet> {
                         ? LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [
-                              AppColors.accent,
-                              AppColors.primary,
-                            ],
+                            colors: [AppColors.accent, AppColors.primary],
                           )
                         : null,
                     color: _hasText && !_isSending
@@ -632,10 +613,7 @@ class _AskAIBottomSheetState extends State<AskAIBottomSheet> {
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [
-                        AppColors.primary,
-                        AppColors.primaryDark,
-                      ],
+                      colors: [AppColors.primary, AppColors.primaryDark],
                     ),
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -780,10 +758,7 @@ class _AskAIBottomSheetState extends State<AskAIBottomSheet> {
           const SizedBox(width: 10),
           Text(
             text,
-            style: const TextStyle(
-              fontSize: 14,
-              color: AppColors.textMuted,
-            ),
+            style: const TextStyle(fontSize: 14, color: AppColors.textMuted),
           ),
         ],
       ),
@@ -804,10 +779,7 @@ class _AskAIBottomSheetState extends State<AskAIBottomSheet> {
                 decoration: BoxDecoration(
                   color: AppColors.surface,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: AppColors.borderLight,
-                    width: 1,
-                  ),
+                  border: Border.all(color: AppColors.borderLight, width: 1),
                 ),
                 child: const Center(
                   child: Text(
@@ -835,10 +807,7 @@ class _AskAIBottomSheetState extends State<AskAIBottomSheet> {
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [
-                        AppColors.primary,
-                        AppColors.primaryDark,
-                      ],
+                      colors: [AppColors.primary, AppColors.primaryDark],
                     ),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
@@ -852,11 +821,7 @@ class _AskAIBottomSheetState extends State<AskAIBottomSheet> {
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        Icons.chat_rounded,
-                        size: 18,
-                        color: Colors.white,
-                      ),
+                      Icon(Icons.chat_rounded, size: 18, color: Colors.white),
                       SizedBox(width: 8),
                       Text(
                         'Continue in Chat',

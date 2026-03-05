@@ -56,8 +56,11 @@ class GameMoverService {
     final requiredSpace = (game.installSize * 1.1).round(); // 10% buffer
 
     if (availableSpace != null && availableSpace < requiredSpace) {
-      final availableGB = (availableSpace / (1024 * 1024 * 1024)).toStringAsFixed(2);
-      final requiredGB = (requiredSpace / (1024 * 1024 * 1024)).toStringAsFixed(2);
+      final availableGB = (availableSpace / (1024 * 1024 * 1024))
+          .toStringAsFixed(2);
+      final requiredGB = (requiredSpace / (1024 * 1024 * 1024)).toStringAsFixed(
+        2,
+      );
       return 'Not enough disk space. Need $requiredGB GB, only $availableGB GB available';
     }
 
@@ -143,12 +146,14 @@ class GameMoverService {
     final gameFolderName = p.basename(game.installLocation);
     final newGamePath = p.join(destinationPath, gameFolderName);
 
-    _updateProgress(MoveProgress(
-      phase: MovePhase.copying,
-      sourcePath: game.installLocation,
-      destinationPath: newGamePath,
-      startTime: DateTime.now(),
-    ));
+    _updateProgress(
+      MoveProgress(
+        phase: MovePhase.copying,
+        sourcePath: game.installLocation,
+        destinationPath: newGamePath,
+        startTime: DateTime.now(),
+      ),
+    );
 
     try {
       // Count total files and bytes
@@ -163,10 +168,12 @@ class GameMoverService {
         }
       }
 
-      _updateProgress(_currentProgress.copyWith(
-        totalFiles: totalFiles,
-        totalBytes: totalBytes,
-      ));
+      _updateProgress(
+        _currentProgress.copyWith(
+          totalFiles: totalFiles,
+          totalBytes: totalBytes,
+        ),
+      );
 
       // Create destination directory
       await Directory(newGamePath).create(recursive: true);
@@ -185,15 +192,16 @@ class GameMoverService {
           );
         }
 
-        final relativePath = p.relative(entity.path, from: game.installLocation);
+        final relativePath = p.relative(
+          entity.path,
+          from: game.installLocation,
+        );
         final newPath = p.join(newGamePath, relativePath);
 
         if (entity is Directory) {
           await Directory(newPath).create(recursive: true);
         } else if (entity is File) {
-          _updateProgress(_currentProgress.copyWith(
-            currentFile: relativePath,
-          ));
+          _updateProgress(_currentProgress.copyWith(currentFile: relativePath));
 
           // Ensure parent directory exists
           await Directory(p.dirname(newPath)).create(recursive: true);
@@ -205,18 +213,22 @@ class GameMoverService {
           copiedFiles++;
           copiedBytes += fileSize;
 
-          _updateProgress(_currentProgress.copyWith(
-            copiedFiles: copiedFiles,
-            copiedBytes: copiedBytes,
-          ));
+          _updateProgress(
+            _currentProgress.copyWith(
+              copiedFiles: copiedFiles,
+              copiedBytes: copiedBytes,
+            ),
+          );
         }
       }
 
       // Update manifest
-      _updateProgress(_currentProgress.copyWith(
-        phase: MovePhase.updatingManifest,
-        currentFile: '',
-      ));
+      _updateProgress(
+        _currentProgress.copyWith(
+          phase: MovePhase.updatingManifest,
+          currentFile: '',
+        ),
+      );
 
       final manifestUpdateResult = await _updateManifest(
         game.itemFilePath!,
@@ -232,9 +244,9 @@ class GameMoverService {
         );
       }
 
-      _updateProgress(_currentProgress.copyWith(
-        phase: MovePhase.waitingForRestart,
-      ));
+      _updateProgress(
+        _currentProgress.copyWith(phase: MovePhase.waitingForRestart),
+      );
 
       return MoveResult(
         success: true,
@@ -242,20 +254,22 @@ class GameMoverService {
         newPath: newGamePath,
       );
     } catch (e) {
-      _updateProgress(_currentProgress.copyWith(
-        phase: MovePhase.failed,
-        errorMessage: e.toString(),
-      ));
-
-      return MoveResult(
-        success: false,
-        errorMessage: e.toString(),
+      _updateProgress(
+        _currentProgress.copyWith(
+          phase: MovePhase.failed,
+          errorMessage: e.toString(),
+        ),
       );
+
+      return MoveResult(success: false, errorMessage: e.toString());
     }
   }
 
   /// Updates the Epic Games manifest .item file with new paths
-  Future<bool> _updateManifest(String itemFilePath, String newInstallLocation) async {
+  Future<bool> _updateManifest(
+    String itemFilePath,
+    String newInstallLocation,
+  ) async {
     try {
       final itemFile = File(itemFilePath);
       final content = await itemFile.readAsString();
@@ -272,7 +286,9 @@ class GameMoverService {
       if (oldManifestLocation != null && oldManifestLocation.isNotEmpty) {
         if (oldManifestLocation.startsWith(oldInstallLocation)) {
           // Replace the old install path with the new one
-          final relativePath = oldManifestLocation.substring(oldInstallLocation.length);
+          final relativePath = oldManifestLocation.substring(
+            oldInstallLocation.length,
+          );
           json['ManifestLocation'] = newInstallLocation + relativePath;
         }
       }
@@ -282,7 +298,9 @@ class GameMoverService {
       if (oldStagingLocation != null && oldStagingLocation.isNotEmpty) {
         if (oldStagingLocation.startsWith(oldInstallLocation)) {
           // Replace the old install path with the new one
-          final relativePath = oldStagingLocation.substring(oldInstallLocation.length);
+          final relativePath = oldStagingLocation.substring(
+            oldInstallLocation.length,
+          );
           json['StagingLocation'] = newInstallLocation + relativePath;
         }
       }
@@ -305,23 +323,21 @@ class GameMoverService {
 
   /// Deletes the old game installation
   Future<bool> deleteOldInstallation(String path) async {
-    _updateProgress(_currentProgress.copyWith(
-      phase: MovePhase.deletingOld,
-    ));
+    _updateProgress(_currentProgress.copyWith(phase: MovePhase.deletingOld));
 
     try {
       await _deleteDirectory(path);
 
-      _updateProgress(_currentProgress.copyWith(
-        phase: MovePhase.completed,
-      ));
+      _updateProgress(_currentProgress.copyWith(phase: MovePhase.completed));
 
       return true;
     } catch (e) {
-      _updateProgress(_currentProgress.copyWith(
-        phase: MovePhase.failed,
-        errorMessage: 'Failed to delete old files: $e',
-      ));
+      _updateProgress(
+        _currentProgress.copyWith(
+          phase: MovePhase.failed,
+          errorMessage: 'Failed to delete old files: $e',
+        ),
+      );
       return false;
     }
   }
@@ -336,9 +352,7 @@ class GameMoverService {
   /// Cancels ongoing move operation
   void cancelMove() {
     _isCancelled = true;
-    _updateProgress(_currentProgress.copyWith(
-      phase: MovePhase.cancelled,
-    ));
+    _updateProgress(_currentProgress.copyWith(phase: MovePhase.cancelled));
   }
 
   void dispose() {

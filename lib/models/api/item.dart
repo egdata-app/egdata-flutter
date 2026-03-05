@@ -29,7 +29,8 @@ class Item {
       developer: json['developer'] as String?,
       publisher: json['publisher'] as String?,
       customAttributes: _parseCustomAttributes(json['customAttributes']),
-      keyImages: (json['keyImages'] as List<dynamic>?)
+      keyImages:
+          (json['keyImages'] as List<dynamic>?)
               ?.map((e) => ItemKeyImage.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
@@ -50,7 +51,10 @@ class Item {
             value: (value['value'] as String?) ?? '',
           );
         }
-        return ItemCustomAttribute(key: entry.key, value: value?.toString() ?? '');
+        return ItemCustomAttribute(
+          key: entry.key,
+          value: value?.toString() ?? '',
+        );
       }).toList();
     }
 
@@ -87,10 +91,7 @@ class ItemCustomAttribute {
   final String key;
   final String value;
 
-  ItemCustomAttribute({
-    required this.key,
-    required this.value,
-  });
+  ItemCustomAttribute({required this.key, required this.value});
 
   factory ItemCustomAttribute.fromJson(Map<String, dynamic> json) {
     return ItemCustomAttribute(
@@ -104,10 +105,7 @@ class ItemKeyImage {
   final String type;
   final String url;
 
-  ItemKeyImage({
-    required this.type,
-    required this.url,
-  });
+  ItemKeyImage({required this.type, required this.url});
 
   factory ItemKeyImage.fromJson(Map<String, dynamic> json) {
     return ItemKeyImage(

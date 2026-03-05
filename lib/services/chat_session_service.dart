@@ -10,19 +10,20 @@ class ChatSessionService {
   final http.Client _client;
 
   ChatSessionService({required this.userId, http.Client? client})
-      : _client = client ?? http.Client();
+    : _client = client ?? http.Client();
 
   /// List all chat sessions for the user
   Future<List<ChatSession>> listSessions({
     int limit = 50,
     int offset = 0,
   }) async {
-    final uri = Uri.parse('$baseUrl/api/sessions')
-        .replace(queryParameters: {
-      'userId': userId,
-      'limit': limit.toString(),
-      'offset': offset.toString(),
-    });
+    final uri = Uri.parse('$baseUrl/api/sessions').replace(
+      queryParameters: {
+        'userId': userId,
+        'limit': limit.toString(),
+        'offset': offset.toString(),
+      },
+    );
 
     final response = await _client.get(uri);
 
@@ -45,10 +46,7 @@ class ChatSessionService {
     final response = await _client.post(
       uri,
       headers: {'Content-Type': 'application/json'},
-      body: json.encode({
-        'userId': userId,
-        if (title != null) 'title': title,
-      }),
+      body: json.encode({'userId': userId, if (title != null) 'title': title}),
     );
 
     if (response.statusCode != 200 && response.statusCode != 201) {
@@ -64,11 +62,12 @@ class ChatSessionService {
     String sessionId, {
     bool includeMessages = true,
   }) async {
-    final uri = Uri.parse('$baseUrl/api/sessions/$sessionId')
-        .replace(queryParameters: {
-      'userId': userId,
-      'includeMessages': includeMessages.toString(),
-    });
+    final uri = Uri.parse('$baseUrl/api/sessions/$sessionId').replace(
+      queryParameters: {
+        'userId': userId,
+        'includeMessages': includeMessages.toString(),
+      },
+    );
 
     final response = await _client.get(uri);
 
@@ -80,9 +79,9 @@ class ChatSessionService {
     final session = ChatSession.fromJson(data['session']);
     final messages = includeMessages
         ? (data['messages'] as List?)
-                ?.map((msg) => ChatMessage.fromJson(msg))
-                .toList() ??
-            []
+                  ?.map((msg) => ChatMessage.fromJson(msg))
+                  .toList() ??
+              []
         : <ChatMessage>[];
 
     return (session: session, messages: messages);
@@ -95,10 +94,7 @@ class ChatSessionService {
     final response = await _client.patch(
       uri,
       headers: {'Content-Type': 'application/json'},
-      body: json.encode({
-        'userId': userId,
-        'title': newTitle,
-      }),
+      body: json.encode({'userId': userId, 'title': newTitle}),
     );
 
     if (response.statusCode != 200 && response.statusCode != 204) {
@@ -108,10 +104,9 @@ class ChatSessionService {
 
   /// Delete a chat session
   Future<void> deleteSession(String sessionId) async {
-    final uri = Uri.parse('$baseUrl/api/sessions/$sessionId')
-        .replace(queryParameters: {
-      'userId': userId,
-    });
+    final uri = Uri.parse(
+      '$baseUrl/api/sessions/$sessionId',
+    ).replace(queryParameters: {'userId': userId});
 
     final response = await _client.delete(uri);
 

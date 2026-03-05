@@ -9,9 +9,7 @@ import 'api_service.dart';
 class WidgetService {
   final ApiService _api;
 
-  WidgetService({
-    ApiService? apiService,
-  }) : _api = apiService ?? ApiService();
+  WidgetService({ApiService? apiService}) : _api = apiService ?? ApiService();
 
   /// Update widget with current free games data
   Future<void> updateWidget() async {
@@ -61,7 +59,9 @@ class WidgetService {
         );
       }
 
-      debugPrint('Widgets updated successfully with ${widgetGames.length} games');
+      debugPrint(
+        'Widgets updated successfully with ${widgetGames.length} games',
+      );
     } catch (e) {
       debugPrint('Error updating widget: $e');
       // Don't rethrow - widget update failures shouldn't crash the app
@@ -72,8 +72,9 @@ class WidgetService {
   Future<List<FreeGame>> _fetchActiveFreeGames() async {
     try {
       // Try API first with timeout to prevent hanging
-      final allGames = await _api.getFreeGames()
-          .timeout(const Duration(seconds: 10));
+      final allGames = await _api.getFreeGames().timeout(
+        const Duration(seconds: 10),
+      );
       return _filterActiveGames(allGames);
     } catch (e) {
       debugPrint('API fetch failed, falling back to database: $e');
@@ -117,7 +118,7 @@ class WidgetService {
                     type: 'Thumbnail',
                     url: entry.thumbnailUrl!,
                     md5: null,
-                  )
+                  ),
                 ]
               : [],
           seller: Seller(id: '', name: ''),
@@ -130,10 +131,7 @@ class WidgetService {
           viewableDate: DateTime.now(),
           refundType: 'NON_REFUNDABLE',
           giveaway: entry.startDate != null && entry.endDate != null
-              ? Giveaway(
-                  startDate: entry.startDate!,
-                  endDate: entry.endDate!,
-                )
+              ? Giveaway(startDate: entry.startDate!, endDate: entry.endDate!)
               : null,
         );
       }).toList();

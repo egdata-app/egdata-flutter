@@ -43,7 +43,9 @@ class _TrayPopupContentState extends State<TrayPopupContent> {
       if (mounted) setState(() => _playtimeStats = stats);
     });
 
-    _activeGameSubscription = widget.playtimeService?.activeGameStream.listen((session) {
+    _activeGameSubscription = widget.playtimeService?.activeGameStream.listen((
+      session,
+    ) {
       if (mounted) {
         final wasActive = _activeSession != null;
         final isActive = session != null;
@@ -178,8 +180,8 @@ class _TrayPopupContentState extends State<TrayPopupContent> {
     final timeStr = hours > 0
         ? '${hours}h ${minutes}m ${seconds}s'
         : minutes > 0
-            ? '${minutes}m ${seconds}s'
-            : '${seconds}s';
+        ? '${minutes}m ${seconds}s'
+        : '${seconds}s';
 
     return Container(
       margin: const EdgeInsets.all(12),
@@ -222,7 +224,7 @@ class _TrayPopupContentState extends State<TrayPopupContent> {
                       height: 80,
                     ),
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const Icon(
+                    errorBuilder: (_, _, _) => const Icon(
                       Icons.games_rounded,
                       size: 20,
                       color: AppColors.textMuted,
@@ -288,7 +290,9 @@ class _TrayPopupContentState extends State<TrayPopupContent> {
             decoration: BoxDecoration(
               color: AppColors.primary.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.3),
+              ),
             ),
             child: Text(
               timeStr,
@@ -328,9 +332,7 @@ class _TrayPopupContentState extends State<TrayPopupContent> {
             ),
           ),
           const SizedBox(width: 8),
-          Expanded(
-            child: _buildMostPlayedStat(),
-          ),
+          Expanded(child: _buildMostPlayedStat()),
         ],
       ),
     );
@@ -454,7 +456,9 @@ class _TrayPopupContentState extends State<TrayPopupContent> {
 
   Widget _buildRecentGameRow(String gameId, Duration playtime) {
     // For now, just show the app name from installed games
-    final game = widget.installedGames.where((g) => g.appName == gameId).firstOrNull;
+    final game = widget.installedGames
+        .where((g) => g.appName == gameId)
+        .firstOrNull;
     final gameName = game?.displayName ?? gameId;
 
     return Container(

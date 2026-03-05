@@ -143,7 +143,10 @@ class DatabaseService {
   }
 
   Future<FollowedGameEntry?> getFollowedGameByOfferId(String offerId) async {
-    return _isar.followedGameEntrys.filter().offerIdEqualTo(offerId).findFirst();
+    return _isar.followedGameEntrys
+        .filter()
+        .offerIdEqualTo(offerId)
+        .findFirst();
   }
 
   Future<void> saveFollowedGame(FollowedGameEntry entry) async {
@@ -227,7 +230,9 @@ class DatabaseService {
   }
 
   Future<List<PlaytimeSessionEntry>> getSessionsInRange(
-      DateTime start, DateTime end) async {
+    DateTime start,
+    DateTime end,
+  ) async {
     return _isar.playtimeSessionEntrys
         .filter()
         .startTimeGreaterThan(start)
@@ -238,10 +243,7 @@ class DatabaseService {
   }
 
   Future<PlaytimeSessionEntry?> getActiveSession() async {
-    return _isar.playtimeSessionEntrys
-        .filter()
-        .endTimeIsNull()
-        .findFirst();
+    return _isar.playtimeSessionEntrys.filter().endTimeIsNull().findFirst();
   }
 
   Future<void> savePlaytimeSession(PlaytimeSessionEntry entry) async {
@@ -253,7 +255,9 @@ class DatabaseService {
       final session = await _isar.playtimeSessionEntrys.get(sessionId);
       if (session != null) {
         session.endTime = endTime;
-        session.durationSeconds = endTime.difference(session.startTime).inSeconds;
+        session.durationSeconds = endTime
+            .difference(session.startTime)
+            .inSeconds;
         await _isar.playtimeSessionEntrys.put(session);
       }
     });
@@ -272,12 +276,30 @@ class DatabaseService {
   Future<Map<String, int>> getWeeklyPlaytimeByGame() async {
     final now = DateTime.now();
     final weekStart = now.subtract(Duration(days: now.weekday - 1));
-    final startOfWeek = DateTime(weekStart.year, weekStart.month, weekStart.day);
+    final startOfWeek = DateTime(
+      weekStart.year,
+      weekStart.month,
+      weekStart.day,
+    );
 
     final sessions = await _isar.playtimeSessionEntrys
         .filter()
         .startTimeGreaterThan(startOfWeek)
         .and()
+        .endTimeIsNotNull()
+        .findAll();
+
+    final playtimeByGame = <String, int>{};
+    for (final session in sessions) {
+      playtimeByGame[session.gameId] =
+          (playtimeByGame[session.gameId] ?? 0) + session.durationSeconds;
+    }
+    return playtimeByGame;
+  }
+
+  Future<Map<String, int>> getAllPlaytimeByGame() async {
+    final sessions = await _isar.playtimeSessionEntrys
+        .filter()
         .endTimeIsNotNull()
         .findAll();
 
@@ -336,7 +358,9 @@ class DatabaseService {
     return _isar.pushSubscriptionEntrys.where().findFirst();
   }
 
-  Future<PushSubscriptionEntry?> getPushSubscriptionById(String subscriptionId) async {
+  Future<PushSubscriptionEntry?> getPushSubscriptionById(
+    String subscriptionId,
+  ) async {
     return _isar.pushSubscriptionEntrys
         .filter()
         .subscriptionIdEqualTo(subscriptionId)
@@ -347,7 +371,10 @@ class DatabaseService {
     await _isar.writeTxn(() => _isar.pushSubscriptionEntrys.put(entry));
   }
 
-  Future<void> updatePushSubscriptionTopics(String subscriptionId, List<String> topics) async {
+  Future<void> updatePushSubscriptionTopics(
+    String subscriptionId,
+    List<String> topics,
+  ) async {
     await _isar.writeTxn(() async {
       final entry = await _isar.pushSubscriptionEntrys
           .filter()
@@ -376,10 +403,7 @@ class DatabaseService {
 
   // Chat Session operations
   Future<List<ChatSessionEntry>> getAllChatSessions() async {
-    return _isar.chatSessionEntrys
-        .where()
-        .sortByLastMessageAtDesc()
-        .findAll();
+    return _isar.chatSessionEntrys.where().sortByLastMessageAtDesc().findAll();
   }
 
   Future<ChatSessionEntry?> getChatSessionById(String sessionId) async {
@@ -421,7 +445,9 @@ class DatabaseService {
   }
 
   // Chat Message operations
-  Future<List<ChatMessageEntry>> getChatMessagesForSession(String sessionId) async {
+  Future<List<ChatMessageEntry>> getChatMessagesForSession(
+    String sessionId,
+  ) async {
     return _isar.chatMessageEntrys
         .filter()
         .sessionIdEqualTo(sessionId)

@@ -18,9 +18,9 @@ void main() {
             'title': 'Session 1',
             'createdAt': 1672531200000,
             'lastMessageAt': 1672531200000,
-            'messageCount': 5
-          }
-        ]
+            'messageCount': 5,
+          },
+        ],
       };
 
       final client = MockClient((request) async {
@@ -44,8 +44,8 @@ void main() {
           'title': 'New Session',
           'createdAt': 1672531200000,
           'lastMessageAt': 1672531200000,
-          'messageCount': 0
-        }
+          'messageCount': 0,
+        },
       };
 
       final client = MockClient((request) async {

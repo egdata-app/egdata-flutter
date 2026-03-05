@@ -82,7 +82,9 @@ void main() {
       test('returns false when less than 6 hours old', () {
         final data = WidgetData(
           games: [],
-          lastUpdate: DateTime.now().subtract(const Duration(hours: 5, minutes: 59)),
+          lastUpdate: DateTime.now().subtract(
+            const Duration(hours: 5, minutes: 59),
+          ),
         );
         expect(data.isStale, isFalse);
       });
@@ -104,10 +106,7 @@ void main() {
       });
 
       test('returns false when just updated', () {
-        final data = WidgetData(
-          games: [],
-          lastUpdate: DateTime.now(),
-        );
+        final data = WidgetData(games: [], lastUpdate: DateTime.now());
         expect(data.isStale, isFalse);
       });
 
@@ -122,10 +121,7 @@ void main() {
 
     group('isEmpty', () {
       test('returns true when games list is empty', () {
-        final data = WidgetData(
-          games: [],
-          lastUpdate: DateTime.now(),
-        );
+        final data = WidgetData(games: [], lastUpdate: DateTime.now());
         expect(data.isEmpty, isTrue);
       });
 

@@ -51,10 +51,7 @@ class DeleteConfirmationDialog extends StatelessWidget {
         children: [
           const Text(
             'This action cannot be undone. The following directory will be permanently deleted:',
-            style: TextStyle(
-              fontSize: 13,
-              color: AppColors.textSecondary,
-            ),
+            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 16),
           Container(
@@ -109,9 +106,7 @@ class DeleteConfirmationDialog extends StatelessWidget {
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, true),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.error,
-          ),
+          style: FilledButton.styleFrom(backgroundColor: AppColors.error),
           child: const Text('Delete Permanently'),
         ),
       ],

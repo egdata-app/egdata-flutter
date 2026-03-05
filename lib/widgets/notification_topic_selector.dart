@@ -16,7 +16,8 @@ class NotificationTopicSelector extends StatefulWidget {
   });
 
   @override
-  State<NotificationTopicSelector> createState() => _NotificationTopicSelectorState();
+  State<NotificationTopicSelector> createState() =>
+      _NotificationTopicSelectorState();
 }
 
 class _NotificationTopicSelectorState extends State<NotificationTopicSelector> {
@@ -38,7 +39,9 @@ class _NotificationTopicSelectorState extends State<NotificationTopicSelector> {
         _selectedTopics.add(topicString);
       } else {
         // Remove "All" if selecting specific topic
-        final allTopic = OfferNotificationTopic.all.getTopicForOffer(widget.offerId);
+        final allTopic = OfferNotificationTopic.all.getTopicForOffer(
+          widget.offerId,
+        );
         _selectedTopics.remove(allTopic);
 
         // Toggle specific topic
@@ -139,7 +142,9 @@ class _NotificationTopicSelectorState extends State<NotificationTopicSelector> {
                 title: Text(
                   topic.label,
                   style: TextStyle(
-                    color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                    color: isSelected
+                        ? AppColors.primary
+                        : AppColors.textPrimary,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                   ),
                 ),
@@ -175,10 +180,7 @@ class _NotificationTopicSelectorState extends State<NotificationTopicSelector> {
                   ),
                   child: const Text(
                     'Save',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                 ),
               ),

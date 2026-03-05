@@ -77,10 +77,7 @@ class WidgetData {
   final List<WidgetFreeGame> games;
   final DateTime lastUpdate;
 
-  WidgetData({
-    required this.games,
-    required this.lastUpdate,
-  });
+  WidgetData({required this.games, required this.lastUpdate});
 
   /// Serialize to JSON string for SharedPreferences
   String toJsonString() {

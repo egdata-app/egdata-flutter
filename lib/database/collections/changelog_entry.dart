@@ -19,10 +19,16 @@ class ChangelogEntry {
 
   ChangelogEntry();
 
-  factory ChangelogEntry.fromApiJson(String offerId, Map<String, dynamic> json) {
+  factory ChangelogEntry.fromApiJson(
+    String offerId,
+    Map<String, dynamic> json,
+  ) {
     return ChangelogEntry()
       ..offerId = offerId
-      ..changeId = json['_id'] as String? ?? json['id'] as String? ?? DateTime.now().toIso8601String()
+      ..changeId =
+          json['_id'] as String? ??
+          json['id'] as String? ??
+          DateTime.now().toIso8601String()
       ..changeType = json['changeType'] as String?
       ..field = json['field'] as String?
       ..timestamp = json['timestamp'] != null

@@ -51,8 +51,10 @@ class TotalValue {
       discountPrice: json['discountPrice'] as int? ?? 0,
       discount: json['discount'] as int? ?? 0,
       basePayoutPrice: json['basePayoutPrice'] as int? ?? 0,
-      basePayoutCurrencyCode: json['basePayoutCurrencyCode'] as String? ?? 'USD',
-      payoutCurrencyExchangeRate: (json['payoutCurrencyExchangeRate'] as num?)?.toDouble() ?? 1.0,
+      basePayoutCurrencyCode:
+          json['basePayoutCurrencyCode'] as String? ?? 'USD',
+      payoutCurrencyExchangeRate:
+          (json['payoutCurrencyExchangeRate'] as num?)?.toDouble() ?? 1.0,
     );
   }
 
@@ -113,7 +115,9 @@ class FreeGamesStats {
 
   factory FreeGamesStats.fromJson(Map<String, dynamic> json) {
     return FreeGamesStats(
-      totalValue: TotalValue.fromJson(json['totalValue'] as Map<String, dynamic>? ?? {}),
+      totalValue: TotalValue.fromJson(
+        json['totalValue'] as Map<String, dynamic>? ?? {},
+      ),
       totalOffers: json['totalOffers'] as int? ?? 0,
       totalGiveaways: json['totalGiveaways'] as int? ?? 0,
       repeated: json['repeated'] as int? ?? 0,

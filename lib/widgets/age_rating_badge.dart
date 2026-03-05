@@ -8,11 +8,7 @@ class AgeRatingBadge extends StatelessWidget {
   final AgeRatings ageRatings;
   final String? userCountry;
 
-  const AgeRatingBadge({
-    super.key,
-    required this.ageRatings,
-    this.userCountry,
-  });
+  const AgeRatingBadge({super.key, required this.ageRatings, this.userCountry});
 
   /// Get the primary rating to display (user's country or first available)
   AgeRating? get primaryRating {
@@ -177,7 +173,15 @@ class _AllRatingsBottomSheet extends StatelessWidget {
     final sortedSystems = ageRatings.systems.toList()
       ..sort((a, b) {
         // Sort by system priority
-        const priority = ['ESRB', 'PEGI', 'USK', 'CERO', 'GRAC', 'ACB', 'CLASSIND'];
+        const priority = [
+          'ESRB',
+          'PEGI',
+          'USK',
+          'CERO',
+          'GRAC',
+          'ACB',
+          'CLASSIND',
+        ];
         final aIndex = priority.indexOf(a);
         final bIndex = priority.indexOf(b);
         if (aIndex != -1 && bIndex != -1) return aIndex.compareTo(bIndex);
@@ -291,9 +295,8 @@ class _AllRatingsBottomSheet extends StatelessWidget {
                     fit: 'contain',
                   ),
                   fit: BoxFit.contain,
-                  placeholder: (context, url) => Container(
-                    color: AppColors.surfaceLight,
-                  ),
+                  placeholder: (context, url) =>
+                      Container(color: AppColors.surfaceLight),
                   errorWidget: (context, url, error) => Container(
                     color: AppColors.surfaceLight,
                     child: const Icon(
@@ -365,7 +368,8 @@ class _AllRatingsBottomSheet extends StatelessWidget {
                 ],
 
                 // Descriptor
-                if (rating.descriptor != null && rating.descriptor!.isNotEmpty) ...[
+                if (rating.descriptor != null &&
+                    rating.descriptor!.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(

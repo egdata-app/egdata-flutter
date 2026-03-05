@@ -11,11 +11,7 @@ class BrowsePage extends StatefulWidget {
   final FollowService followService;
   final DatabaseService db;
 
-  const BrowsePage({
-    super.key,
-    required this.followService,
-    required this.db,
-  });
+  const BrowsePage({super.key, required this.followService, required this.db});
 
   @override
   State<BrowsePage> createState() => _BrowsePageState();
@@ -166,12 +162,16 @@ class _BrowsePageState extends State<BrowsePage> {
                             color: AppColors.primary,
                           ),
                         )
-                      : const Icon(Icons.search_rounded,
-                          color: AppColors.textMuted),
+                      : const Icon(
+                          Icons.search_rounded,
+                          color: AppColors.textMuted,
+                        ),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.close_rounded,
-                              color: AppColors.textMuted),
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            color: AppColors.textMuted,
+                          ),
                           onPressed: _clearSearch,
                         )
                       : null,
@@ -187,8 +187,10 @@ class _BrowsePageState extends State<BrowsePage> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide:
-                        const BorderSide(color: AppColors.primary, width: 2),
+                    borderSide: const BorderSide(
+                      color: AppColors.primary,
+                      width: 2,
+                    ),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -207,8 +209,8 @@ class _BrowsePageState extends State<BrowsePage> {
                   child: CircularProgressIndicator(color: AppColors.primary),
                 )
               : showSearchResults
-                  ? _buildSearchResults()
-                  : _buildFollowedGames(),
+              ? _buildSearchResults()
+              : _buildFollowedGames(),
         ),
       ],
     );
@@ -237,10 +239,7 @@ class _BrowsePageState extends State<BrowsePage> {
             const SizedBox(height: 8),
             Text(
               'Try a different search term',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.textMuted,
-              ),
+              style: TextStyle(fontSize: 14, color: AppColors.textMuted),
             ),
           ],
         ),
@@ -294,10 +293,7 @@ class _BrowsePageState extends State<BrowsePage> {
             const SizedBox(height: 8),
             Text(
               'Search for games to follow',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.textMuted,
-              ),
+              style: TextStyle(fontSize: 14, color: AppColors.textMuted),
             ),
           ],
         ),

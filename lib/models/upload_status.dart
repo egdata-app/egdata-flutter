@@ -1,10 +1,4 @@
-enum UploadStatusType {
-  uploaded,
-  alreadyUploaded,
-  failed,
-  pending,
-  uploading,
-}
+enum UploadStatusType { uploaded, alreadyUploaded, failed, pending, uploading }
 
 class UploadStatus {
   final UploadStatusType status;

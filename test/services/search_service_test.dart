@@ -183,7 +183,7 @@ void main() {
               'originalPrice': 5999,
               'discountPrice': 2999,
               'currencyCode': 'USD',
-            }
+            },
           },
         };
         final result = SearchResult.fromJson(json);
@@ -199,7 +199,10 @@ void main() {
           'keyImages': [
             {'type': 'Thumbnail', 'url': 'https://example.com/thumb.jpg'},
             {'type': 'OfferImageWide', 'url': 'https://example.com/wide.jpg'},
-            {'type': 'DieselGameBoxTall', 'url': 'https://example.com/tall.jpg'},
+            {
+              'type': 'DieselGameBoxTall',
+              'url': 'https://example.com/tall.jpg',
+            },
           ],
         };
         final result = SearchResult.fromJson(json);
@@ -212,8 +215,14 @@ void main() {
           'title': 'Test Game',
           'keyImages': [
             {'type': 'Thumbnail', 'url': 'https://example.com/thumb.jpg'},
-            {'type': 'DieselStoreFrontWide', 'url': 'https://example.com/store.jpg'},
-            {'type': 'DieselGameBoxTall', 'url': 'https://example.com/tall.jpg'},
+            {
+              'type': 'DieselStoreFrontWide',
+              'url': 'https://example.com/store.jpg',
+            },
+            {
+              'type': 'DieselGameBoxTall',
+              'url': 'https://example.com/tall.jpg',
+            },
           ],
         };
         final result = SearchResult.fromJson(json);
@@ -226,7 +235,10 @@ void main() {
           'title': 'Test Game',
           'keyImages': [
             {'type': 'Thumbnail', 'url': 'https://example.com/thumb.jpg'},
-            {'type': 'DieselGameBoxTall', 'url': 'https://example.com/tall.jpg'},
+            {
+              'type': 'DieselGameBoxTall',
+              'url': 'https://example.com/tall.jpg',
+            },
           ],
         };
         final result = SearchResult.fromJson(json);
@@ -260,29 +272,19 @@ void main() {
       });
 
       test('handles empty keyImages', () {
-        final json = {
-          'id': 'game-123',
-          'title': 'Test Game',
-          'keyImages': [],
-        };
+        final json = {'id': 'game-123', 'title': 'Test Game', 'keyImages': []};
         final result = SearchResult.fromJson(json);
         expect(result.thumbnailUrl, isNull);
       });
 
       test('handles missing keyImages', () {
-        final json = {
-          'id': 'game-123',
-          'title': 'Test Game',
-        };
+        final json = {'id': 'game-123', 'title': 'Test Game'};
         final result = SearchResult.fromJson(json);
         expect(result.thumbnailUrl, isNull);
       });
 
       test('handles missing price data', () {
-        final json = {
-          'id': 'game-123',
-          'title': 'Test Game',
-        };
+        final json = {'id': 'game-123', 'title': 'Test Game'};
         final result = SearchResult.fromJson(json);
         expect(result.originalPrice, isNull);
         expect(result.discountPrice, isNull);

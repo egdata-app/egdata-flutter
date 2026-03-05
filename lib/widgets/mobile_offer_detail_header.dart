@@ -54,7 +54,10 @@ class MobileOfferDetailHeader extends StatelessWidget {
 
           // Collapsed header fades in when approaching content
           final collapsedOpacity = Curves.easeOut.transform(
-            ((scrollValue - collapseThreshold) / transitionRange).clamp(0.0, 1.0),
+            ((scrollValue - collapseThreshold) / transitionRange).clamp(
+              0.0,
+              1.0,
+            ),
           );
 
           // Expanded header fades out at the same time (synchronized)
@@ -79,10 +82,7 @@ class MobileOfferDetailHeader extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         // Expanded hero image (fades out independently)
-        Opacity(
-          opacity: expandedOpacity,
-          child: _buildHeroImage(context),
-        ),
+        Opacity(opacity: expandedOpacity, child: _buildHeroImage(context)),
 
         // Collapsed glassmorphic header (fades in independently, later than expanded fades out)
         Positioned(
@@ -291,10 +291,7 @@ class MobileOfferDetailHeader extends StatelessWidget {
         Positioned(
           top: statusBarHeight + 8,
           left: 8,
-          child: Opacity(
-            opacity: expandedOpacity,
-            child: _buildBackButton(),
-          ),
+          child: Opacity(opacity: expandedOpacity, child: _buildBackButton()),
         ),
         // Ask AI button (floating)
         if (onAskAI != null)
@@ -462,11 +459,7 @@ class MobileOfferDetailHeader extends StatelessWidget {
     );
   }
 
-  Widget _buildActionButton(
-    IconData icon,
-    String tooltip,
-    VoidCallback onTap,
-  ) {
+  Widget _buildActionButton(IconData icon, String tooltip, VoidCallback onTap) {
     return Padding(
       padding: const EdgeInsets.all(8),
       child: Tooltip(

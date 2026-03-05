@@ -13,7 +13,8 @@ class ApiException implements Exception {
   ApiException(this.message, [this.statusCode]);
 
   @override
-  String toString() => 'ApiException: $message${statusCode != null ? ' (status: $statusCode)' : ''}';
+  String toString() =>
+      'ApiException: $message${statusCode != null ? ' (status: $statusCode)' : ''}';
 }
 
 /// Centralized API service for api.egdata.app endpoints
@@ -41,13 +42,11 @@ class ApiService {
         return jsonDecode(response.body);
       }
 
-      throw ApiException(
-        'GET $endpoint failed',
-        response.statusCode,
-      );
+      throw ApiException('GET $endpoint failed', response.statusCode);
     } on SocketException catch (e) {
       // Handle cancelled requests gracefully (happens during navigation)
-      if (e.message.contains('cancelled') || e.message.contains('Connection attempt cancelled')) {
+      if (e.message.contains('cancelled') ||
+          e.message.contains('Connection attempt cancelled')) {
         throw ApiException('Request cancelled', null);
       }
       throw ApiException('Network error: ${e.message}', null);
@@ -64,8 +63,12 @@ class ApiService {
   }
 
   /// Generic POST request that returns decoded JSON
-  Future<dynamic> _post(String endpoint, Map<String, dynamic> body,
-      {Map<String, String>? queryParams, String? apiKey}) async {
+  Future<dynamic> _post(
+    String endpoint,
+    Map<String, dynamic> body, {
+    Map<String, String>? queryParams,
+    String? apiKey,
+  }) async {
     try {
       var uri = Uri.parse('$baseUrl$endpoint');
       if (queryParams != null && queryParams.isNotEmpty) {
@@ -94,7 +97,8 @@ class ApiService {
       );
     } on SocketException catch (e) {
       // Handle cancelled requests gracefully (happens during navigation)
-      if (e.message.contains('cancelled') || e.message.contains('Connection attempt cancelled')) {
+      if (e.message.contains('cancelled') ||
+          e.message.contains('Connection attempt cancelled')) {
         throw ApiException('Request cancelled', null);
       }
       throw ApiException('Network error: ${e.message}', null);
@@ -137,7 +141,8 @@ class ApiService {
       );
     } on SocketException catch (e) {
       // Handle cancelled requests gracefully (happens during navigation)
-      if (e.message.contains('cancelled') || e.message.contains('Connection attempt cancelled')) {
+      if (e.message.contains('cancelled') ||
+          e.message.contains('Connection attempt cancelled')) {
         throw ApiException('Request cancelled', null);
       }
       throw ApiException('Network error: ${e.message}', null);
@@ -168,9 +173,14 @@ class ApiService {
   }
 
   /// Fetches price information for an offer in a specific country
-  Future<TotalPrice?> getOfferPrice(String offerId, {String country = 'US'}) async {
+  Future<TotalPrice?> getOfferPrice(
+    String offerId, {
+    String country = 'US',
+  }) async {
     try {
-      final data = await _get('/offers/$offerId/price?country=$country') as Map<String, dynamic>;
+      final data =
+          await _get('/offers/$offerId/price?country=$country')
+              as Map<String, dynamic>;
       final priceData = data['price'] as Map<String, dynamic>?;
       return priceData != null ? TotalPrice.fromJson(priceData) : null;
     } on ApiException catch (e) {
@@ -201,13 +211,16 @@ class ApiService {
         .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
         .join('&');
 
-    final data = await _get('/offers/$offerId/changelog?$queryString') as Map<String, dynamic>;
+    final data =
+        await _get('/offers/$offerId/changelog?$queryString')
+            as Map<String, dynamic>;
     return ChangelogResponse.fromJson(data);
   }
 
   /// Fetches features for an offer (single player, controller support, etc.)
   Future<OfferFeatures> getOfferFeatures(String offerId) async {
-    final data = await _get('/offers/$offerId/features') as Map<String, dynamic>;
+    final data =
+        await _get('/offers/$offerId/features') as Map<String, dynamic>;
     return OfferFeatures.fromJson(data);
   }
 
@@ -231,6 +244,18 @@ class ApiService {
     }
   }
 
+  /// Fetches IGDB data for an offer
+  Future<OfferIgdb?> getOfferIgdb(String offerId) async {
+    try {
+      final data = await _get('/offers/$offerId/igdb') as Map<String, dynamic>;
+      return OfferIgdb.fromJson(data);
+    } on ApiException catch (e) {
+      // IGDB data may not exist for all games
+      if (e.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
   /// Fetches media (images and videos) for an offer
   Future<OfferMedia?> getOfferMedia(String offerId) async {
     try {
@@ -246,15 +271,14 @@ class ApiService {
   /// Fetches related offers (DLCs, editions, etc.)
   Future<List<Offer>> getOfferRelated(String offerId) async {
     final data = await _get('/offers/$offerId/related') as List<dynamic>;
-    return data
-        .map((e) => Offer.fromJson(e as Map<String, dynamic>))
-        .toList();
+    return data.map((e) => Offer.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   /// Fetches Epic ratings for an offer
   Future<OfferRatings?> getOfferRatings(String offerId) async {
     try {
-      final data = await _get('/offers/$offerId/ratings') as Map<String, dynamic>;
+      final data =
+          await _get('/offers/$offerId/ratings') as Map<String, dynamic>;
       return OfferRatings.fromJson(data);
     } on ApiException catch (e) {
       // Ratings may not exist for all offers
@@ -291,7 +315,8 @@ class ApiService {
   /// Returns null if this offer doesn't have a base game (i.e., it IS the base game)
   Future<Offer?> getBaseGameBySandbox(String namespace) async {
     try {
-      final data = await _get('/sandboxes/$namespace/base-game') as Map<String, dynamic>;
+      final data =
+          await _get('/sandboxes/$namespace/base-game') as Map<String, dynamic>;
       return Offer.fromJson(data);
     } on ApiException catch (e) {
       // No base game means this offer IS the base game or error
@@ -345,10 +370,7 @@ class ApiService {
           .toList();
 
       // Sort by start date, most recent first
-      giveaways.sort((a, b) {
-        if (a.startDate == null && b.startDate == null) return 0;
-        return b.startDate.compareTo(a.startDate);
-      });
+      giveaways.sort((a, b) => b.startDate.compareTo(a.startDate));
 
       return giveaways;
     } on ApiException catch (e) {
@@ -373,23 +395,38 @@ class ApiService {
     }
   }
 
-  /// Fetches item metadata
+  /// Fetches an item's details
   Future<Item> getItem(String catalogItemId) async {
     final data = await _get('/items/$catalogItemId') as Map<String, dynamic>;
     return Item.fromJson(data);
+  }
+
+  /// Fetches the offer associated with an item
+  Future<Offer?> getItemOffer(String itemId) async {
+    try {
+      final data = await _get('/items/$itemId/offer') as Map<String, dynamic>;
+      return Offer.fromJson(data);
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) return null;
+      rethrow;
+    }
   }
 
   /// Searches for offers with various filters
   ///
   /// [request] - Search parameters including title, filters, pagination, etc.
   /// [country] - Country code for price localization (defaults to "US")
-  Future<SearchResponse> search(SearchRequest request,
-      {String country = 'US'}) async {
-    final data = await _post(
-      '/search/v2/search',
-      request.toJson(),
-      queryParams: {'country': country},
-    ) as Map<String, dynamic>;
+  Future<SearchResponse> search(
+    SearchRequest request, {
+    String country = 'US',
+  }) async {
+    final data =
+        await _post(
+              '/search/v2/search',
+              request.toJson(),
+              queryParams: {'country': country},
+            )
+            as Map<String, dynamic>;
     return SearchResponse.fromJson(data);
   }
 
@@ -401,24 +438,26 @@ class ApiService {
 
   /// Fetches homepage statistics
   Future<HomepageStats> getHomepageStats({String country = 'US'}) async {
-    final data = await _get('/stats/homepage?country=$country') as Map<String, dynamic>;
+    final data =
+        await _get('/stats/homepage?country=$country') as Map<String, dynamic>;
     return HomepageStats.fromJson(data);
   }
 
   /// Fetches free games statistics
   Future<FreeGamesStats> getFreeGamesStats({String country = 'US'}) async {
-    final data = await _get('/free-games/stats?country=$country') as Map<String, dynamic>;
+    final data =
+        await _get('/free-games/stats?country=$country')
+            as Map<String, dynamic>;
     return FreeGamesStats.fromJson(data);
   }
 
   /// Fetches region information for a country
   Future<Region> getRegion(String countryCode) async {
-    final data = await _get('/region?country=$countryCode') as Map<String, dynamic>;
+    final data =
+        await _get('/region?country=$countryCode') as Map<String, dynamic>;
     final regionData = data['region'] as Map<String, dynamic>;
     return Region.fromJson(regionData);
   }
-
-
 
   // ============================================
   // Push Notification Endpoints
@@ -438,17 +477,12 @@ class ApiService {
     required String p256dh,
     required String auth,
   }) async {
-    final data = await _post(
-      '/push/subscribe',
-      {
-        'endpoint': endpoint,
-        'keys': {
-          'p256dh': p256dh,
-          'auth': auth,
-        },
-      },
-      apiKey: apiKey,
-    ) as Map<String, dynamic>;
+    final data =
+        await _post('/push/subscribe', {
+              'endpoint': endpoint,
+              'keys': {'p256dh': p256dh, 'auth': auth},
+            }, apiKey: apiKey)
+            as Map<String, dynamic>;
     return PushSubscribeResponse.fromJson(data);
   }
 
@@ -456,7 +490,8 @@ class ApiService {
   Future<PushSubscriptionStatus> getPushSubscriptionStatus({
     required String apiKey,
   }) async {
-    final data = await _get('/push/subscribe', apiKey: apiKey) as Map<String, dynamic>;
+    final data =
+        await _get('/push/subscribe', apiKey: apiKey) as Map<String, dynamic>;
     return PushSubscriptionStatus.fromJson(data);
   }
 
@@ -474,14 +509,12 @@ class ApiService {
     required String subscriptionId,
     required List<String> topics,
   }) async {
-    final data = await _post(
-      '/push/topics/subscribe',
-      {
-        'subscriptionId': subscriptionId,
-        'topics': topics,
-      },
-      apiKey: apiKey,
-    ) as Map<String, dynamic>;
+    final data =
+        await _post('/push/topics/subscribe', {
+              'subscriptionId': subscriptionId,
+              'topics': topics,
+            }, apiKey: apiKey)
+            as Map<String, dynamic>;
     return PushTopicResponse.fromJson(data);
   }
 
@@ -491,14 +524,12 @@ class ApiService {
     required String subscriptionId,
     required List<String> topics,
   }) async {
-    final data = await _post(
-      '/push/topics/unsubscribe',
-      {
-        'subscriptionId': subscriptionId,
-        'topics': topics,
-      },
-      apiKey: apiKey,
-    ) as Map<String, dynamic>;
+    final data =
+        await _post('/push/topics/unsubscribe', {
+              'subscriptionId': subscriptionId,
+              'topics': topics,
+            }, apiKey: apiKey)
+            as Map<String, dynamic>;
     return PushTopicResponse.fromJson(data);
   }
 
@@ -506,7 +537,9 @@ class ApiService {
   Future<List<PushSubscriptionInfo>> getPushSubscriptions({
     required String apiKey,
   }) async {
-    final data = await _get('/push/subscriptions', apiKey: apiKey) as Map<String, dynamic>;
+    final data =
+        await _get('/push/subscriptions', apiKey: apiKey)
+            as Map<String, dynamic>;
     final subscriptions = data['subscriptions'] as List<dynamic>;
     return subscriptions
         .map((e) => PushSubscriptionInfo.fromJson(e as Map<String, dynamic>))

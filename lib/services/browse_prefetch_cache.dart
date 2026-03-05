@@ -15,10 +15,7 @@ class BrowsePrefetchCache {
   static const _cacheDuration = Duration(minutes: 5);
 
   /// Store prefetched data
-  void setData({
-    required String country,
-    required SearchResponse response,
-  }) {
+  void setData({required String country, required SearchResponse response}) {
     _cachedResponse = response;
     _cachedCountry = country;
     _cachedAt = DateTime.now();

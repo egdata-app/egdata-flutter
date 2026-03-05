@@ -68,7 +68,9 @@ void main() {
       });
 
       test('formats with decimal GB', () {
-        final game = createGameInfo(installSize: (1024 * 1024 * 1024 * 2.5).toInt());
+        final game = createGameInfo(
+          installSize: (1024 * 1024 * 1024 * 2.5).toInt(),
+        );
         expect(game.formattedSize, '2.50 GB');
       });
 

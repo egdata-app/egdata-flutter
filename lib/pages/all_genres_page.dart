@@ -91,54 +91,50 @@ class AllGenresPage extends HookWidget {
               child: CircularProgressIndicator(color: AppColors.primary),
             )
           : genresQuery.isError
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.error_outline_rounded,
-                        color: AppColors.error,
-                        size: 48,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Failed to load genres',
-                        style: TextStyle(
-                          color: AppColors.textMuted,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      TextButton(
-                        onPressed: () => genresQuery.refetch(),
-                        child: const Text('Retry'),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.error_outline_rounded,
+                    color: AppColors.error,
+                    size: 48,
                   ),
-                )
-              : RefreshIndicator(
-                  onRefresh: () => genresQuery.refetch(),
-                  color: AppColors.primary,
-                  backgroundColor: AppColors.surface,
-                  child: GridView.builder(
-                    padding: const EdgeInsets.all(20),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 1.0,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                    ),
-                    itemCount: genresQuery.data?.length ?? 0,
-                    itemBuilder: (context, index) {
-                      final genre = genresQuery.data![index];
-                      return GenreCard(
-                        genreWithOffers: genre,
-                        onTap: () => _openBrowseWithGenre(context, genre.genre),
-                      );
-                    },
+                  const SizedBox(height: 16),
+                  Text(
+                    'Failed to load genres',
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 16),
                   ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: () => genresQuery.refetch(),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: () => genresQuery.refetch(),
+              color: AppColors.primary,
+              backgroundColor: AppColors.surface,
+              child: GridView.builder(
+                padding: const EdgeInsets.all(20),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 1.0,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
                 ),
+                itemCount: genresQuery.data?.length ?? 0,
+                itemBuilder: (context, index) {
+                  final genre = genresQuery.data![index];
+                  return GenreCard(
+                    genreWithOffers: genre,
+                    onTap: () => _openBrowseWithGenre(context, genre.genre),
+                  );
+                },
+              ),
+            ),
     );
   }
 }

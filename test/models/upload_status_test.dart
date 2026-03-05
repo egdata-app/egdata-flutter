@@ -86,13 +86,19 @@ void main() {
 
       test('falls back to alreadyUploaded when message contains "already"', () {
         // Note: "already uploaded" would match "uploaded" first, so use a message without "uploaded"
-        final json = {'status': 'unknown', 'message': 'This file was already processed'};
+        final json = {
+          'status': 'unknown',
+          'message': 'This file was already processed',
+        };
         final status = UploadStatus.fromJson(json);
         expect(status.status, UploadStatusType.alreadyUploaded);
       });
 
       test('falls back to alreadyUploaded when message contains "exists"', () {
-        final json = {'status': '', 'message': 'File already exists in the system'};
+        final json = {
+          'status': '',
+          'message': 'File already exists in the system',
+        };
         final status = UploadStatus.fromJson(json);
         expect(status.status, UploadStatusType.alreadyUploaded);
       });

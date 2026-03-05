@@ -88,7 +88,10 @@ class FollowService {
   }
 
   /// Update notification topics for a followed game (mobile only)
-  Future<void> updateNotificationTopics(String offerId, List<String> topics) async {
+  Future<void> updateNotificationTopics(
+    String offerId,
+    List<String> topics,
+  ) async {
     final entry = await _db.getFollowedGameByOfferId(offerId);
     if (entry != null) {
       entry.notificationTopics = topics;

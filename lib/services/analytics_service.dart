@@ -32,10 +32,7 @@ class AnalyticsService {
     if (_analytics == null) return;
 
     try {
-      await _analytics!.logEvent(
-        name: name,
-        parameters: parameters,
-      );
+      await _analytics!.logEvent(name: name, parameters: parameters);
     } catch (e) {
       debugPrint('Failed to log event $name: $e');
     }
@@ -75,9 +72,7 @@ class AnalyticsService {
             itemCategory: offerType,
           ),
         ],
-        parameters: {
-          'offer_id': gameId,
-        },
+        parameters: {'offer_id': gameId},
       );
     } catch (e) {
       debugPrint('Failed to log game view: $e');
@@ -85,10 +80,7 @@ class AnalyticsService {
   }
 
   /// Track search
-  Future<void> logSearch({
-    required String searchTerm,
-    String? category,
-  }) async {
+  Future<void> logSearch({required String searchTerm, String? category}) async {
     await logEvent(
       name: 'search',
       parameters: {
@@ -106,10 +98,7 @@ class AnalyticsService {
   }) async {
     await logEvent(
       name: followed ? 'follow_game' : 'unfollow_game',
-      parameters: {
-        'game_id': gameId,
-        'game_name': gameName,
-      },
+      parameters: {'game_id': gameId, 'game_name': gameName},
     );
   }
 
@@ -120,10 +109,7 @@ class AnalyticsService {
   }) async {
     await logEvent(
       name: 'manifest_upload',
-      parameters: {
-        'count': count,
-        'success': success,
-      },
+      parameters: {'count': count, 'success': success},
     );
   }
 
@@ -134,10 +120,7 @@ class AnalyticsService {
   }) async {
     await logEvent(
       name: 'view_free_game',
-      parameters: {
-        'game_id': gameId,
-        'game_name': gameName,
-      },
+      parameters: {'game_id': gameId, 'game_name': gameName},
     );
   }
 
@@ -149,10 +132,7 @@ class AnalyticsService {
     if (_analytics == null) return;
 
     try {
-      await _analytics!.setUserProperty(
-        name: name,
-        value: value,
-      );
+      await _analytics!.setUserProperty(name: name, value: value);
     } catch (e) {
       debugPrint('Failed to set user property $name: $e');
     }
@@ -160,9 +140,6 @@ class AnalyticsService {
 
   /// Set user country preference
   Future<void> setUserCountry(String country) async {
-    await setUserProperty(
-      name: 'user_country',
-      value: country,
-    );
+    await setUserProperty(name: 'user_country', value: country);
   }
 }

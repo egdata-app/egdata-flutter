@@ -15,6 +15,7 @@ import 'utils/platform_utils.dart';
 import 'services/analytics_service.dart';
 import 'services/widget_service.dart';
 import 'services/follow_service.dart';
+import 'services/playtime_service.dart';
 import 'services/push_service.dart';
 import 'services/notification_service.dart';
 import 'services/sync_service.dart';
@@ -268,6 +269,7 @@ class _EGDataAppState extends State<EGDataApp> {
   late final FollowService _followService;
   late final PushService _pushService;
   late final SyncService _syncService;
+  late PlaytimeService? _playtimeService;
 
   @override
   void initState() {
@@ -284,6 +286,15 @@ class _EGDataAppState extends State<EGDataApp> {
       db: widget.dbService,
       notification: widget.notificationService,
     );
+
+    if (PlatformUtils.isDesktop) {
+      _playtimeService = PlaytimeService(
+        db: widget.dbService,
+        getInstalledGames: () => [], // No tracking on mobile/main entry
+      );
+    } else {
+      _playtimeService = null;
+    }
 
     _initWidgetChannel();
   }
@@ -342,6 +353,7 @@ class _EGDataAppState extends State<EGDataApp> {
           offerId: offerId,
           followService: _followService,
           pushService: _pushService,
+          playtimeService: _playtimeService,
         ),
       ),
     );

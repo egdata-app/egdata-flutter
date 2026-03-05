@@ -30,7 +30,10 @@ class ProgressiveImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final placeholderUrl = ImageUtils.getPlaceholderUrl(imageUrl, width: placeholderWidth);
+    final placeholderUrl = ImageUtils.getPlaceholderUrl(
+      imageUrl,
+      width: placeholderWidth,
+    );
     final finalUrl = finalWidth > 0
         ? ImageUtils.getOptimizedUrl(imageUrl, width: finalWidth)
         : imageUrl;
@@ -41,10 +44,8 @@ class ProgressiveImage extends StatelessWidget {
         fit: fit,
         fadeInDuration: const Duration(milliseconds: 300),
         fadeOutDuration: const Duration(milliseconds: 300),
-        placeholder: (context, url) => _BlurredPlaceholder(
-          imageUrl: placeholderUrl,
-          fit: fit,
-        ),
+        placeholder: (context, url) =>
+            _BlurredPlaceholder(imageUrl: placeholderUrl, fit: fit),
         errorWidget: (context, url, error) => _buildErrorPlaceholder(),
       ),
     );

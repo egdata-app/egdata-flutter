@@ -14,7 +14,9 @@ class NotificationService {
     if (_isInitialized) return;
 
     // Android initialization
-    const androidSettings = AndroidInitializationSettings('@drawable/ic_notification');
+    const androidSettings = AndroidInitializationSettings(
+      '@drawable/ic_notification',
+    );
 
     // iOS/macOS initialization
     const darwinSettings = DarwinInitializationSettings(
@@ -53,19 +55,17 @@ class NotificationService {
     if (Platform.isIOS) {
       await _notificationsPlugin
           .resolvePlatformSpecificImplementation<
-              IOSFlutterLocalNotificationsPlugin>()
-          ?.requestPermissions(
-            alert: true,
-            badge: true,
-            sound: true,
-          );
+            IOSFlutterLocalNotificationsPlugin
+          >()
+          ?.requestPermissions(alert: true, badge: true, sound: true);
     }
   }
 
   Future<void> _requestAndroidPermissions() async {
     final androidPlugin = _notificationsPlugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     if (androidPlugin != null) {
       await androidPlugin.requestNotificationsPermission();
     }

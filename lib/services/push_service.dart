@@ -46,8 +46,8 @@ class PushService {
   PushService({
     required DatabaseService db,
     required NotificationService notification,
-  })  : _db = db,
-        _notification = notification;
+  }) : _db = db,
+       _notification = notification;
 
   bool get isInitialized => _initialized;
   String? get fcmToken => _fcmToken;
@@ -67,7 +67,9 @@ class PushService {
 
     // Check if Firebase is initialized
     if (Firebase.apps.isEmpty) {
-      debugPrint('PushService: Firebase not initialized, push notifications disabled');
+      debugPrint(
+        'PushService: Firebase not initialized, push notifications disabled',
+      );
       _initialized = true;
       return;
     }
@@ -85,7 +87,9 @@ class PushService {
         final apnsToken = await _messaging!.getAPNSToken();
         if (apnsToken == null) {
           // Likely running on simulator - APNS not available
-          debugPrint('PushService: APNS token not available (simulator or not configured)');
+          debugPrint(
+            'PushService: APNS token not available (simulator or not configured)',
+          );
           _fcmToken = null;
         } else {
           _fcmToken = await _messaging!.getToken();
@@ -121,12 +125,16 @@ class PushService {
     if (subscription != null) {
       // The old subscription is now invalid, delete it
       await _db.clearAllPushSubscriptions();
-      debugPrint('PushService: Token changed, subscription cleared. User needs to re-subscribe.');
+      debugPrint(
+        'PushService: Token changed, subscription cleared. User needs to re-subscribe.',
+      );
     }
   }
 
   void _handleForegroundMessage(RemoteMessage message) {
-    debugPrint('PushService: Received foreground message: ${message.notification?.title}');
+    debugPrint(
+      'PushService: Received foreground message: ${message.notification?.title}',
+    );
 
     // Show local notification for foreground messages
     if (message.notification != null) {
@@ -139,7 +147,9 @@ class PushService {
   }
 
   void _handleMessageOpenedApp(RemoteMessage message) {
-    debugPrint('PushService: Message opened app: ${message.notification?.title}');
+    debugPrint(
+      'PushService: Message opened app: ${message.notification?.title}',
+    );
     // Handle navigation based on message data
     // This can be expanded to navigate to specific pages
   }
@@ -158,7 +168,8 @@ class PushService {
     if (Firebase.apps.isEmpty || _messaging == null) {
       return PushSubscriptionResult(
         success: false,
-        error: 'Firebase not configured. Add google-services.json to enable push notifications.',
+        error:
+            'Firebase not configured. Add google-services.json to enable push notifications.',
       );
     }
 
@@ -183,10 +194,13 @@ class PushService {
       if (Platform.isIOS) {
         final apnsToken = await _messaging!.getAPNSToken();
         if (apnsToken == null) {
-          debugPrint('PushService: APNS token not available - push notifications require a real device');
+          debugPrint(
+            'PushService: APNS token not available - push notifications require a real device',
+          );
           return PushSubscriptionResult(
             success: false,
-            error: 'Push notifications are not available on iOS Simulator. Please use a real device.',
+            error:
+                'Push notifications are not available on iOS Simulator. Please use a real device.',
           );
         }
         _fcmToken = await _messaging!.getToken();
@@ -212,7 +226,9 @@ class PushService {
         ..createdAt = DateTime.now();
       await _db.savePushSubscription(entry);
 
-      debugPrint('PushService: Successfully subscribed to ${topics.length} topics');
+      debugPrint(
+        'PushService: Successfully subscribed to ${topics.length} topics',
+      );
 
       return PushSubscriptionResult(
         success: true,
@@ -232,7 +248,9 @@ class PushService {
   Future<PushSubscriptionResult> unsubscribe() async {
     try {
       final subscription = await _db.getPushSubscription();
-      debugPrint('PushService: Unsubscribing, local subscription: ${subscription?.subscriptionId}');
+      debugPrint(
+        'PushService: Unsubscribing, local subscription: ${subscription?.subscriptionId}',
+      );
 
       if (subscription == null) {
         return PushSubscriptionResult(
@@ -272,7 +290,9 @@ class PushService {
   }) async {
     try {
       final subscription = await _db.getPushSubscription();
-      debugPrint('PushService: Subscribe to topics $topics, subscription: ${subscription?.subscriptionId}');
+      debugPrint(
+        'PushService: Subscribe to topics $topics, subscription: ${subscription?.subscriptionId}',
+      );
 
       if (subscription == null) {
         return PushSubscriptionResult(
@@ -296,9 +316,14 @@ class PushService {
 
       // Update local topics
       final updatedTopics = {...subscription.topics, ...topics}.toList();
-      await _db.updatePushSubscriptionTopics(subscription.subscriptionId, updatedTopics);
+      await _db.updatePushSubscriptionTopics(
+        subscription.subscriptionId,
+        updatedTopics,
+      );
 
-      debugPrint('PushService: Successfully subscribed to topics: $updatedTopics');
+      debugPrint(
+        'PushService: Successfully subscribed to topics: $updatedTopics',
+      );
 
       return PushSubscriptionResult(
         success: true,
@@ -320,7 +345,9 @@ class PushService {
   }) async {
     try {
       final subscription = await _db.getPushSubscription();
-      debugPrint('PushService: Unsubscribe from topics $topics, subscription: ${subscription?.subscriptionId}');
+      debugPrint(
+        'PushService: Unsubscribe from topics $topics, subscription: ${subscription?.subscriptionId}',
+      );
 
       if (subscription == null) {
         return PushSubscriptionResult(
@@ -343,10 +370,17 @@ class PushService {
       }
 
       // Update local topics
-      final updatedTopics = subscription.topics.where((t) => !topics.contains(t)).toList();
-      await _db.updatePushSubscriptionTopics(subscription.subscriptionId, updatedTopics);
+      final updatedTopics = subscription.topics
+          .where((t) => !topics.contains(t))
+          .toList();
+      await _db.updatePushSubscriptionTopics(
+        subscription.subscriptionId,
+        updatedTopics,
+      );
 
-      debugPrint('PushService: Successfully unsubscribed, remaining topics: $updatedTopics');
+      debugPrint(
+        'PushService: Successfully unsubscribed, remaining topics: $updatedTopics',
+      );
 
       return PushSubscriptionResult(
         success: true,

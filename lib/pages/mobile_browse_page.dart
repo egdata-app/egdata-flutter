@@ -6,10 +6,22 @@ import '../main.dart';
 import '../models/followed_game.dart';
 import '../models/settings.dart';
 import '../services/analytics_service.dart';
-import '../services/api_service.dart' show ApiService, ApiException, SearchRequest, SearchResponse, SearchOfferType, SearchSortBy, SearchSortDir, PriceRange, Offer, SearchAggregations;
+import '../services/api_service.dart'
+    show
+        ApiService,
+        ApiException,
+        SearchRequest,
+        SearchResponse,
+        SearchOfferType,
+        SearchSortBy,
+        SearchSortDir,
+        PriceRange,
+        Offer,
+        SearchAggregations;
 import '../services/browse_prefetch_cache.dart';
 import '../services/chat_session_service.dart';
 import '../services/follow_service.dart';
+import '../services/playtime_service.dart';
 import '../services/push_service.dart';
 import '../widgets/game_card.dart';
 import 'mobile_offer_detail_page.dart';
@@ -19,6 +31,7 @@ class MobileBrowsePage extends HookWidget {
   final FollowService followService;
   final PushService? pushService;
   final ChatSessionService? chatService;
+  final PlaytimeService? playtimeService;
   final String? initialGenreId;
   final String? initialGenreName;
 
@@ -28,6 +41,7 @@ class MobileBrowsePage extends HookWidget {
     required this.followService,
     this.pushService,
     this.chatService,
+    this.playtimeService,
     this.initialGenreId,
     this.initialGenreName,
   });
@@ -90,13 +104,17 @@ class MobileBrowsePage extends HookWidget {
 
     // Search text state
     final searchText = useState(searchController.text);
-    final debouncedSearch = useDebounced(searchText.value, const Duration(milliseconds: 400));
+    final debouncedSearch = useDebounced(
+      searchText.value,
+      const Duration(milliseconds: 400),
+    );
 
     // Listen to search text changes
     useEffect(() {
       void listener() {
         searchText.value = searchController.text;
       }
+
       searchController.addListener(listener);
       return () => searchController.removeListener(listener);
     }, [searchController]);
@@ -119,7 +137,9 @@ class MobileBrowsePage extends HookWidget {
 
     // Normalize empty search to null for consistent query keys
     // This prevents query key changes when debouncedSearch goes from null -> ''
-    final normalizedSearch = (debouncedSearch?.isEmpty ?? true) ? null : debouncedSearch;
+    final normalizedSearch = (debouncedSearch?.isEmpty ?? true)
+        ? null
+        : debouncedSearch;
 
     // Create query key from filters
     final queryKey = useMemoized(
@@ -162,7 +182,8 @@ class MobileBrowsePage extends HookWidget {
           final query = debouncedSearch;
 
           // Check prefetch cache for default query (page 1, no filters)
-          final isDefaultQuery = page == 1 &&
+          final isDefaultQuery =
+              page == 1 &&
               (query == null || query.isEmpty) &&
               offerType.value == null &&
               sortBy.value == SearchSortBy.lastModifiedDate &&
@@ -179,7 +200,9 @@ class MobileBrowsePage extends HookWidget {
               country: country,
             );
             if (cachedData != null) {
-              _log('performSearch - using prefetched data: ${cachedData.offers.length} offers');
+              _log(
+                'performSearch - using prefetched data: ${cachedData.offers.length} offers',
+              );
               return cachedData;
             }
           }
@@ -194,7 +217,9 @@ class MobileBrowsePage extends HookWidget {
             excludeBlockchain: excludeBlockchain.value ? true : null,
             pastGiveaways: pastGiveaways.value ? true : null,
             isLowestPriceEver: isLowestPriceEver.value ? true : null,
-            tags: selectedGenreId.value != null ? [selectedGenreId.value!] : null,
+            tags: selectedGenreId.value != null
+                ? [selectedGenreId.value!]
+                : null,
             limit: 20,
             page: page,
           );
@@ -202,10 +227,7 @@ class MobileBrowsePage extends HookWidget {
           _log('performSearch - request: ${_formatRequest(request)}');
 
           final stopwatch = Stopwatch()..start();
-          final response = await apiService.search(
-            request,
-            country: country,
-          );
+          final response = await apiService.search(request, country: country);
           stopwatch.stop();
 
           _log(
@@ -275,6 +297,7 @@ class MobileBrowsePage extends HookWidget {
           searchQuery.fetchNextPage();
         }
       }
+
       scrollController.addListener(onScroll);
       return () => scrollController.removeListener(onScroll);
     }, [scrollController, searchQuery]);
@@ -282,13 +305,15 @@ class MobileBrowsePage extends HookWidget {
     // Extract all search results from pages
     final allOffers = useMemoized(() {
       if (searchQuery.pages.isEmpty) return <Offer>[];
-      return searchQuery.pages
-          .expand((page) => page.offers)
-          .toList();
+      return searchQuery.pages.expand((page) => page.offers).toList();
     }, [searchQuery.pages]);
 
-    final totalResults = searchQuery.pages.isNotEmpty ? searchQuery.pages.first.total : 0;
-    final aggregations = searchQuery.pages.isNotEmpty ? searchQuery.pages.first.aggregations : null;
+    final totalResults = searchQuery.pages.isNotEmpty
+        ? searchQuery.pages.first.total
+        : 0;
+    final aggregations = searchQuery.pages.isNotEmpty
+        ? searchQuery.pages.first.aggregations
+        : null;
 
     void clearSearch() {
       _log('clearSearch');
@@ -362,6 +387,7 @@ class MobileBrowsePage extends HookWidget {
       }
       return count;
     }
+
     return Column(
       children: [
         // Header with search
@@ -424,7 +450,9 @@ class MobileBrowsePage extends HookWidget {
                 decoration: InputDecoration(
                   hintText: 'Search for games...',
                   hintStyle: TextStyle(color: AppColors.textMuted),
-                  prefixIcon: (searchQuery.isPending || searchQuery.isLoading) && allOffers.isEmpty
+                  prefixIcon:
+                      (searchQuery.isPending || searchQuery.isLoading) &&
+                          allOffers.isEmpty
                       ? Container(
                           width: 20,
                           height: 20,
@@ -653,11 +681,7 @@ class MobileBrowsePage extends HookWidget {
 
         // Content
         Expanded(
-          child: _buildSearchResults(
-            searchQuery,
-            allOffers,
-            scrollController,
-          ),
+          child: _buildSearchResults(searchQuery, allOffers, scrollController),
         ),
       ],
     );
@@ -750,6 +774,7 @@ class MobileBrowsePage extends HookWidget {
           followService: followService,
           pushService: pushService,
           chatService: chatService,
+          playtimeService: playtimeService,
           settings: settings,
           initialTitle: offer.title,
           initialImageUrl: _getThumbnailUrl(offer),
@@ -758,7 +783,11 @@ class MobileBrowsePage extends HookWidget {
     );
   }
 
-  Future<void> _toggleFollow(BuildContext context, Offer offer, bool wasFollowing) async {
+  Future<void> _toggleFollow(
+    BuildContext context,
+    Offer offer,
+    bool wasFollowing,
+  ) async {
     final followedGame = FollowedGame(
       offerId: offer.id,
       title: offer.title,

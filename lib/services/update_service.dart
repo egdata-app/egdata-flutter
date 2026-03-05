@@ -12,7 +12,9 @@ class UpdateService {
   static Future<String?> getLatestVersion() async {
     try {
       final response = await http.get(
-        Uri.parse('$_githubApiBase/repos/$_repoOwner/$_repoName/releases/latest'),
+        Uri.parse(
+          '$_githubApiBase/repos/$_repoOwner/$_repoName/releases/latest',
+        ),
         headers: {'Accept': 'application/vnd.github.v3+json'},
       );
 
@@ -45,7 +47,9 @@ class UpdateService {
   static Future<String?> getChangelog(String version) async {
     try {
       final response = await http.get(
-        Uri.parse('$_githubApiBase/repos/$_repoOwner/$_repoName/releases/tags/v$version'),
+        Uri.parse(
+          '$_githubApiBase/repos/$_repoOwner/$_repoName/releases/tags/v$version',
+        ),
         headers: {'Accept': 'application/vnd.github.v3+json'},
       );
 

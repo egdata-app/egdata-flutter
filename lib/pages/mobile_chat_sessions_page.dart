@@ -9,6 +9,7 @@ import '../models/settings.dart';
 import '../services/api_service.dart';
 import '../services/chat_session_service.dart';
 import '../services/follow_service.dart';
+import '../services/playtime_service.dart';
 import '../services/push_service.dart';
 import '../database/database_service.dart';
 import 'mobile_chat_page.dart';
@@ -19,6 +20,7 @@ class MobileChatSessionsPage extends HookWidget {
   final ChatSessionService chatService;
   final FollowService followService;
   final PushService? pushService;
+  final PlaytimeService? playtimeService;
 
   const MobileChatSessionsPage({
     super.key,
@@ -27,6 +29,7 @@ class MobileChatSessionsPage extends HookWidget {
     required this.chatService,
     required this.followService,
     this.pushService,
+    this.playtimeService,
   });
 
   @override
@@ -98,6 +101,7 @@ class MobileChatSessionsPage extends HookWidget {
                 session: newSession,
                 followService: followService,
                 pushService: pushService,
+                playtimeService: playtimeService,
                 initialMessage: initialMessage,
                 onSessionUpdated: () async {
                   // Refresh sessions list
@@ -110,9 +114,9 @@ class MobileChatSessionsPage extends HookWidget {
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to create chat: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Failed to create chat: $e')));
         }
       }
     }
@@ -120,7 +124,9 @@ class MobileChatSessionsPage extends HookWidget {
     Future<void> deleteSession(ChatSession session) async {
       try {
         await chatService.deleteSession(session.id);
-        sessions.value = sessions.value.where((s) => s.id != session.id).toList();
+        sessions.value = sessions.value
+            .where((s) => s.id != session.id)
+            .toList();
 
         // Also delete from local database
         final db = await DatabaseService.getInstance();
@@ -137,9 +143,9 @@ class MobileChatSessionsPage extends HookWidget {
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to delete chat: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Failed to delete chat: $e')));
         }
       }
     }
@@ -154,26 +160,23 @@ class MobileChatSessionsPage extends HookWidget {
           Expanded(
             child: isLoading.value
                 ? const Center(
-                    child: CircularProgressIndicator(
-                      color: AppColors.primary,
-                    ),
+                    child: CircularProgressIndicator(color: AppColors.primary),
                   )
                 : error.value != null
-                    ? _buildErrorState(error.value!)
-                    : sessions.value.isEmpty
-                        ? _buildEmptyState(createNewChat)
-                        : _buildSessionsList(
-                            context,
-                            sessions.value,
-                            deleteSession,
-                          ),
+                ? _buildErrorState(error.value!)
+                : sessions.value.isEmpty
+                ? _buildEmptyState(createNewChat)
+                : _buildSessionsList(context, sessions.value, deleteSession),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context, Future<void> Function({String? initialMessage}) onNewChat) {
+  Widget _buildHeader(
+    BuildContext context,
+    Future<void> Function({String? initialMessage}) onNewChat,
+  ) {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -200,10 +203,7 @@ class MobileChatSessionsPage extends HookWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      AppColors.primary,
-                      AppColors.primaryDark,
-                    ],
+                    colors: [AppColors.primary, AppColors.primaryDark],
                   ),
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: [
@@ -256,10 +256,7 @@ class MobileChatSessionsPage extends HookWidget {
                   decoration: BoxDecoration(
                     color: AppColors.surfaceLight,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.borderLight,
-                      width: 1,
-                    ),
+                    border: Border.all(color: AppColors.borderLight, width: 1),
                   ),
                   child: const Icon(
                     IconsaxPlusBold.add,
@@ -275,7 +272,9 @@ class MobileChatSessionsPage extends HookWidget {
     );
   }
 
-  Widget _buildEmptyState(Future<void> Function({String? initialMessage}) onNewChat) {
+  Widget _buildEmptyState(
+    Future<void> Function({String? initialMessage}) onNewChat,
+  ) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -335,11 +334,20 @@ class MobileChatSessionsPage extends HookWidget {
               ),
             ),
             const SizedBox(height: 12),
-            _buildPromptChip('Show me RPGs under \$20', () => onNewChat(initialMessage: 'Show me RPGs under \$20')),
+            _buildPromptChip(
+              'Show me RPGs under \$20',
+              () => onNewChat(initialMessage: 'Show me RPGs under \$20'),
+            ),
             const SizedBox(height: 8),
-            _buildPromptChip('What games are on sale?', () => onNewChat(initialMessage: 'What games are on sale?')),
+            _buildPromptChip(
+              'What games are on sale?',
+              () => onNewChat(initialMessage: 'What games are on sale?'),
+            ),
             const SizedBox(height: 8),
-            _buildPromptChip('Best co-op games', () => onNewChat(initialMessage: 'Best co-op games')),
+            _buildPromptChip(
+              'Best co-op games',
+              () => onNewChat(initialMessage: 'Best co-op games'),
+            ),
             const SizedBox(height: 32),
             // Primary CTA
             GestureDetector(
@@ -353,10 +361,7 @@ class MobileChatSessionsPage extends HookWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      AppColors.primary,
-                      AppColors.primaryDark,
-                    ],
+                    colors: [AppColors.primary, AppColors.primaryDark],
                   ),
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
@@ -403,10 +408,7 @@ class MobileChatSessionsPage extends HookWidget {
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: AppColors.borderLight,
-            width: 1,
-          ),
+          border: Border.all(color: AppColors.borderLight, width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -463,10 +465,7 @@ class MobileChatSessionsPage extends HookWidget {
             const SizedBox(height: 8),
             Text(
               errorMessage,
-              style: const TextStyle(
-                color: AppColors.textMuted,
-                fontSize: 14,
-              ),
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 14),
               textAlign: TextAlign.center,
             ),
           ],
@@ -497,9 +496,12 @@ class MobileChatSessionsPage extends HookWidget {
                   session: session,
                   followService: followService,
                   pushService: pushService,
+                  playtimeService: playtimeService,
                   onSessionUpdated: () async {
-                    final updatedSessions = await chatService.listSessions();
-                    sessions = updatedSessions;
+                    // Refresh sessions list
+                    await chatService.listSessions();
+                    // This is a bit hacky but works for updating the local list
+                    (context as Element).markNeedsBuild();
                   },
                 ),
               ),
@@ -535,17 +537,11 @@ class _ChatSessionCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppColors.surface.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: AppColors.borderLight,
-                width: 1,
-              ),
+              border: Border.all(color: AppColors.borderLight, width: 1),
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  AppColors.surfaceGlass,
-                  Colors.transparent,
-                ],
+                colors: [AppColors.surfaceGlass, Colors.transparent],
               ),
             ),
             child: Material(
@@ -611,13 +607,17 @@ class _ChatSessionCard extends StatelessWidget {
                                 Icon(
                                   IconsaxPlusBold.message,
                                   size: 12,
-                                  color: AppColors.textMuted.withValues(alpha: 0.6),
+                                  color: AppColors.textMuted.withValues(
+                                    alpha: 0.6,
+                                  ),
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
                                   '${session.messageCount}',
                                   style: TextStyle(
-                                    color: AppColors.textMuted.withValues(alpha: 0.8),
+                                    color: AppColors.textMuted.withValues(
+                                      alpha: 0.8,
+                                    ),
                                     fontSize: 12,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -626,13 +626,17 @@ class _ChatSessionCard extends StatelessWidget {
                                 Icon(
                                   IconsaxPlusBold.clock,
                                   size: 12,
-                                  color: AppColors.textMuted.withValues(alpha: 0.6),
+                                  color: AppColors.textMuted.withValues(
+                                    alpha: 0.6,
+                                  ),
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
                                   _formatDate(session.lastMessageAt),
                                   style: TextStyle(
-                                    color: AppColors.textMuted.withValues(alpha: 0.8),
+                                    color: AppColors.textMuted.withValues(
+                                      alpha: 0.8,
+                                    ),
                                     fontSize: 12,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -684,18 +688,11 @@ class _ChatSessionCard extends StatelessWidget {
       backgroundColor: AppColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(
-          color: AppColors.borderLight,
-          width: 1,
-        ),
+        side: BorderSide(color: AppColors.borderLight, width: 1),
       ),
       title: const Row(
         children: [
-          Icon(
-            IconsaxPlusBold.danger,
-            color: AppColors.error,
-            size: 24,
-          ),
+          Icon(IconsaxPlusBold.danger, color: AppColors.error, size: 24),
           SizedBox(width: 12),
           Text(
             'Delete Chat',

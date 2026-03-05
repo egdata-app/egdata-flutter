@@ -69,19 +69,25 @@ class FreeGame {
       creationDate: DateTime.parse(json['creationDate'] as String),
       lastModifiedDate: DateTime.parse(json['lastModifiedDate'] as String),
       isCodeRedemptionOnly: (json['isCodeRedemptionOnly'] as bool?) ?? false,
-      keyImages: (json['keyImages'] as List<dynamic>?)
-          ?.map((e) => KeyImage.fromJson(e as Map<String, dynamic>))
-          .toList() ?? [],
+      keyImages:
+          (json['keyImages'] as List<dynamic>?)
+              ?.map((e) => KeyImage.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
       seller: Seller.fromJson(json['seller'] as Map<String, dynamic>),
       productSlug: json['productSlug'] as String?,
       urlSlug: (json['urlSlug'] as String?) ?? '',
       url: json['url'] as String?,
-      tags: (json['tags'] as List<dynamic>?)
-          ?.map((e) => Tag.fromJson(e as Map<String, dynamic>))
-          .toList() ?? [],
-      items: (json['items'] as List<dynamic>?)
-          ?.map((e) => OfferItem.fromJson(e as Map<String, dynamic>))
-          .toList() ?? [],
+      tags:
+          (json['tags'] as List<dynamic>?)
+              ?.map((e) => Tag.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      items:
+          (json['items'] as List<dynamic>?)
+              ?.map((e) => OfferItem.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
       categories: (json['categories'] as List<dynamic>?)?.cast<String>() ?? [],
       developerDisplayName: (json['developerDisplayName'] as String?) ?? '',
       publisherDisplayName: (json['publisherDisplayName'] as String?) ?? '',
@@ -92,7 +98,8 @@ class FreeGame {
           ? DateTime.parse(json['pcReleaseDate'] as String)
           : null,
       viewableDate: DateTime.parse(json['viewableDate'] as String),
-      countriesBlacklist: (json['countriesBlacklist'] as List<dynamic>?)?.cast<String>(),
+      countriesBlacklist: (json['countriesBlacklist'] as List<dynamic>?)
+          ?.cast<String>(),
       refundType: (json['refundType'] as String?) ?? 'NON_REFUNDABLE',
       giveaway: json['giveaway'] != null
           ? Giveaway.fromJson(json['giveaway'] as Map<String, dynamic>)
@@ -169,8 +176,18 @@ class Giveaway {
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }

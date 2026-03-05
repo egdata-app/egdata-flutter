@@ -25,7 +25,9 @@ import '../widgets/achievements_bottom_sheet.dart';
 import '../widgets/offer_giveaway_banner.dart';
 import '../widgets/age_rating_badge.dart';
 import '../widgets/offer_changelog_card.dart';
+import '../widgets/playtime_completion_card.dart';
 import '../widgets/skeleton_loading.dart';
+import '../services/playtime_service.dart';
 import 'mobile_chat_page.dart';
 
 class MobileOfferDetailPage extends StatefulWidget {
@@ -35,6 +37,7 @@ class MobileOfferDetailPage extends StatefulWidget {
   final FollowService followService;
   final PushService? pushService;
   final ChatSessionService? chatService;
+  final PlaytimeService? playtimeService;
   final AppSettings? settings;
   final String country;
 
@@ -44,6 +47,7 @@ class MobileOfferDetailPage extends StatefulWidget {
     required this.followService,
     this.pushService,
     this.chatService,
+    this.playtimeService,
     this.settings,
     this.initialTitle,
     this.initialImageUrl,
@@ -63,6 +67,7 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
   OfferFeatures? _features;
   List<AchievementSet>? _achievements;
   OfferHltb? _hltb;
+  OfferIgdb? _igdb;
   OfferMedia? _media;
   List<Offer>? _relatedOffers;
   OfferRatings? _ratings;
@@ -75,7 +80,8 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
 
   // Loading state
   bool _isLoadingOffer = true;
-  bool _isLoadingDetails = true; // For additional details (features, media, etc.)
+  bool _isLoadingDetails =
+      true; // For additional details (features, media, etc.)
   String? _error;
 
   // Scroll state for collapsing header - use ValueNotifier to avoid full rebuilds
@@ -128,8 +134,12 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
     try {
       if (_isFollowing) {
         // Unfollow: unsubscribe from all topics and delete from database
-        final topics = await widget.followService.getNotificationTopics(widget.offerId);
-        if (topics.isNotEmpty && widget.pushService != null && PlatformUtils.isMobile) {
+        final topics = await widget.followService.getNotificationTopics(
+          widget.offerId,
+        );
+        if (topics.isNotEmpty &&
+            widget.pushService != null &&
+            PlatformUtils.isMobile) {
           await widget.pushService!.unsubscribeFromTopics(topics: topics);
         }
         await widget.followService.unfollowGame(widget.offerId);
@@ -152,7 +162,9 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
 
         // Auto-subscribe to "all notifications" by default on mobile
         if (widget.pushService != null && PlatformUtils.isMobile) {
-          final allTopic = OfferNotificationTopic.all.getTopicForOffer(widget.offerId);
+          final allTopic = OfferNotificationTopic.all.getTopicForOffer(
+            widget.offerId,
+          );
           await _updateTopics([allTopic]);
         }
 
@@ -175,7 +187,9 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
   Future<void> _showTopicSelector() async {
     if (!_isFollowing || !PlatformUtils.isMobile) return;
 
-    final currentTopics = await widget.followService.getNotificationTopics(widget.offerId);
+    final currentTopics = await widget.followService.getNotificationTopics(
+      widget.offerId,
+    );
 
     if (!mounted) return;
 
@@ -195,11 +209,15 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
     setState(() => _isFollowLoading = true);
 
     try {
-      final currentTopics = await widget.followService.getNotificationTopics(widget.offerId);
+      final currentTopics = await widget.followService.getNotificationTopics(
+        widget.offerId,
+      );
 
       // Calculate topics to add and remove
       final toAdd = newTopics.where((t) => !currentTopics.contains(t)).toList();
-      final toRemove = currentTopics.where((t) => !newTopics.contains(t)).toList();
+      final toRemove = currentTopics
+          .where((t) => !newTopics.contains(t))
+          .toList();
 
       // Update FCM subscriptions
       if (widget.pushService != null && PlatformUtils.isMobile) {
@@ -212,7 +230,10 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
       }
 
       // Update database
-      await widget.followService.updateNotificationTopics(widget.offerId, newTopics);
+      await widget.followService.updateNotificationTopics(
+        widget.offerId,
+        newTopics,
+      );
     } finally {
       if (mounted) {
         setState(() => _isFollowLoading = false);
@@ -264,6 +285,7 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
             .getOfferAchievements(widget.offerId)
             .catchError((_) => <AchievementSet>[]),
         _apiService.getOfferHltb(widget.offerId).catchError((_) => null),
+        _apiService.getOfferIgdb(widget.offerId).catchError((_) => null),
         _apiService.getOfferMedia(widget.offerId).catchError((_) => null),
         _apiService
             .getOfferRelated(widget.offerId)
@@ -294,13 +316,14 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
           _features = results[0] as OfferFeatures;
           _achievements = results[1] as List<AchievementSet>;
           _hltb = results[2] as OfferHltb?;
-          _media = results[3] as OfferMedia?;
-          _relatedOffers = results[4] as List<Offer>;
-          _ratings = results[5] as OfferRatings?;
-          _tops = results[6] as OfferTops?;
-          _giveaways = results[7] as List<Giveaway>;
-          _ageRatings = results[8] as AgeRatings?;
-          final changelogResponse = results[9] as ChangelogResponse;
+          _igdb = results[3] as OfferIgdb?;
+          _media = results[4] as OfferMedia?;
+          _relatedOffers = results[5] as List<Offer>;
+          _ratings = results[6] as OfferRatings?;
+          _tops = results[7] as OfferTops?;
+          _giveaways = results[8] as List<Giveaway>;
+          _ageRatings = results[9] as AgeRatings?;
+          final changelogResponse = results[10] as ChangelogResponse;
           _changelogPreview = changelogResponse.elements;
           _changelogTotal = changelogResponse.totalCount;
           _isLoadingDetails = false;
@@ -562,10 +585,7 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
       if (_isLoadingDetails)
         const SkeletonRatingsCard()
       else
-        OfferRatingsCard(
-          ratings: _ratings,
-          tops: _tops,
-        ),
+        OfferRatingsCard(ratings: _ratings, tops: _tops),
       if (_isLoadingDetails || _ratings != null || _tops != null)
         const SizedBox(height: 24),
 
@@ -573,10 +593,7 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
       if (_isLoadingDetails)
         const SkeletonPriceHistory()
       else
-        PriceHistoryWidget(
-          offerId: widget.offerId,
-          country: widget.country,
-        ),
+        PriceHistoryWidget(offerId: widget.offerId, country: widget.country),
       const SizedBox(height: 24),
 
       // Description
@@ -612,6 +629,17 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
       // Achievements
       if (_achievements != null && _achievements!.isNotEmpty) ...[
         _buildSection('Achievements', _buildAchievements()),
+        const SizedBox(height: 24),
+      ],
+
+      // Playtime Analytics
+      if (widget.playtimeService != null) ...[
+        PlaytimeCompletionCard(
+          offerId: widget.offerId,
+          igdb: _igdb,
+          hltb: _hltb,
+          playtimeService: widget.playtimeService!,
+        ),
         const SizedBox(height: 24),
       ],
 
@@ -801,7 +829,9 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: visibleTags.map((tag) => _buildGenreChip(tag.name)).toList(),
+          children: visibleTags
+              .map((tag) => _buildGenreChip(tag.name))
+              .toList(),
         ),
         if (hasMore) ...[
           const SizedBox(height: 12),
@@ -843,11 +873,7 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.sell_rounded,
-            size: 14,
-            color: AppColors.primary,
-          ),
+          const Icon(Icons.sell_rounded, size: 14, color: AppColors.primary),
           const SizedBox(width: 6),
           Text(
             name,
@@ -1107,8 +1133,7 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) =>
-          AchievementsBottomSheet(achievements: achievements),
+      builder: (context) => AchievementsBottomSheet(achievements: achievements),
     );
   }
 
@@ -1472,4 +1497,3 @@ class _GenresBottomSheet extends StatelessWidget {
     );
   }
 }
-

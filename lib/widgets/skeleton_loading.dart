@@ -22,10 +22,8 @@ class _ShimmerState extends State<Shimmer> with SingleTickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: widget.period,
-    )..repeat();
+    _controller = AnimationController(vsync: this, duration: widget.period)
+      ..repeat();
   }
 
   @override
@@ -71,12 +69,7 @@ class SkeletonBox extends StatelessWidget {
   final double? height;
   final BorderRadius? borderRadius;
 
-  const SkeletonBox({
-    super.key,
-    this.width,
-    this.height,
-    this.borderRadius,
-  });
+  const SkeletonBox({super.key, this.width, this.height, this.borderRadius});
 
   @override
   Widget build(BuildContext context) {
@@ -101,11 +94,17 @@ class SkeletonActionButtons extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: SkeletonBox(height: 44, borderRadius: BorderRadius.circular(8)),
+            child: SkeletonBox(
+              height: 44,
+              borderRadius: BorderRadius.circular(8),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: SkeletonBox(height: 44, borderRadius: BorderRadius.circular(8)),
+            child: SkeletonBox(
+              height: 44,
+              borderRadius: BorderRadius.circular(8),
+            ),
           ),
         ],
       ),
@@ -386,10 +385,7 @@ class OfferDetailSkeleton extends StatelessWidget {
             borderRadius: BorderRadius.circular(4),
           ),
           const SizedBox(height: 12),
-          const SkeletonHorizontalList(
-            itemWidth: 320,
-            itemHeight: 180,
-          ),
+          const SkeletonHorizontalList(itemWidth: 320, itemHeight: 180),
           const SizedBox(height: 24),
 
           // Details section

@@ -5,10 +5,7 @@ class KeyImage {
   const KeyImage({required this.type, required this.url});
 
   factory KeyImage.fromJson(Map<String, dynamic> json) {
-    return KeyImage(
-      type: json['type'] ?? '',
-      url: json['url'] ?? '',
-    );
+    return KeyImage(type: json['type'] ?? '', url: json['url'] ?? '');
   }
 }
 
@@ -43,7 +40,8 @@ class GameMetadata {
   }
 
   /// Get first available image URL (fallback)
-  String? get firstImageUrl => keyImages.isNotEmpty ? keyImages.first.url : null;
+  String? get firstImageUrl =>
+      keyImages.isNotEmpty ? keyImages.first.url : null;
 
   factory GameMetadata.fromJson(Map<String, dynamic> json) {
     List<KeyImage> images = [];

@@ -192,10 +192,7 @@ class _PriceHistoryWidgetState extends State<PriceHistoryWidget>
           const SizedBox(height: 4),
           Text(
             _error ?? 'Unknown error',
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppColors.textMuted,
-            ),
+            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
             textAlign: TextAlign.center,
           ),
         ],
@@ -223,10 +220,7 @@ class _PriceHistoryWidgetState extends State<PriceHistoryWidget>
             SizedBox(height: 8),
             Text(
               'No price history available',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.textMuted,
-              ),
+              style: TextStyle(fontSize: 14, color: AppColors.textMuted),
             ),
           ],
         ),
@@ -240,10 +234,9 @@ class _PriceHistoryWidgetState extends State<PriceHistoryWidget>
       ..sort((a, b) => a.updatedAt.compareTo(b.updatedAt));
 
     // Find max price for scaling (min is always 0)
-    final allPrices = sortedHistory.expand((entry) => [
-          entry.price.discountPrice,
-          entry.price.originalPrice,
-        ]);
+    final allPrices = sortedHistory.expand(
+      (entry) => [entry.price.discountPrice, entry.price.originalPrice],
+    );
     final minPrice = 0.0; // Always start from 0
     final maxPrice = allPrices.reduce((a, b) => a > b ? a : b).toDouble();
     final priceRange = maxPrice - minPrice;
@@ -285,7 +278,9 @@ class _PriceHistoryWidgetState extends State<PriceHistoryWidget>
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
-                      color: isOnSale ? AppColors.success : AppColors.textPrimary,
+                      color: isOnSale
+                          ? AppColors.success
+                          : AppColors.textPrimary,
                     ),
                   ),
                   if (isOnSale) ...[
@@ -310,10 +305,7 @@ class _PriceHistoryWidgetState extends State<PriceHistoryWidget>
           // Subtitle
           const Text(
             'Last 6 months',
-            style: TextStyle(
-              fontSize: 12,
-              color: AppColors.textMuted,
-            ),
+            style: TextStyle(fontSize: 12, color: AppColors.textMuted),
           ),
           const SizedBox(height: 12),
           // Chart with tap detection
@@ -323,7 +315,11 @@ class _PriceHistoryWidgetState extends State<PriceHistoryWidget>
               builder: (context, constraints) {
                 return GestureDetector(
                   onTapDown: (details) {
-                    _handleChartTap(details, sortedHistory, constraints.maxWidth);
+                    _handleChartTap(
+                      details,
+                      sortedHistory,
+                      constraints.maxWidth,
+                    );
                   },
                   child: CustomPaint(
                     size: Size.infinite,
@@ -343,7 +339,8 @@ class _PriceHistoryWidgetState extends State<PriceHistoryWidget>
           ),
           const SizedBox(height: 12),
           // Selected point details
-          if (_selectedPointIndex != null && _selectedPointIndex! < sortedHistory.length)
+          if (_selectedPointIndex != null &&
+              _selectedPointIndex! < sortedHistory.length)
             _buildSelectedPointDetails(sortedHistory[_selectedPointIndex!]),
           // Legend
           if (_selectedPointIndex == null)
@@ -494,10 +491,7 @@ class _PriceHistoryWidgetState extends State<PriceHistoryWidget>
         const SizedBox(width: 6),
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 11,
-            color: AppColors.textSecondary,
-          ),
+          style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
         ),
       ],
     );
@@ -539,7 +533,14 @@ class _PriceChartPainter extends CustomPainter {
     _drawYAxisLabels(canvas, size, leftPadding, topPadding, chartHeight);
 
     // Draw grid lines
-    _drawGridLines(canvas, size, leftPadding, topPadding, chartHeight, chartWidth);
+    _drawGridLines(
+      canvas,
+      size,
+      leftPadding,
+      topPadding,
+      chartHeight,
+      chartWidth,
+    );
 
     // Draw original price line
     _drawPriceLine(
@@ -564,11 +565,26 @@ class _PriceChartPainter extends CustomPainter {
     );
 
     // Draw data points
-    _drawDataPoints(canvas, size, leftPadding, topPadding, chartWidth, chartHeight);
+    _drawDataPoints(
+      canvas,
+      size,
+      leftPadding,
+      topPadding,
+      chartWidth,
+      chartHeight,
+    );
 
     // Highlight selected point
-    if (selectedPointIndex != null && selectedPointIndex! < priceHistory.length) {
-      _drawHighlightedPoint(canvas, size, leftPadding, topPadding, chartWidth, chartHeight);
+    if (selectedPointIndex != null &&
+        selectedPointIndex! < priceHistory.length) {
+      _drawHighlightedPoint(
+        canvas,
+        size,
+        leftPadding,
+        topPadding,
+        chartWidth,
+        chartHeight,
+      );
     }
   }
 
@@ -579,10 +595,7 @@ class _PriceChartPainter extends CustomPainter {
     double topPadding,
     double chartHeight,
   ) {
-    final textStyle = TextStyle(
-      color: AppColors.textMuted,
-      fontSize: 10,
-    );
+    final textStyle = TextStyle(color: AppColors.textMuted, fontSize: 10);
 
     // Draw 3 labels (max, mid, min=0)
     for (int i = 0; i <= 2; i++) {
@@ -601,10 +614,7 @@ class _PriceChartPainter extends CustomPainter {
       );
 
       textPainter.layout();
-      textPainter.paint(
-        canvas,
-        Offset(4, y - textPainter.height / 2),
-      );
+      textPainter.paint(canvas, Offset(4, y - textPainter.height / 2));
     }
   }
 
@@ -659,7 +669,9 @@ class _PriceChartPainter extends CustomPainter {
       final x = priceHistory.length == 1
           ? leftPadding + chartWidth / 2
           : leftPadding + (i / (priceHistory.length - 1)) * chartWidth;
-      final normalizedPrice = priceRange > 0 ? (price - minPrice) / priceRange : 0.5;
+      final normalizedPrice = priceRange > 0
+          ? (price - minPrice) / priceRange
+          : 0.5;
       final y = topPadding + chartHeight - (normalizedPrice * chartHeight);
 
       points.add(Offset(x, y));
@@ -715,7 +727,9 @@ class _PriceChartPainter extends CustomPainter {
       final x = priceHistory.length == 1
           ? leftPadding + chartWidth / 2
           : leftPadding + (i / (priceHistory.length - 1)) * chartWidth;
-      final normalizedPrice = priceRange > 0 ? (price - minPrice) / priceRange : 0.5;
+      final normalizedPrice = priceRange > 0
+          ? (price - minPrice) / priceRange
+          : 0.5;
       final y = topPadding + chartHeight - (normalizedPrice * chartHeight);
 
       // Draw outer ring if on sale
@@ -754,8 +768,11 @@ class _PriceChartPainter extends CustomPainter {
     // Calculate point position
     final x = priceHistory.length == 1
         ? leftPadding + chartWidth / 2
-        : leftPadding + (selectedPointIndex! / (priceHistory.length - 1)) * chartWidth;
-    final normalizedPrice = priceRange > 0 ? (price - minPrice) / priceRange : 0.5;
+        : leftPadding +
+              (selectedPointIndex! / (priceHistory.length - 1)) * chartWidth;
+    final normalizedPrice = priceRange > 0
+        ? (price - minPrice) / priceRange
+        : 0.5;
     final y = topPadding + chartHeight - (normalizedPrice * chartHeight);
 
     // Animated pulse values

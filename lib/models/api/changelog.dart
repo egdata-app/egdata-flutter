@@ -20,9 +20,11 @@ class ChangelogResponse {
 
   factory ChangelogResponse.fromJson(Map<String, dynamic> json) {
     return ChangelogResponse(
-      elements: (json['elements'] as List<dynamic>?)
-          ?.map((e) => ChangelogItem.fromJson(e as Map<String, dynamic>))
-          .toList() ?? [],
+      elements:
+          (json['elements'] as List<dynamic>?)
+              ?.map((e) => ChangelogItem.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
       page: (json['page'] as int?) ?? 1,
       limit: (json['limit'] as int?) ?? 10,
       totalCount: (json['totalCount'] as int?) ?? 0,
@@ -59,8 +61,18 @@ class ChangelogItem {
   /// Get formatted date (e.g., "Jan 2, 2026")
   String get formattedDate {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[timestamp.month - 1]} ${timestamp.day}, ${timestamp.year}';
   }
@@ -103,9 +115,11 @@ class ChangelogMetadata {
     return ChangelogMetadata(
       contextType: (json['contextType'] as String?) ?? '',
       contextId: (json['contextId'] as String?) ?? '',
-      changes: (json['changes'] as List<dynamic>?)
-          ?.map((e) => Change.fromJson(e as Map<String, dynamic>))
-          .toList() ?? [],
+      changes:
+          (json['changes'] as List<dynamic>?)
+              ?.map((e) => Change.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 }
@@ -135,10 +149,9 @@ class Change {
   /// Get display label for the field
   String get fieldLabel {
     // Convert camelCase to Title Case
-    final words = field.replaceAllMapped(
-      RegExp(r'([A-Z])'),
-      (match) => ' ${match.group(1)}',
-    ).trim();
+    final words = field
+        .replaceAllMapped(RegExp(r'([A-Z])'), (match) => ' ${match.group(1)}')
+        .trim();
     return words.isEmpty ? field : words[0].toUpperCase() + words.substring(1);
   }
 
@@ -218,8 +231,18 @@ class Change {
       try {
         final date = DateTime.parse(value);
         const months = [
-          'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+          'Jan',
+          'Feb',
+          'Mar',
+          'Apr',
+          'May',
+          'Jun',
+          'Jul',
+          'Aug',
+          'Sep',
+          'Oct',
+          'Nov',
+          'Dec',
         ];
         return '${months[date.month - 1]} ${date.day}, ${date.year}';
       } catch (_) {
@@ -233,10 +256,13 @@ class Change {
     }
 
     // Handle file sizes (bytes)
-    if ((field.toLowerCase().contains('size') || field.toLowerCase().contains('bytes')) && value is int) {
+    if ((field.toLowerCase().contains('size') ||
+            field.toLowerCase().contains('bytes')) &&
+        value is int) {
       if (value < 1024) return '$value B';
       if (value < 1024 * 1024) return '${(value / 1024).toStringAsFixed(1)} KB';
-      if (value < 1024 * 1024 * 1024) return '${(value / (1024 * 1024)).toStringAsFixed(1)} MB';
+      if (value < 1024 * 1024 * 1024)
+        return '${(value / (1024 * 1024)).toStringAsFixed(1)} MB';
       return '${(value / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
     }
 

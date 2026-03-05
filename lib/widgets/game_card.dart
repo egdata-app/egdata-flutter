@@ -149,7 +149,10 @@ class GameCard extends StatelessWidget {
             // Game info
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -218,7 +221,9 @@ class GameCard extends StatelessWidget {
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w700,
-            color: isFree || isOnSale ? AppColors.success : AppColors.textPrimary,
+            color: isFree || isOnSale
+                ? AppColors.success
+                : AppColors.textPrimary,
           ),
         ),
       ],

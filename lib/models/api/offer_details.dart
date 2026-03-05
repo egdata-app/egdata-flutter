@@ -84,7 +84,8 @@ class AchievementSet {
       productId: (json['productId'] as String?) ?? '',
       achievementSetId: (json['achievementSetId'] as String?) ?? '',
       isBase: (json['isBase'] as bool?) ?? false,
-      achievements: (json['achievements'] as List<dynamic>?)
+      achievements:
+          (json['achievements'] as List<dynamic>?)
               ?.map((e) => Achievement.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
@@ -124,10 +125,7 @@ class HltbGameTime {
   final String category;
   final String time;
 
-  HltbGameTime({
-    required this.category,
-    required this.time,
-  });
+  HltbGameTime({required this.category, required this.time});
 
   factory HltbGameTime.fromJson(Map<String, dynamic> json) {
     return HltbGameTime(
@@ -152,11 +150,13 @@ class OfferHltb {
   factory OfferHltb.fromJson(Map<String, dynamic> json) {
     return OfferHltb(
       hltbId: (json['hltbId'] as String?) ?? '',
-      detailedTimes: (json['detailedTimes'] as List<dynamic>?)
+      detailedTimes:
+          (json['detailedTimes'] as List<dynamic>?)
               ?.map((e) => HltbDetailedTime.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      gameTimes: (json['gameTimes'] as List<dynamic>?)
+      gameTimes:
+          (json['gameTimes'] as List<dynamic>?)
               ?.map((e) => HltbGameTime.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
@@ -171,9 +171,7 @@ class MediaImage {
   MediaImage({required this.src});
 
   factory MediaImage.fromJson(Map<String, dynamic> json) {
-    return MediaImage(
-      src: (json['src'] as String?) ?? '',
-    );
+    return MediaImage(src: (json['src'] as String?) ?? '');
   }
 }
 
@@ -215,7 +213,8 @@ class MediaVideo {
 
   factory MediaVideo.fromJson(Map<String, dynamic> json) {
     return MediaVideo(
-      outputs: (json['outputs'] as List<dynamic>?)
+      outputs:
+          (json['outputs'] as List<dynamic>?)
               ?.map((e) => MediaVideoOutput.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
@@ -225,10 +224,12 @@ class MediaVideo {
   /// Get the best quality video URL (mp4, highest resolution)
   String? get bestVideoUrl {
     final mp4Outputs = outputs
-        .where((o) =>
-            o.contentType.contains('video/mp4') &&
-            o.width != null &&
-            o.height != null)
+        .where(
+          (o) =>
+              o.contentType.contains('video/mp4') &&
+              o.width != null &&
+              o.height != null,
+        )
         .toList();
     if (mp4Outputs.isEmpty) return null;
     mp4Outputs.sort((a, b) => (b.width ?? 0).compareTo(a.width ?? 0));
@@ -237,8 +238,9 @@ class MediaVideo {
 
   /// Get thumbnail URL
   String? get thumbnailUrl {
-    final thumbnails =
-        outputs.where((o) => o.contentType.contains('image')).toList();
+    final thumbnails = outputs
+        .where((o) => o.contentType.contains('image'))
+        .toList();
     return thumbnails.isNotEmpty ? thumbnails.first.url : null;
   }
 }
@@ -258,11 +260,13 @@ class OfferMedia {
   factory OfferMedia.fromJson(Map<String, dynamic> json) {
     return OfferMedia(
       namespace: (json['namespace'] as String?) ?? '',
-      images: (json['images'] as List<dynamic>?)
+      images:
+          (json['images'] as List<dynamic>?)
               ?.map((e) => MediaImage.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      videos: (json['videos'] as List<dynamic>?)
+      videos:
+          (json['videos'] as List<dynamic>?)
               ?.map((e) => MediaVideo.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],

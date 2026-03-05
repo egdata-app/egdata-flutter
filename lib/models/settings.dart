@@ -50,11 +50,15 @@ class AppSettings {
       notifyFreeGames: notifyFreeGames ?? this.notifyFreeGames,
       notifyReleases: notifyReleases ?? this.notifyReleases,
       notifySales: notifySales ?? this.notifySales,
-      notifyFollowedUpdates: notifyFollowedUpdates ?? this.notifyFollowedUpdates,
+      notifyFollowedUpdates:
+          notifyFollowedUpdates ?? this.notifyFollowedUpdates,
       country: country ?? this.country,
       deviceId: deviceId ?? this.deviceId,
-      pushNotificationsEnabled: pushNotificationsEnabled ?? this.pushNotificationsEnabled,
-      hasSeenFreeGamesNotificationPrompt: hasSeenFreeGamesNotificationPrompt ?? this.hasSeenFreeGamesNotificationPrompt,
+      pushNotificationsEnabled:
+          pushNotificationsEnabled ?? this.pushNotificationsEnabled,
+      hasSeenFreeGamesNotificationPrompt:
+          hasSeenFreeGamesNotificationPrompt ??
+          this.hasSeenFreeGamesNotificationPrompt,
     );
   }
 
@@ -88,7 +92,8 @@ class AppSettings {
       country: json['country'] ?? 'US',
       deviceId: json['deviceId'] as String?,
       pushNotificationsEnabled: json['pushNotificationsEnabled'] ?? false,
-      hasSeenFreeGamesNotificationPrompt: json['hasSeenFreeGamesNotificationPrompt'] ?? false,
+      hasSeenFreeGamesNotificationPrompt:
+          json['hasSeenFreeGamesNotificationPrompt'] ?? false,
     );
   }
 }

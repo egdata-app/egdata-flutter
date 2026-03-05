@@ -8,8 +8,6 @@ import 'package:egdata_flutter/services/chat_session_service.dart';
 import 'package:egdata_flutter/services/api_service.dart';
 import 'package:egdata_flutter/services/notification_service.dart';
 import 'package:egdata_flutter/database/database_service.dart';
-import 'package:window_manager/window_manager.dart';
-import 'dart:async';
 
 // Mock classes for testing
 class MockTrayService extends Mock implements TrayService {
@@ -24,7 +22,7 @@ class MockPlaytimeService extends Mock implements PlaytimeService {
   Future<void> shutdown() async {
     // Default implementation
   }
-  
+
   @override
   void dispose() {
     // Default implementation
@@ -76,7 +74,7 @@ class MockDatabaseService extends Mock implements DatabaseService {
 void main() {
   // Initialize Flutter binding for tests
   TestWidgetsFlutterBinding.ensureInitialized();
-  
+
   group('AppShell shutdown tests', () {
     late MockTrayService mockTrayService;
     late MockPlaytimeService mockPlaytimeService;
@@ -103,7 +101,7 @@ void main() {
       mockPlaytimeService = MockPlaytimeService();
       mockDatabaseService = MockDatabaseService();
       mockTrayService = MockTrayService();
-      
+
       // Act - simulate the quitApp method logic
       await _quitAppSimulation(
         trayService: mockTrayService,
@@ -170,10 +168,10 @@ Future<void> _quitAppSimulation({
   DatabaseService? databaseService,
 }) async {
   // This simulates the logic from the actual _quitApp method
-  
+
   // Hide window immediately for responsive UI
   // await windowManager.hide();
-  
+
   // Continue with cleanup in the background
   try {
     // Dispose all services before quitting to ensure proper cleanup
@@ -183,10 +181,10 @@ Future<void> _quitAppSimulation({
     chatSessionService?.dispose();
     apiService?.dispose();
     notificationService?.dispose();
-    
+
     // Close database connection
     await databaseService?.close();
-    
+
     // Destroy tray and window manager
     await trayService?.destroy();
     // await windowManager.destroy();

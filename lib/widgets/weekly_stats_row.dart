@@ -94,10 +94,7 @@ class WeeklyStatsRow extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               subtitle,
-              style: const TextStyle(
-                fontSize: 11,
-                color: AppColors.textMuted,
-              ),
+              style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
             ),
           ],
         ],
@@ -123,7 +120,11 @@ class WeeklyStatsRow extends StatelessWidget {
               color: AppColors.warning.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(AppColors.radiusSmall),
             ),
-            child: const Icon(Icons.star_rounded, size: 20, color: AppColors.warning),
+            child: const Icon(
+              Icons.star_rounded,
+              size: 20,
+              color: AppColors.warning,
+            ),
           ),
           const SizedBox(height: 14),
           if (mostPlayedGame != null) ...[
@@ -147,7 +148,7 @@ class WeeklyStatsRow extends StatelessWidget {
                         height: 72,
                       ),
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const Icon(
+                      errorBuilder: (_, _, _) => const Icon(
                         Icons.games_rounded,
                         size: 18,
                         color: AppColors.textMuted,

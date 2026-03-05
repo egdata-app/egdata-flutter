@@ -6,10 +6,7 @@ import '../main.dart';
 class FloatingChatFAB extends StatelessWidget {
   final VoidCallback onTap;
 
-  const FloatingChatFAB({
-    super.key,
-    required this.onTap,
-  });
+  const FloatingChatFAB({super.key, required this.onTap});
 
   @override
   Widget build(BuildContext context) {

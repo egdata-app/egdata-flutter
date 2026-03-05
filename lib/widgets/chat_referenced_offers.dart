@@ -7,6 +7,7 @@ import '../models/referenced_offer.dart';
 import '../pages/mobile_offer_detail_page.dart';
 import '../services/api_service.dart';
 import '../services/follow_service.dart';
+import '../services/playtime_service.dart';
 import '../services/push_service.dart';
 import '../utils/image_utils.dart';
 
@@ -15,6 +16,7 @@ class ChatReferencedOffers extends HookWidget {
   final FollowService followService;
   final PushService? pushService;
   final ApiService apiService;
+  final PlaytimeService? playtimeService;
 
   const ChatReferencedOffers({
     super.key,
@@ -22,6 +24,7 @@ class ChatReferencedOffers extends HookWidget {
     required this.followService,
     required this.apiService,
     this.pushService,
+    this.playtimeService,
   });
 
   @override
@@ -33,10 +36,7 @@ class ChatReferencedOffers extends HookWidget {
       decoration: BoxDecoration(
         color: AppColors.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.surface,
-          width: 1,
-        ),
+        border: Border.all(color: AppColors.surface, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -89,6 +89,7 @@ class ChatReferencedOffers extends HookWidget {
                     apiService: apiService,
                     followService: followService,
                     pushService: pushService,
+                    playtimeService: playtimeService,
                   );
                 }).toList(),
               ),
@@ -106,6 +107,7 @@ class ChatOfferCard extends HookWidget {
   final ApiService apiService;
   final FollowService followService;
   final PushService? pushService;
+  final PlaytimeService? playtimeService;
 
   const ChatOfferCard({
     super.key,
@@ -113,6 +115,7 @@ class ChatOfferCard extends HookWidget {
     required this.apiService,
     required this.followService,
     this.pushService,
+    this.playtimeService,
   });
 
   String? _getThumbnailUrl(Offer fullOffer) {
@@ -133,7 +136,9 @@ class ChatOfferCard extends HookWidget {
     }
 
     // Fallback to any available image
-    return fullOffer.keyImages.isNotEmpty ? fullOffer.keyImages.first.url : null;
+    return fullOffer.keyImages.isNotEmpty
+        ? fullOffer.keyImages.first.url
+        : null;
   }
 
   @override
@@ -145,7 +150,9 @@ class ChatOfferCard extends HookWidget {
       staleTime: StaleTime(const Duration(minutes: 10)),
     );
 
-    final thumbnailUrl = offerQuery.data != null ? _getThumbnailUrl(offerQuery.data!) : null;
+    final thumbnailUrl = offerQuery.data != null
+        ? _getThumbnailUrl(offerQuery.data!)
+        : null;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -158,6 +165,7 @@ class ChatOfferCard extends HookWidget {
                 offerId: offer.id,
                 followService: followService,
                 pushService: pushService,
+                playtimeService: playtimeService,
                 initialTitle: offer.title,
                 initialImageUrl: thumbnailUrl,
               ),
@@ -219,9 +227,7 @@ class ChatOfferCard extends HookWidget {
                           child: SizedBox(
                             width: 20,
                             height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                         )
                       : Icon(
@@ -333,7 +339,8 @@ class ChatOfferCard extends HookWidget {
                           Text(
                             offer.price ?? 'Free',
                             style: TextStyle(
-                              color: (offer.price == null || offer.price == 'Free')
+                              color:
+                                  (offer.price == null || offer.price == 'Free')
                                   ? AppColors.accent
                                   : AppColors.textPrimary,
                               fontSize: 14,

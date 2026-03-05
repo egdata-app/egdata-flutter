@@ -57,12 +57,7 @@ class ImageUtils {
   ///
   /// Returns a very small, low-quality version for blur placeholder effect.
   static String getPlaceholderUrl(String url, {int width = 20}) {
-    return getOptimizedUrl(
-      url,
-      width: width,
-      quality: 30,
-      fit: 'cover',
-    );
+    return getOptimizedUrl(url, width: width, quality: 30, fit: 'cover');
   }
 
   /// Creates a thumbnail URL optimized for small displays.
@@ -84,12 +79,7 @@ class ImageUtils {
   /// [url] - The original Epic Games CDN URL
   /// [width] - Target width (default: 300)
   static String getCardUrl(String url, {int width = 300}) {
-    return getOptimizedUrl(
-      url,
-      width: width,
-      quality: 85,
-      fit: 'cover',
-    );
+    return getOptimizedUrl(url, width: width, quality: 85, fit: 'cover');
   }
 
   /// Creates a hero/banner image URL for large displays.
@@ -97,12 +87,7 @@ class ImageUtils {
   /// [url] - The original Epic Games CDN URL
   /// [width] - Target width (default: 1200)
   static String getHeroUrl(String url, {int width = 1200}) {
-    return getOptimizedUrl(
-      url,
-      width: width,
-      quality: 90,
-      fit: 'cover',
-    );
+    return getOptimizedUrl(url, width: width, quality: 90, fit: 'cover');
   }
 
   /// Creates a full-resolution image URL for detail views/galleries.
@@ -135,8 +120,9 @@ class ImageUtils {
     double pixelRatio = 2.0,
   }) {
     final physicalWidth = (displayWidth * pixelRatio).round();
-    final physicalHeight =
-        displayHeight != null ? (displayHeight * pixelRatio).round() : null;
+    final physicalHeight = displayHeight != null
+        ? (displayHeight * pixelRatio).round()
+        : null;
 
     return getOptimizedUrl(
       url,

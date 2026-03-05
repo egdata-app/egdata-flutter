@@ -4,11 +4,14 @@ import '../main.dart';
 import '../models/followed_game.dart';
 import '../models/daily_playtime_bucket.dart';
 import '../models/game_info.dart';
+import '../database/collections/playtime_session_entry.dart';
 import '../models/manifest_health_issue.dart';
 import '../models/upload_status.dart';
 import '../services/follow_service.dart';
 import '../services/playtime_service.dart';
 import '../widgets/game_tile.dart';
+import '../widgets/playtime_completion_card.dart';
+import '../services/api_service.dart';
 import 'move_game_page.dart';
 
 class LibraryPage extends StatefulWidget {
@@ -72,6 +75,8 @@ class _LibraryPageState extends State<LibraryPage> {
   bool _detailsLoading = false;
   Duration? _detailsTotalPlaytime;
   DateTime? _detailsLastPlayedAt;
+  OfferIgdb? _detailsIgdb;
+  OfferHltb? _detailsHltb;
   List<DailyPlaytimeBucket> _detailsTimeline = const [];
 
   List<GameInfo> get _displayGames =>
@@ -225,16 +230,49 @@ class _LibraryPageState extends State<LibraryPage> {
       _detailsTimeline = const [];
       _detailsTotalPlaytime = null;
       _detailsLastPlayedAt = null;
+      _detailsIgdb = null;
+      _detailsHltb = null;
     });
 
+    final apiService = ApiService();
     final playtimeService = widget.playtimeService;
-    if (playtimeService != null) {
-      final total = await playtimeService.getTotalPlaytime(game.catalogItemId);
-      final sessions = await playtimeService.getRecentSessions(limit: 50);
-      final timeline = await playtimeService.getDailyTimeline(
-        game.catalogItemId,
-        days: 14,
-      );
+
+    // First, try to get the offer for this item
+    final offer = await apiService
+        .getItemOffer(game.catalogItemId)
+        .catchError((_) => null);
+
+    // Fetch playtime and API data in parallel
+    final results = await Future.wait([
+      if (playtimeService != null)
+        playtimeService.getTotalPlaytime(game.catalogItemId)
+      else
+        Future.value(Duration.zero),
+      if (playtimeService != null)
+        playtimeService.getRecentSessions(limit: 50)
+      else
+        Future.value(<PlaytimeSessionEntry>[]),
+      if (playtimeService != null)
+        playtimeService.getDailyTimeline(game.catalogItemId, days: 14)
+      else
+        Future.value(<DailyPlaytimeBucket>[]),
+      if (offer != null)
+        apiService.getOfferIgdb(offer.id).catchError((_) => null)
+      else
+        Future.value(null),
+      if (offer != null)
+        apiService.getOfferHltb(offer.id).catchError((_) => null)
+      else
+        Future.value(null),
+    ]);
+
+    if (mounted && _detailsGame?.installationGuid == game.installationGuid) {
+      final total = results[0] as Duration;
+      final sessions = results[1] as List<PlaytimeSessionEntry>;
+      final timeline = results[2] as List<DailyPlaytimeBucket>;
+      final igdb = results[3] as OfferIgdb?;
+      final hltb = results[4] as OfferHltb?;
+
       DateTime? lastPlayedAt;
       for (final session in sessions) {
         if (session.gameId == game.catalogItemId) {
@@ -243,17 +281,12 @@ class _LibraryPageState extends State<LibraryPage> {
         }
       }
 
-      if (mounted && _detailsGame?.installationGuid == game.installationGuid) {
-        setState(() {
-          _detailsTotalPlaytime = total;
-          _detailsLastPlayedAt = lastPlayedAt;
-          _detailsTimeline = timeline;
-        });
-      }
-    }
-
-    if (mounted && _detailsGame?.installationGuid == game.installationGuid) {
       setState(() {
+        _detailsTotalPlaytime = total;
+        _detailsLastPlayedAt = lastPlayedAt;
+        _detailsTimeline = timeline;
+        _detailsIgdb = igdb;
+        _detailsHltb = hltb;
         _detailsLoading = false;
       });
     }
@@ -1030,7 +1063,14 @@ class _LibraryPageState extends State<LibraryPage> {
               'Total playtime',
               _formatDuration(_detailsTotalPlaytime ?? Duration.zero),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+            PlaytimeCompletionCard(
+              offerId: game.catalogItemId,
+              igdb: _detailsIgdb,
+              hltb: _detailsHltb,
+              playtimeService: widget.playtimeService,
+            ),
+            const SizedBox(height: 16),
             _buildTimelineChart(),
             if (relatedAddons.isNotEmpty) ...[
               const SizedBox(height: 14),

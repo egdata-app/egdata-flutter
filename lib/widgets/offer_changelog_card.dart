@@ -27,10 +27,7 @@ class OfferChangelogCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: AppColors.border,
-            width: 1,
-          ),
+          border: Border.all(color: AppColors.border, width: 1),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -192,7 +189,10 @@ class _ChangelogBottomSheet extends HookWidget {
     final searchQuery = useState<String>('');
 
     // Debounced search query
-    final debouncedSearch = useDebounced(searchQuery.value, const Duration(milliseconds: 500));
+    final debouncedSearch = useDebounced(
+      searchQuery.value,
+      const Duration(milliseconds: 500),
+    );
 
     // Build query key from all filter parameters
     final queryKey = useMemoized(
@@ -204,7 +204,13 @@ class _ChangelogBottomSheet extends HookWidget {
         selectedField.value,
         selectedType.value,
       ],
-      [offerId, currentPage.value, debouncedSearch, selectedField.value, selectedType.value],
+      [
+        offerId,
+        currentPage.value,
+        debouncedSearch,
+        selectedField.value,
+        selectedType.value,
+      ],
     );
 
     // Changelog query
@@ -319,7 +325,10 @@ class _ChangelogBottomSheet extends HookWidget {
               decoration: InputDecoration(
                 hintText: 'Search',
                 hintStyle: const TextStyle(color: AppColors.textMuted),
-                prefixIcon: const Icon(Icons.search, color: AppColors.textMuted),
+                prefixIcon: const Icon(
+                  Icons.search,
+                  color: AppColors.textMuted,
+                ),
                 filled: true,
                 fillColor: AppColors.surface,
                 border: OutlineInputBorder(
@@ -334,7 +343,10 @@ class _ChangelogBottomSheet extends HookWidget {
                   borderRadius: BorderRadius.circular(8),
                   borderSide: const BorderSide(color: AppColors.primary),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
               ),
               style: const TextStyle(color: AppColors.textPrimary),
             ),
@@ -371,30 +383,32 @@ class _ChangelogBottomSheet extends HookWidget {
                     ),
                   )
                 : items.isEmpty
-                    ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(40),
-                          child: Text(
-                            'No changes found',
-                            style: TextStyle(
-                              color: AppColors.textMuted,
-                              fontSize: 14,
-                            ),
-                          ),
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(40),
+                      child: Text(
+                        'No changes found',
+                        style: TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 14,
                         ),
-                      )
-                    : ListView.builder(
-                        controller: scrollController,
-                        padding: const EdgeInsets.all(16),
-                        itemCount: items.length,
-                        itemBuilder: (context, index) {
-                          return _buildChangelogItem(items[index]);
-                        },
                       ),
+                    ),
+                  )
+                : ListView.builder(
+                    controller: scrollController,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: items.length,
+                    itemBuilder: (context, index) {
+                      return _buildChangelogItem(items[index]);
+                    },
+                  ),
           ),
 
           // Pagination controls
-          if (!changelogQuery.isLoading && items.isNotEmpty && totalPages > 1) ...[
+          if (!changelogQuery.isLoading &&
+              items.isNotEmpty &&
+              totalPages > 1) ...[
             const Divider(height: 1, color: AppColors.border),
             Padding(
               padding: const EdgeInsets.all(16),
@@ -403,9 +417,13 @@ class _ChangelogBottomSheet extends HookWidget {
                 children: [
                   // Previous button
                   IconButton(
-                    onPressed: currentPage.value > 1 ? () => goToPage(currentPage.value - 1) : null,
+                    onPressed: currentPage.value > 1
+                        ? () => goToPage(currentPage.value - 1)
+                        : null,
                     icon: const Icon(Icons.chevron_left),
-                    color: currentPage.value > 1 ? AppColors.textPrimary : AppColors.textMuted,
+                    color: currentPage.value > 1
+                        ? AppColors.textPrimary
+                        : AppColors.textMuted,
                   ),
 
                   // Page indicator
@@ -420,9 +438,13 @@ class _ChangelogBottomSheet extends HookWidget {
 
                   // Next button
                   IconButton(
-                    onPressed: currentPage.value < totalPages ? () => goToPage(currentPage.value + 1) : null,
+                    onPressed: currentPage.value < totalPages
+                        ? () => goToPage(currentPage.value + 1)
+                        : null,
                     icon: const Icon(Icons.chevron_right),
-                    color: currentPage.value < totalPages ? AppColors.textPrimary : AppColors.textMuted,
+                    color: currentPage.value < totalPages
+                        ? AppColors.textPrimary
+                        : AppColors.textMuted,
                   ),
                 ],
               ),
@@ -433,7 +455,10 @@ class _ChangelogBottomSheet extends HookWidget {
     );
   }
 
-  Widget _buildTypeDropdown(ValueNotifier<String?> selectedType, Function(String?) applyTypeFilter) {
+  Widget _buildTypeDropdown(
+    ValueNotifier<String?> selectedType,
+    Function(String?) applyTypeFilter,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
@@ -462,7 +487,10 @@ class _ChangelogBottomSheet extends HookWidget {
     );
   }
 
-  Widget _buildFieldDropdown(ValueNotifier<String?> selectedField, Function(String?) applyFieldFilter) {
+  Widget _buildFieldDropdown(
+    ValueNotifier<String?> selectedField,
+    Function(String?) applyFieldFilter,
+  ) {
     // Common fields based on the web version
     final fields = [
       null, // All fields
@@ -497,10 +525,12 @@ class _ChangelogBottomSheet extends HookWidget {
         items: fields.map((field) {
           final label = field == null
               ? 'All fields'
-              : field.replaceAllMapped(
-                  RegExp(r'([A-Z])'),
-                  (match) => ' ${match.group(1)}',
-                ).trim();
+              : field
+                    .replaceAllMapped(
+                      RegExp(r'([A-Z])'),
+                      (match) => ' ${match.group(1)}',
+                    )
+                    .trim();
           final displayLabel = label.isEmpty
               ? field
               : label[0].toUpperCase() + label.substring(1);
@@ -569,7 +599,10 @@ class _ChangelogBottomSheet extends HookWidget {
                 children: [
                   // Change type badge
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Color(change.changeTypeBgColor),
                       borderRadius: BorderRadius.circular(4),

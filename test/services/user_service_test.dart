@@ -23,7 +23,7 @@ void main() {
 
     test('getUserId persists the ID', () async {
       final userId = await UserService.getUserId();
-      
+
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('user_id'), userId);
     });

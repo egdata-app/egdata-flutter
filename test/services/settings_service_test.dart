@@ -12,7 +12,7 @@ void main() {
     test('loadSettings returns default settings when empty', () async {
       final service = SettingsService();
       final settings = await service.loadSettings();
-      
+
       expect(settings.country, 'US'); // Default
       expect(settings.autoSync, false); // Default
     });
@@ -20,7 +20,7 @@ void main() {
     test('saveSettings persists settings', () async {
       final service = SettingsService();
       final newSettings = AppSettings(country: 'ES', autoSync: true);
-      
+
       await service.saveSettings(newSettings);
 
       final prefs = await SharedPreferences.getInstance();
@@ -33,7 +33,7 @@ void main() {
     test('loadSettings returns saved settings', () async {
       final service = SettingsService();
       final newSettings = AppSettings(country: 'FR', autoSync: true);
-      
+
       await service.saveSettings(newSettings);
       final loadedSettings = await service.loadSettings();
 

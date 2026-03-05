@@ -12,6 +12,7 @@ import '../services/api_service.dart';
 import '../services/chat_session_service.dart';
 import '../services/chat_websocket_service.dart';
 import '../services/follow_service.dart';
+import '../services/playtime_service.dart';
 import '../services/push_service.dart';
 import '../services/user_service.dart';
 import '../widgets/chat_message_bubble.dart';
@@ -26,6 +27,7 @@ class MobileChatPage extends HookWidget {
   final ChatSession session;
   final FollowService followService;
   final PushService? pushService;
+  final PlaytimeService? playtimeService;
   final VoidCallback? onSessionUpdated;
   final String? initialMessage;
   // For continuing from Ask AI bottom sheet
@@ -41,6 +43,7 @@ class MobileChatPage extends HookWidget {
     required this.session,
     required this.followService,
     this.pushService,
+    this.playtimeService,
     this.onSessionUpdated,
     this.initialMessage,
     this.existingUserMessage,
@@ -140,10 +143,7 @@ class MobileChatPage extends HookWidget {
 
           // Get persistent user ID and connect to WebSocket
           final userId = await UserService.getUserId();
-          await wsService.connect(
-            userId: userId,
-            sessionId: session.id,
-          );
+          await wsService.connect(userId: userId, sessionId: session.id);
           isConnected.value = true;
 
           // Listen to WebSocket events
@@ -160,9 +160,7 @@ class MobileChatPage extends HookWidget {
                 final currentMessages = messages.value;
                 final updatedMessages = currentMessages.map((m) {
                   if (m.id == streamingMessageId.value) {
-                    return m.copyWith(
-                      content: m.content + event.delta,
-                    );
+                    return m.copyWith(content: m.content + event.delta);
                   }
                   return m;
                 }).toList();
@@ -182,14 +180,18 @@ class MobileChatPage extends HookWidget {
             } else if (event is ReferencedOffersEvent) {
               // Add referenced offers to the last assistant message
               debugPrint(
-                  '[Chat] Referenced offers: ${event.offers.length} offers');
+                '[Chat] Referenced offers: ${event.offers.length} offers',
+              );
               final currentMessages = messages.value;
               if (currentMessages.isNotEmpty) {
                 // Find the last assistant message
                 final lastIndex = currentMessages.lastIndexWhere(
-                    (m) => m.role == 'assistant');
+                  (m) => m.role == 'assistant',
+                );
                 if (lastIndex != -1) {
-                  final updatedMessages = List<ChatMessage>.from(currentMessages);
+                  final updatedMessages = List<ChatMessage>.from(
+                    currentMessages,
+                  );
                   updatedMessages[lastIndex] = updatedMessages[lastIndex]
                       .copyWith(referencedOffers: event.offers);
                   messages.value = updatedMessages;
@@ -198,7 +200,8 @@ class MobileChatPage extends HookWidget {
                   _saveChatMessage(updatedMessages[lastIndex]);
 
                   debugPrint(
-                      '[Chat] Updated last assistant message with ${event.offers.length} offers');
+                    '[Chat] Updated last assistant message with ${event.offers.length} offers',
+                  );
                 }
               }
             } else if (event is CompleteEvent) {
@@ -372,10 +375,7 @@ class MobileChatPage extends HookWidget {
             if (!isConnected.value)
               Text(
                 'Connecting...',
-                style: TextStyle(
-                  color: AppColors.textMuted,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: AppColors.textMuted, fontSize: 12),
               ),
           ],
         ),
@@ -432,35 +432,34 @@ class MobileChatPage extends HookWidget {
                     ),
                   )
                 : messages.value.isEmpty
-                    ? _buildEmptyState((prompt) {
-                        textController.text = prompt;
-                        sendMessage(prompt);
-                      })
-                    : ListView.builder(
-                        controller: scrollController,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 16,
-                        ),
-                        itemCount: messages.value.length,
-                        itemBuilder: (context, index) {
-                          final message = messages.value[index];
-                          return ChatMessageBubble(
-                            message: message,
-                            apiService: apiService,
-                            followService: followService,
-                            pushService: pushService,
-                          );
-                        },
-                      ),
+                ? _buildEmptyState((prompt) {
+                    textController.text = prompt;
+                    sendMessage(prompt);
+                  })
+                : ListView.builder(
+                    controller: scrollController,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
+                    itemCount: messages.value.length,
+                    itemBuilder: (context, index) {
+                      final message = messages.value[index];
+                      return ChatMessageBubble(
+                        message: message,
+                        apiService: apiService,
+                        followService: followService,
+                        pushService: pushService,
+                        playtimeService: playtimeService,
+                      );
+                    },
+                  ),
           ),
 
           // Modern input area
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: AppColors.background,
-            ),
+            decoration: BoxDecoration(color: AppColors.background),
             child: SafeArea(
               top: false,
               child: Container(
@@ -516,16 +515,14 @@ class MobileChatPage extends HookWidget {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          gradient: !isSending.value &&
+                          gradient:
+                              !isSending.value &&
                                   isConnected.value &&
                                   hasText.value
                               ? LinearGradient(
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
-                                  colors: [
-                                    AppColors.accent,
-                                    AppColors.primary,
-                                  ],
+                                  colors: [AppColors.accent, AppColors.primary],
                                 )
                               : null,
                           color: AppColors.surface.withValues(alpha: 0.3),
@@ -537,14 +534,16 @@ class MobileChatPage extends HookWidget {
                             isSending.value
                                 ? Icons.more_horiz_rounded
                                 : Icons.arrow_upward_rounded,
-                            color: !isSending.value &&
+                            color:
+                                !isSending.value &&
                                     isConnected.value &&
                                     hasText.value
                                 ? Colors.white
                                 : AppColors.textMuted.withValues(alpha: 0.4),
                             size: 20,
                           ),
-                          onPressed: !isSending.value &&
+                          onPressed:
+                              !isSending.value &&
                                   isConnected.value &&
                                   hasText.value
                               ? () => sendMessage(textController.text)

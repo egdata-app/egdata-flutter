@@ -78,21 +78,27 @@ class Offer {
           ? DateTime.parse(json['lastModifiedDate'] as String)
           : null,
       isCodeRedemptionOnly: (json['isCodeRedemptionOnly'] as bool?) ?? false,
-      keyImages: (json['keyImages'] as List<dynamic>?)
-          ?.map((e) => KeyImage.fromJson(e as Map<String, dynamic>))
-          .toList() ?? [],
+      keyImages:
+          (json['keyImages'] as List<dynamic>?)
+              ?.map((e) => KeyImage.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
       seller: json['seller'] != null
           ? Seller.fromJson(json['seller'] as Map<String, dynamic>)
           : null,
       productSlug: json['productSlug'] as String?,
       urlSlug: json['urlSlug'] as String?,
       url: json['url'] as String?,
-      tags: (json['tags'] as List<dynamic>?)
-          ?.map((e) => Tag.fromJson(e as Map<String, dynamic>))
-          .toList() ?? [],
-      items: (json['items'] as List<dynamic>?)
-          ?.map((e) => OfferItem.fromJson(e as Map<String, dynamic>))
-          .toList() ?? [],
+      tags:
+          (json['tags'] as List<dynamic>?)
+              ?.map((e) => Tag.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      items:
+          (json['items'] as List<dynamic>?)
+              ?.map((e) => OfferItem.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
       customAttributes: _parseCustomAttributes(json['customAttributes']),
       categories: (json['categories'] as List<dynamic>?)?.cast<String>() ?? [],
       developerDisplayName: json['developerDisplayName'] as String?,
@@ -106,8 +112,10 @@ class Offer {
       viewableDate: json['viewableDate'] != null
           ? DateTime.parse(json['viewableDate'] as String)
           : null,
-      countriesBlacklist: (json['countriesBlacklist'] as List<dynamic>?)?.cast<String>(),
-      countriesWhitelist: (json['countriesWhitelist'] as List<dynamic>?)?.cast<String>(),
+      countriesBlacklist: (json['countriesBlacklist'] as List<dynamic>?)
+          ?.cast<String>(),
+      countriesWhitelist: (json['countriesWhitelist'] as List<dynamic>?)
+          ?.cast<String>(),
       refundType: json['refundType'] as String?,
       price: json['price'] != null
           ? OfferPrice.fromJson(json['price'] as Map<String, dynamic>)
@@ -119,10 +127,12 @@ class Offer {
     if (attrs == null) return {};
 
     if (attrs is Map<String, dynamic>) {
-      return attrs.map((key, value) => MapEntry(
-        key,
-        CustomAttribute.fromJson(value as Map<String, dynamic>),
-      ));
+      return attrs.map(
+        (key, value) => MapEntry(
+          key,
+          CustomAttribute.fromJson(value as Map<String, dynamic>),
+        ),
+      );
     }
 
     return {};
@@ -134,11 +144,7 @@ class KeyImage {
   final String url;
   final String? md5;
 
-  KeyImage({
-    required this.type,
-    required this.url,
-    this.md5,
-  });
+  KeyImage({required this.type, required this.url, this.md5});
 
   factory KeyImage.fromJson(Map<String, dynamic> json) {
     return KeyImage(
@@ -153,10 +159,7 @@ class Seller {
   final String id;
   final String name;
 
-  Seller({
-    required this.id,
-    required this.name,
-  });
+  Seller({required this.id, required this.name});
 
   factory Seller.fromJson(Map<String, dynamic> json) {
     return Seller(
@@ -170,10 +173,7 @@ class Tag {
   final String id;
   final String name;
 
-  Tag({
-    required this.id,
-    required this.name,
-  });
+  Tag({required this.id, required this.name});
 
   factory Tag.fromJson(Map<String, dynamic> json) {
     return Tag(
@@ -187,10 +187,7 @@ class OfferItem {
   final String id;
   final String namespace;
 
-  OfferItem({
-    required this.id,
-    required this.namespace,
-  });
+  OfferItem({required this.id, required this.namespace});
 
   factory OfferItem.fromJson(Map<String, dynamic> json) {
     return OfferItem(
@@ -204,10 +201,7 @@ class CustomAttribute {
   final String type;
   final String value;
 
-  CustomAttribute({
-    required this.type,
-    required this.value,
-  });
+  CustomAttribute({required this.type, required this.value});
 
   factory CustomAttribute.fromJson(Map<String, dynamic> json) {
     return CustomAttribute(

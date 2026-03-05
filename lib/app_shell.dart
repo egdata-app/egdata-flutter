@@ -32,6 +32,7 @@ import 'widgets/glassmorphic_bottom_nav.dart';
 import 'widgets/custom_title_bar.dart';
 import 'pages/dashboard_page.dart';
 import 'pages/library_page.dart';
+import 'pages/playtime_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/free_games_page.dart';
 import 'pages/mobile_browse_page.dart';
@@ -728,6 +729,7 @@ class _AppShellState extends State<AppShell> {
                   settings: _settings,
                   pushService: _pushService,
                   chatService: _chatSessionService,
+                  playtimeService: _playtimeService,
                   onSettingsChanged: _onSettingsChanged,
                 ),
                 MobileBrowsePage(
@@ -735,6 +737,7 @@ class _AppShellState extends State<AppShell> {
                   followService: _followService!,
                   pushService: _pushService,
                   chatService: _chatSessionService,
+                  playtimeService: _playtimeService,
                 ),
                 MobileChatSessionsPage(
                   settings: _settings,
@@ -742,6 +745,7 @@ class _AppShellState extends State<AppShell> {
                   chatService: _chatSessionService!,
                   followService: _followService!,
                   pushService: _pushService,
+                  playtimeService: _playtimeService,
                 ),
                 FreeGamesPage(
                   followService: _followService!,
@@ -749,6 +753,7 @@ class _AppShellState extends State<AppShell> {
                   db: _db!,
                   pushService: _pushService,
                   chatService: _chatSessionService,
+                  playtimeService: _playtimeService,
                   settings: _settings,
                 ),
                 SettingsPage(
@@ -799,6 +804,7 @@ class _AppShellState extends State<AppShell> {
             settings: _settings,
             pushService: _pushService,
             chatService: _chatSessionService,
+            playtimeService: _playtimeService,
             onSettingsChanged: _onSettingsChanged,
           );
         }
@@ -816,6 +822,7 @@ class _AppShellState extends State<AppShell> {
             followService: _followService!,
             pushService: _pushService,
             chatService: _chatSessionService,
+            playtimeService: _playtimeService,
           );
         }
         return LibraryPage(
@@ -837,12 +844,15 @@ class _AppShellState extends State<AppShell> {
           showConsole: _showConsole,
           addLog: _addLog,
         );
+      case AppPage.playtime:
+        return PlaytimePage(playtimeService: _playtimeService);
       case AppPage.browse:
         // Mobile only: browse/search games
         return MobileBrowsePage(
           settings: _settings,
           followService: _followService!,
           pushService: _pushService,
+          playtimeService: _playtimeService,
         );
       case AppPage.chat:
         // Mobile only: AI chat sessions list
@@ -852,6 +862,7 @@ class _AppShellState extends State<AppShell> {
           chatService: _chatSessionService!,
           followService: _followService!,
           pushService: _pushService,
+          playtimeService: _playtimeService,
         );
       case AppPage.freeGames:
         // Mobile only: free games list
@@ -860,6 +871,9 @@ class _AppShellState extends State<AppShell> {
           syncService: _syncService!,
           db: _db!,
           pushService: _pushService,
+          chatService: _chatSessionService,
+          playtimeService: _playtimeService,
+          settings: _settings,
         );
       case AppPage.settings:
         return SettingsPage(

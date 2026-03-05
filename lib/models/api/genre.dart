@@ -4,11 +4,7 @@ class GenreOffer {
   final String title;
   final GenreOfferImage? image;
 
-  GenreOffer({
-    required this.id,
-    required this.title,
-    this.image,
-  });
+  GenreOffer({required this.id, required this.title, this.image});
 
   factory GenreOffer.fromJson(Map<String, dynamic> json) {
     return GenreOffer(
@@ -27,11 +23,7 @@ class GenreOfferImage {
   final String url;
   final String? md5;
 
-  GenreOfferImage({
-    required this.type,
-    required this.url,
-    this.md5,
-  });
+  GenreOfferImage({required this.type, required this.url, this.md5});
 
   factory GenreOfferImage.fromJson(Map<String, dynamic> json) {
     return GenreOfferImage(
@@ -71,10 +63,7 @@ class GenreWithOffers {
   final GenreInfo genre;
   final List<GenreOffer> offers;
 
-  GenreWithOffers({
-    required this.genre,
-    required this.offers,
-  });
+  GenreWithOffers({required this.genre, required this.offers});
 
   factory GenreWithOffers.fromJson(Map<String, dynamic> json) {
     final offersJson = json['offers'] as List<dynamic>? ?? [];

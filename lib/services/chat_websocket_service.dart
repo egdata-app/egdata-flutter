@@ -24,10 +24,8 @@ class ToolProgressEvent extends ChatEvent {
   final String toolName;
   final String? status;
 
-  const ToolProgressEvent({
-    required this.toolName,
-    this.status,
-  }) : super(ChatEventType.toolProgress);
+  const ToolProgressEvent({required this.toolName, this.status})
+    : super(ChatEventType.toolProgress);
 }
 
 /// Text delta event (streaming text chunk)
@@ -56,7 +54,7 @@ class ReferencedOffersEvent extends ChatEvent {
   final List<ReferencedOffer> offers;
 
   const ReferencedOffersEvent(this.offers)
-      : super(ChatEventType.referencedOffers);
+    : super(ChatEventType.referencedOffers);
 }
 
 class ChatWebSocketService {
@@ -161,10 +159,7 @@ class ChatWebSocketService {
         final status = data['status'];
         final message = data['message'];
         debugPrint('[WebSocket] Tool progress: $toolName ($status) - $message');
-        return ToolProgressEvent(
-          toolName: toolName,
-          status: status,
-        );
+        return ToolProgressEvent(toolName: toolName, status: status);
 
       case 'text_delta':
         // API sends 'text' not 'delta'

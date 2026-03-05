@@ -30,7 +30,8 @@ class PriceHistoryEntry {
       price: PriceHistoryPrice.fromJson(
         (json['price'] as Map<String, dynamic>?) ?? {},
       ),
-      appliedRules: (json['appliedRules'] as List<dynamic>?)
+      appliedRules:
+          (json['appliedRules'] as List<dynamic>?)
               ?.map((e) => AppliedRule.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],

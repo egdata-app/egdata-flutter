@@ -50,8 +50,9 @@ class ChatMessage {
       'content': content,
       'timestamp': timestamp.millisecondsSinceEpoch,
       'isStreaming': isStreaming,
-      'referencedOffers':
-          referencedOffers?.map((offer) => offer.toJson()).toList(),
+      'referencedOffers': referencedOffers
+          ?.map((offer) => offer.toJson())
+          .toList(),
     };
   }
 
@@ -67,8 +68,8 @@ class ChatMessage {
       isStreaming: json['isStreaming'] ?? false,
       referencedOffers: json['referencedOffers'] != null
           ? (json['referencedOffers'] as List<dynamic>)
-              .map((offerJson) => ReferencedOffer.fromJson(offerJson))
-              .toList()
+                .map((offerJson) => ReferencedOffer.fromJson(offerJson))
+                .toList()
           : null,
     );
   }

@@ -7,6 +7,7 @@ import '../main.dart';
 import '../models/chat_message.dart';
 import '../services/api_service.dart';
 import '../services/follow_service.dart';
+import '../services/playtime_service.dart';
 import '../services/push_service.dart';
 import 'chat_referenced_offers.dart';
 
@@ -15,6 +16,7 @@ class ChatMessageBubble extends HookWidget {
   final ApiService apiService;
   final FollowService followService;
   final PushService? pushService;
+  final PlaytimeService? playtimeService;
 
   const ChatMessageBubble({
     super.key,
@@ -22,6 +24,7 @@ class ChatMessageBubble extends HookWidget {
     required this.apiService,
     required this.followService,
     this.pushService,
+    this.playtimeService,
   });
 
   /// Format timestamp Discord-style (relative time)
@@ -30,7 +33,11 @@ class ChatMessageBubble extends HookWidget {
     final difference = now.difference(timestamp);
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
-    final messageDate = DateTime(timestamp.year, timestamp.month, timestamp.day);
+    final messageDate = DateTime(
+      timestamp.year,
+      timestamp.month,
+      timestamp.day,
+    );
 
     final timeFormat = DateFormat('h:mm a');
 
@@ -110,7 +117,10 @@ class ChatMessageBubble extends HookWidget {
   /// Clean markdown content (remove thread-title tags, parse Discord timestamps)
   String _cleanContent(String content) {
     // Remove thread-title tags
-    var cleaned = content.replaceAll(RegExp(r'<thread-title>.*?</thread-title>'), '');
+    var cleaned = content.replaceAll(
+      RegExp(r'<thread-title>.*?</thread-title>'),
+      '',
+    );
 
     // Parse Discord timestamp tags: <t:TIMESTAMP:FORMAT>
     final timestampRegex = RegExp(r'<t:(\d+):([RfFtTdD])>');
@@ -241,9 +251,7 @@ class ChatMessageBubble extends HookWidget {
                               color: AppColors.textPrimary,
                               fontWeight: FontWeight.bold,
                             ),
-                            tableBody: TextStyle(
-                              color: AppColors.textPrimary,
-                            ),
+                            tableBody: TextStyle(color: AppColors.textPrimary),
                           ),
                         ),
 
@@ -256,6 +264,7 @@ class ChatMessageBubble extends HookWidget {
                           apiService: apiService,
                           followService: followService,
                           pushService: pushService,
+                          playtimeService: playtimeService,
                         ),
 
                       // Timestamp for AI messages
@@ -275,8 +284,9 @@ class ChatMessageBubble extends HookWidget {
                       if (message.isStreaming && cleanedContent.isEmpty)
                         Shimmer.fromColors(
                           baseColor: AppColors.textMuted.withValues(alpha: 0.5),
-                          highlightColor:
-                              AppColors.textMuted.withValues(alpha: 0.2),
+                          highlightColor: AppColors.textMuted.withValues(
+                            alpha: 0.2,
+                          ),
                           period: const Duration(milliseconds: 1200),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,

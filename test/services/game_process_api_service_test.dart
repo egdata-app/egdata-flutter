@@ -3,10 +3,10 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:egdata_flutter/services/game_process_api_service.dart';
 import 'package:egdata_flutter/services/api_service.dart';
-import 'package:egdata_flutter/models/api/item.dart';
 
 class MockApiService extends ApiService {
-  MockApiService() : super(client: MockClient((_) async => http.Response('{}', 200)));
+  MockApiService()
+    : super(client: MockClient((_) async => http.Response('{}', 200)));
 
   Item? mockItem;
 
@@ -25,7 +25,10 @@ void main() {
         id: 'item1',
         namespace: 'ns',
         customAttributes: [
-          ItemCustomAttribute(key: 'ProcessNames', value: 'game.exe, launcher.exe'),
+          ItemCustomAttribute(
+            key: 'ProcessNames',
+            value: 'game.exe, launcher.exe',
+          ),
         ],
         keyImages: [],
       );

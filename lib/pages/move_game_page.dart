@@ -273,7 +273,9 @@ class _MoveGamePageState extends State<MoveGamePage> {
           child: Row(
             children: [
               IconButton(
-                onPressed: _progress.phase == MovePhase.copying ? null : _cancel,
+                onPressed: _progress.phase == MovePhase.copying
+                    ? null
+                    : _cancel,
                 icon: const Icon(Icons.arrow_back_rounded),
                 color: AppColors.textSecondary,
                 tooltip: 'Cancel',
@@ -533,7 +535,8 @@ class _MoveGamePageState extends State<MoveGamePage> {
       return _buildInfoContainer(
         icon: Icons.info_outline_rounded,
         iconColor: AppColors.textMuted,
-        text: 'Game size: $gameSizeFormatted. Select a destination to check available space.',
+        text:
+            'Game size: $gameSizeFormatted. Select a destination to check available space.',
       );
     }
 
@@ -580,10 +583,7 @@ class _MoveGamePageState extends State<MoveGamePage> {
             ),
             Text(
               'Space after move: $spaceAfterFormatted (files will be moved, not duplicated)',
-              style: TextStyle(
-                fontSize: _tinySize,
-                color: AppColors.textMuted,
-              ),
+              style: TextStyle(fontSize: _tinySize, color: AppColors.textMuted),
             ),
           ],
         ),
@@ -647,10 +647,7 @@ class _MoveGamePageState extends State<MoveGamePage> {
             ),
             Text(
               'Space after copy: $spaceAfterFormatted',
-              style: TextStyle(
-                fontSize: _tinySize,
-                color: AppColors.textMuted,
-              ),
+              style: TextStyle(fontSize: _tinySize, color: AppColors.textMuted),
             ),
           ],
         ),
@@ -677,7 +674,8 @@ class _MoveGamePageState extends State<MoveGamePage> {
           Icon(icon, size: 18, color: iconColor),
           const SizedBox(width: 10),
           Expanded(
-            child: child ??
+            child:
+                child ??
                 Text(
                   text ?? '',
                   style: TextStyle(

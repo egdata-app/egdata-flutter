@@ -7,6 +7,7 @@ import '../models/playtime_stats.dart';
 import '../services/playtime_service.dart';
 import '../utils/image_utils.dart';
 import '../widgets/weekly_activity_chart.dart';
+import '../widgets/dashboard_completion_row.dart';
 
 class DashboardPage extends StatefulWidget {
   final PlaytimeService? playtimeService;
@@ -149,6 +150,12 @@ class _DashboardPageState extends State<DashboardPage> {
                   ],
                   _buildStatsRow(),
                   const SizedBox(height: 32),
+                  if (widget.playtimeService != null) ...[
+                    DashboardCompletionRow(
+                      playtimeService: widget.playtimeService!,
+                    ),
+                    const SizedBox(height: 32),
+                  ],
                   if (_playtimeStats != null &&
                       _playtimeStats!.playtimeByGame.isNotEmpty) ...[
                     _buildSection(
@@ -261,7 +268,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       height: 96,
                     ),
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const Icon(
+                    errorBuilder: (_, _, _) => const Icon(
                       Icons.games_rounded,
                       size: 28,
                       color: AppColors.textMuted,
@@ -480,7 +487,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         height: 72,
                       ),
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const Icon(
+                      errorBuilder: (_, _, _) => const Icon(
                         Icons.games_rounded,
                         size: 18,
                         color: AppColors.textMuted,
@@ -669,7 +676,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       height: 88,
                     ),
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const Icon(
+                    errorBuilder: (_, _, _) => const Icon(
                       Icons.games_rounded,
                       size: 22,
                       color: AppColors.textMuted,

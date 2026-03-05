@@ -49,7 +49,7 @@ class SearchResult {
       'OfferImageWide',
       'DieselStoreFrontWide',
       'DieselGameBoxTall',
-      'Thumbnail'
+      'Thumbnail',
     ]) {
       final image = keyImages
           .cast<Map<String, dynamic>>()
@@ -105,15 +105,16 @@ class SearchService {
     }
 
     try {
-      final uri = Uri.parse('$_baseUrl/offers/search').replace(
-        queryParameters: {'query': query, 'limit': '20'},
-      );
+      final uri = Uri.parse(
+        '$_baseUrl/offers/search',
+      ).replace(queryParameters: {'query': query, 'limit': '20'});
 
       final response = await _client.get(uri);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final elements = data['elements'] as List<dynamic>? ?? data as List<dynamic>;
+        final elements =
+            data['elements'] as List<dynamic>? ?? data as List<dynamic>;
         final results = elements
             .cast<Map<String, dynamic>>()
             .map((e) => SearchResult.fromJson(e))

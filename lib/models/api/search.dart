@@ -222,10 +222,7 @@ class AggregationBucket {
   final String key;
   final int docCount;
 
-  AggregationBucket({
-    required this.key,
-    required this.docCount,
-  });
+  AggregationBucket({required this.key, required this.docCount});
 
   factory AggregationBucket.fromJson(Map<String, dynamic> json) {
     return AggregationBucket(
@@ -258,13 +255,7 @@ class PriceStats {
   final double? sum;
   final int? count;
 
-  PriceStats({
-    this.min,
-    this.max,
-    this.avg,
-    this.sum,
-    this.count,
-  });
+  PriceStats({this.min, this.max, this.avg, this.sum, this.count});
 
   factory PriceStats.fromJson(Map<String, dynamic> json) {
     return PriceStats(
@@ -325,11 +316,7 @@ class SearchMeta {
   final bool timedOut;
   final bool cached;
 
-  SearchMeta({
-    required this.ms,
-    required this.timedOut,
-    required this.cached,
-  });
+  SearchMeta({required this.ms, required this.timedOut, required this.cached});
 
   factory SearchMeta.fromJson(Map<String, dynamic> json) {
     return SearchMeta(
@@ -368,7 +355,8 @@ class SearchResponse {
       limit: json['limit'] as int,
       aggregations: json['aggregations'] != null
           ? SearchAggregations.fromJson(
-              json['aggregations'] as Map<String, dynamic>)
+              json['aggregations'] as Map<String, dynamic>,
+            )
           : null,
       meta: json['meta'] != null
           ? SearchMeta.fromJson(json['meta'] as Map<String, dynamic>)
