@@ -46,6 +46,8 @@ dependencies:
   win32: ^5.5.0
   ffi: ^2.1.0
   json_annotation: ^4.9.0
+  webview_flutter: ^4.13.1
+  desktop_webview_window: ^0.2.3
 
 dev_dependencies:
   flutter_test:

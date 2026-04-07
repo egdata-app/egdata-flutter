@@ -12,6 +12,10 @@ import '../services/playtime_service.dart';
 import '../widgets/game_tile.dart';
 import '../widgets/playtime_completion_card.dart';
 import '../services/api_service.dart';
+import '../services/epic_auth_service.dart';
+import '../services/upload_service.dart';
+import '../services/sync_queue_service.dart';
+import '../widgets/epic_sync_dialog.dart';
 import 'move_game_page.dart';
 
 class LibraryPage extends StatefulWidget {
@@ -23,6 +27,9 @@ class LibraryPage extends StatefulWidget {
   final bool isUploadingAll;
   final FollowService followService;
   final PlaytimeService? playtimeService;
+  final EpicAuthService? epicAuthService;
+  final UploadService? uploadService;
+  final SyncQueueService? syncQueueService;
   final String manifestPath;
   final Future<void> Function() onScanGames;
   final Future<void> Function(GameInfo) onUploadManifest;
@@ -43,6 +50,9 @@ class LibraryPage extends StatefulWidget {
     required this.isUploadingAll,
     required this.followService,
     this.playtimeService,
+    this.epicAuthService,
+    this.uploadService,
+    this.syncQueueService,
     required this.manifestPath,
     required this.onScanGames,
     required this.onUploadManifest,
@@ -763,6 +773,23 @@ class _LibraryPageState extends State<LibraryPage> {
             onPressed: _showProcessDebugDialog,
             tooltip: 'Process detection debug',
           ),
+          if (widget.epicAuthService != null &&
+              widget.syncQueueService != null) ...[
+            const SizedBox(width: 8),
+            _buildIconButton(
+              icon: Icons.cloud_sync_rounded,
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => EpicSyncDialog(
+                    authService: widget.epicAuthService!,
+                    syncQueueService: widget.syncQueueService!,
+                  ),
+                );
+              },
+              tooltip: 'Epic Cloud Sync',
+            ),
+          ],
           const SizedBox(width: 12),
           _buildUploadButton(),
         ],
@@ -1345,18 +1372,26 @@ class _LibraryPageState extends State<LibraryPage> {
       itemBuilder: (context, index) {
         final game = games[index];
         final relatedAddons = _getRelatedAddons(game);
-        
-        final isUploading = widget.uploadingGames.contains(game.installationGuid) ||
-            (_showGrouped && relatedAddons.any((addon) => widget.uploadingGames.contains(addon.installationGuid)));
 
-        UploadStatus? groupUploadStatus = widget.uploadStatuses[game.installationGuid];
-        if (_showGrouped && groupUploadStatus != null && 
-            (groupUploadStatus.status == UploadStatusType.uploaded || 
-             groupUploadStatus.status == UploadStatusType.alreadyUploaded)) {
+        final isUploading =
+            widget.uploadingGames.contains(game.installationGuid) ||
+            (_showGrouped &&
+                relatedAddons.any(
+                  (addon) =>
+                      widget.uploadingGames.contains(addon.installationGuid),
+                ));
+
+        UploadStatus? groupUploadStatus =
+            widget.uploadStatuses[game.installationGuid];
+        if (_showGrouped &&
+            groupUploadStatus != null &&
+            (groupUploadStatus.status == UploadStatusType.uploaded ||
+                groupUploadStatus.status == UploadStatusType.alreadyUploaded)) {
           // If base game is uploaded, but an addon failed, show the failure
           for (final addon in relatedAddons) {
             final addonStatus = widget.uploadStatuses[addon.installationGuid];
-            if (addonStatus != null && addonStatus.status == UploadStatusType.failed) {
+            if (addonStatus != null &&
+                addonStatus.status == UploadStatusType.failed) {
               groupUploadStatus = addonStatus;
               break;
             }

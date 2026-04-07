@@ -19,15 +19,24 @@ import 'services/playtime_service.dart';
 import 'services/push_service.dart';
 import 'services/notification_service.dart';
 import 'services/sync_service.dart';
+import 'services/epic_auth_service.dart';
+import 'services/upload_service.dart';
+import 'services/sync_queue_service.dart';
 import 'database/database_service.dart';
 import 'pages/mobile_offer_detail_page.dart';
 import 'pages/free_games_page.dart';
 import 'tray_popup_window_app.dart';
+import 'shell_controller.dart';
+import 'widgets/app_sidebar.dart';
+import 'widgets/custom_title_bar.dart';
+import 'widgets/glassmorphic_bottom_nav.dart';
 
 // Desktop-only imports (conditionally used)
 import 'package:window_manager/window_manager.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:windows_single_instance/windows_single_instance.dart';
+
+import 'package:desktop_webview_window/desktop_webview_window.dart';
 
 // App version - keep in sync with pubspec.yaml
 const String appVersion = '1.0.20';
@@ -36,6 +45,9 @@ const String appVersion = '1.0.20';
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main(List<String> args) async {
+  if (runWebViewTitleBarWidget(args)) {
+    return;
+  }
   WidgetsFlutterBinding.ensureInitialized();
 
   final trayPopupPayload = _getTrayPopupPayload(args);
@@ -263,12 +275,16 @@ class EGDataApp extends StatefulWidget {
 
 class _EGDataAppState extends State<EGDataApp> {
   late final QueryClient _queryClient;
+  final ShellController _shellController = ShellController();
   static const platform = MethodChannel('com.ignacioaldama.egdata/widget');
 
   // Services for detail page navigation
   late final FollowService _followService;
   late final PushService _pushService;
   late final SyncService _syncService;
+  late final EpicAuthService _epicAuthService;
+  late final UploadService _uploadService;
+  late final SyncQueueService _syncQueueService;
   late PlaytimeService? _playtimeService;
 
   @override
@@ -285,6 +301,12 @@ class _EGDataAppState extends State<EGDataApp> {
     _syncService = SyncService(
       db: widget.dbService,
       notification: widget.notificationService,
+    );
+    _epicAuthService = EpicAuthService();
+    _uploadService = UploadService();
+    _syncQueueService = SyncQueueService(
+      authService: _epicAuthService,
+      uploadService: _uploadService,
     );
 
     if (PlatformUtils.isDesktop) {
@@ -375,6 +397,8 @@ class _EGDataAppState extends State<EGDataApp> {
   @override
   void dispose() {
     _queryClient.dispose();
+    _syncQueueService.dispose();
+    _shellController.dispose();
     super.dispose();
   }
 
@@ -405,8 +429,99 @@ class _EGDataAppState extends State<EGDataApp> {
           scaffoldBackgroundColor: AppColors.background,
           textTheme: baseTextTheme,
         ),
-        home: AppShell(queryClient: _queryClient),
+        builder: (context, child) {
+          if (PlatformUtils.isMobile) {
+            return _buildMobileOverlay(context, child!);
+          }
+          return _buildDesktopOverlay(context, child!);
+        },
+        home: AppShell(
+          queryClient: _queryClient,
+          epicAuthService: _epicAuthService,
+          uploadService: _uploadService,
+          syncQueueService: _syncQueueService,
+          shellController: _shellController,
+        ),
       ),
+    );
+  }
+
+  Widget _buildDesktopOverlay(BuildContext context, Widget child) {
+    final showTitleBar = Platform.isWindows || Platform.isMacOS;
+    final titleBarHeight = showTitleBar ? 40.0 : 0.0;
+
+    return ListenableBuilder(
+      listenable: _shellController,
+      builder: (context, _) {
+        return Material(
+          color: Colors.transparent,
+          child: Stack(
+            children: [
+              Positioned.fill(child: child),
+              if (showTitleBar)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: CustomTitleBar(
+                    onClose: _shellController.handleClose ?? () {},
+                  ),
+                ),
+              Positioned(
+                top: titleBarHeight,
+                left: 0,
+                bottom: 0,
+                width: 220,
+                child: AppSidebar(
+                  currentPage: _shellController.currentPage,
+                  onPageSelected: (page) => _shellController.selectPage(page),
+                  latestVersion: _shellController.latestVersion,
+                  currentVersion: _shellController.currentVersion,
+                  syncQueueService: _shellController.syncQueueService,
+                  shellController: _shellController,
+                ),
+              ),
+              if (_shellController.syncPopupVisible &&
+                  _shellController.syncAnchorRect != null &&
+                  _shellController.syncQueueService != null)
+                Positioned.fill(
+                  child: SyncPopup(
+                    anchorRect: _shellController.syncAnchorRect!,
+                    queueService: _shellController.syncQueueService!,
+                    onClose: () => _shellController.hideSyncPopup(),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+      child: child,
+    );
+  }
+
+  Widget _buildMobileOverlay(BuildContext context, Widget child) {
+    return ListenableBuilder(
+      listenable: _shellController,
+      builder: (context, _) {
+        return Material(
+          color: Colors.transparent,
+          child: Stack(
+            children: [
+              Positioned.fill(child: child),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: GlassmorphicBottomNav(
+                  currentPage: _shellController.currentPage,
+                  onPageSelected: (page) => _shellController.selectPage(page),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      child: child,
     );
   }
 }

@@ -24,12 +24,12 @@ import 'services/push_service.dart';
 import 'services/sync_service.dart';
 import 'services/upload_service.dart';
 import 'services/settings_service.dart';
+import 'services/sync_queue_service.dart';
 import 'services/tray_service.dart';
 import 'services/update_service.dart';
 import 'services/window_channel_service.dart';
+import 'services/epic_auth_service.dart';
 import 'widgets/app_sidebar.dart';
-import 'widgets/glassmorphic_bottom_nav.dart';
-import 'widgets/custom_title_bar.dart';
 import 'pages/dashboard_page.dart';
 import 'pages/library_page.dart';
 import 'pages/playtime_page.dart';
@@ -40,11 +40,23 @@ import 'pages/mobile_dashboard_page.dart';
 import 'pages/mobile_chat_sessions_page.dart';
 import 'services/chat_session_service.dart';
 import 'services/user_service.dart';
+import 'shell_controller.dart';
 
 class AppShell extends StatefulWidget {
   final QueryClient? queryClient;
+  final EpicAuthService? epicAuthService;
+  final UploadService? uploadService;
+  final SyncQueueService? syncQueueService;
+  final ShellController shellController;
 
-  const AppShell({super.key, this.queryClient});
+  const AppShell({
+    super.key,
+    this.queryClient,
+    this.epicAuthService,
+    this.uploadService,
+    this.syncQueueService,
+    required this.shellController,
+  });
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -221,6 +233,15 @@ class _AppShellState extends State<AppShell> {
     if (PlatformUtils.isMobile) {
       _prefetchBrowseData();
     }
+
+    // Register with shell controller so overlay widgets can access state
+    widget.shellController.updateFromShell(
+      handleClose: _handleClose,
+      syncQueueService: widget.syncQueueService,
+      latestVersion: _latestVersion,
+      currentVersion: _currentVersion,
+      onPageSelectedFromOverlay: _handlePageSelectedFromOverlay,
+    );
   }
 
   /// Prefetch the default browse search to avoid loading state on first visit
@@ -257,6 +278,10 @@ class _AppShellState extends State<AppShell> {
       setState(() {
         _latestVersion = latestVersion;
       });
+      widget.shellController.updateFromShell(
+        latestVersion: _latestVersion,
+        currentVersion: _currentVersion,
+      );
       _addLog('Update available: v$latestVersion (current: v$_currentVersion)');
     }
   }
@@ -419,7 +444,6 @@ class _AppShellState extends State<AppShell> {
     }
 
     if (_settings.minimizeToTray) {
-      // Minimize to tray instead of closing
       if (Platform.isWindows) {
         await windowManager.setSkipTaskbar(true);
         await windowManager.minimize();
@@ -429,6 +453,22 @@ class _AppShellState extends State<AppShell> {
     } else {
       await _quitApp();
     }
+  }
+
+  void _handlePageSelectedFromOverlay(AppPage page) {
+    if (PlatformUtils.isMobile) {
+      final targetIndex = _mobilePages.indexOf(page);
+      if (targetIndex != -1) {
+        _mobilePageController.animateToPage(
+          targetIndex,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    }
+    setState(() {
+      _currentPage = page;
+    });
   }
 
   Future<void> _loadSettings() async {
@@ -664,40 +704,25 @@ class _AppShellState extends State<AppShell> {
   }
 
   Widget _buildDesktopShell() {
+    final titleBarHeight = (Platform.isWindows || Platform.isMacOS)
+        ? 40.0
+        : 0.0;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Radial gradient background
           Container(decoration: AppColors.radialGradientBackground),
-          // Accent glow overlay
           Container(decoration: AppColors.accentGlowBackground),
-          // Main content
-          Column(
-            children: [
-              // Custom title bar for Windows/macOS
-              if (Platform.isWindows || Platform.isMacOS)
-                CustomTitleBar(onClose: _handleClose),
-              Expanded(
-                child: Row(
-                  children: [
-                    AppSidebar(
-                      currentPage: _currentPage,
-                      onPageSelected: (page) {
-                        setState(() {
-                          _currentPage = page;
-                        });
-                      },
-                      latestVersion: _latestVersion,
-                      currentVersion: _currentVersion,
-                    ),
-                    Expanded(child: _buildCurrentPage()),
-                  ],
-                ),
-              ),
-              if (_showConsole) _buildConsolePanel(),
-            ],
+          Padding(
+            padding: EdgeInsets.only(left: 220, top: titleBarHeight),
+            child: Column(
+              children: [
+                Expanded(child: _buildCurrentPage()),
+                if (_showConsole) _buildConsolePanel(),
+              ],
+            ),
           ),
         ],
       ),
@@ -710,81 +735,60 @@ class _AppShellState extends State<AppShell> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Mobile-optimized radial gradient background
           Container(decoration: AppColors.mobileRadialGradientBackground),
-          // Mobile-optimized accent glow overlay
           Container(decoration: AppColors.mobileAccentGlowBackground),
-          // Main content - PageView for animations & state preservation
           SafeArea(
-            bottom:
-                false, // Allow content to extend behind navbar for blur effect
-            child: PageView(
-              controller: _mobilePageController,
-              physics: const NeverScrollableScrollPhysics(), // Disable swipe
-              children: [
-                MobileDashboardPage(
-                  followService: _followService!,
-                  syncService: _syncService!,
-                  db: _db!,
-                  settings: _settings,
-                  pushService: _pushService,
-                  chatService: _chatSessionService,
-                  playtimeService: _playtimeService,
-                  onSettingsChanged: _onSettingsChanged,
-                ),
-                MobileBrowsePage(
-                  settings: _settings,
-                  followService: _followService!,
-                  pushService: _pushService,
-                  chatService: _chatSessionService,
-                  playtimeService: _playtimeService,
-                ),
-                MobileChatSessionsPage(
-                  settings: _settings,
-                  apiService: _apiService,
-                  chatService: _chatSessionService!,
-                  followService: _followService!,
-                  pushService: _pushService,
-                  playtimeService: _playtimeService,
-                ),
-                FreeGamesPage(
-                  followService: _followService!,
-                  syncService: _syncService!,
-                  db: _db!,
-                  pushService: _pushService,
-                  chatService: _chatSessionService,
-                  playtimeService: _playtimeService,
-                  settings: _settings,
-                ),
-                SettingsPage(
-                  settings: _settings,
-                  onSettingsChanged: _onSettingsChanged,
-                  onClearProcessCache: () => _db!.clearProcessCache(),
-                  pushService: _pushService,
-                ),
-              ],
-            ),
-          ),
-          // Glassmorphic bottom navbar - positioned at bottom of Stack
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: GlassmorphicBottomNav(
-              currentPage: _currentPage,
-              onPageSelected: (page) {
-                final targetIndex = _mobilePages.indexOf(page);
-                if (targetIndex != -1) {
-                  _mobilePageController.animateToPage(
-                    targetIndex,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOutCubic,
-                  );
-                }
-                setState(() {
-                  _currentPage = page;
-                });
-              },
+            bottom: false,
+            child: Padding(
+              padding: EdgeInsets.only(
+                bottom: 74 + MediaQuery.of(context).padding.bottom,
+              ),
+              child: PageView(
+                controller: _mobilePageController,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  MobileDashboardPage(
+                    followService: _followService!,
+                    syncService: _syncService!,
+                    db: _db!,
+                    settings: _settings,
+                    pushService: _pushService,
+                    chatService: _chatSessionService,
+                    playtimeService: _playtimeService,
+                    onSettingsChanged: _onSettingsChanged,
+                  ),
+                  MobileBrowsePage(
+                    settings: _settings,
+                    followService: _followService!,
+                    pushService: _pushService,
+                    chatService: _chatSessionService,
+                    playtimeService: _playtimeService,
+                  ),
+                  MobileChatSessionsPage(
+                    settings: _settings,
+                    apiService: _apiService,
+                    chatService: _chatSessionService!,
+                    followService: _followService!,
+                    pushService: _pushService,
+                    playtimeService: _playtimeService,
+                  ),
+                  FreeGamesPage(
+                    followService: _followService!,
+                    syncService: _syncService!,
+                    db: _db!,
+                    pushService: _pushService,
+                    chatService: _chatSessionService,
+                    playtimeService: _playtimeService,
+                    settings: _settings,
+                  ),
+                  SettingsPage(
+                    settings: _settings,
+                    onSettingsChanged: _onSettingsChanged,
+                    onClearProcessCache: () => _db!.clearProcessCache(),
+                    pushService: _pushService,
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -834,6 +838,9 @@ class _AppShellState extends State<AppShell> {
           isUploadingAll: _isUploadingAll,
           followService: _followService!,
           playtimeService: _playtimeService,
+          epicAuthService: widget.epicAuthService,
+          uploadService: widget.uploadService,
+          syncQueueService: widget.syncQueueService,
           manifestPath: _scanner?.getManifestsPath() ?? '',
           onScanGames: _scanGames,
           onUploadManifest: _uploadManifest,

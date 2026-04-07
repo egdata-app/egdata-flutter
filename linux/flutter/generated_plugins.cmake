@@ -4,6 +4,7 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   desktop_multi_window
+  desktop_webview_window
   isar_community_flutter_libs
   screen_retriever_linux
   tray_manager

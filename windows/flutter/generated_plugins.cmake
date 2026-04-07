@@ -5,6 +5,7 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   connectivity_plus
   desktop_multi_window
+  desktop_webview_window
   firebase_core
   isar_community_flutter_libs
   screen_retriever_windows
