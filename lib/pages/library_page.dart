@@ -178,16 +178,25 @@ class _LibraryPageState extends State<LibraryPage> {
       return;
     }
 
+    // Expand the queue to include addons if in grouped mode
+    final expandedGames = <GameInfo>[];
+    for (final game in games) {
+      expandedGames.add(game);
+      if (_showGrouped) {
+        expandedGames.addAll(_getRelatedAddons(game));
+      }
+    }
+
     setState(() {
       _isQueueRunning = true;
       _isQueuePaused = false;
       _queueCancelRequested = false;
       _queueCompleted = 0;
-      _queueTotal = games.length;
+      _queueTotal = expandedGames.length;
       _queueFailed.clear();
     });
 
-    for (final game in games) {
+    for (final game in expandedGames) {
       if (_queueCancelRequested) {
         break;
       }
@@ -1336,6 +1345,24 @@ class _LibraryPageState extends State<LibraryPage> {
       itemBuilder: (context, index) {
         final game = games[index];
         final relatedAddons = _getRelatedAddons(game);
+        
+        final isUploading = widget.uploadingGames.contains(game.installationGuid) ||
+            (_showGrouped && relatedAddons.any((addon) => widget.uploadingGames.contains(addon.installationGuid)));
+
+        UploadStatus? groupUploadStatus = widget.uploadStatuses[game.installationGuid];
+        if (_showGrouped && groupUploadStatus != null && 
+            (groupUploadStatus.status == UploadStatusType.uploaded || 
+             groupUploadStatus.status == UploadStatusType.alreadyUploaded)) {
+          // If base game is uploaded, but an addon failed, show the failure
+          for (final addon in relatedAddons) {
+            final addonStatus = widget.uploadStatuses[addon.installationGuid];
+            if (addonStatus != null && addonStatus.status == UploadStatusType.failed) {
+              groupUploadStatus = addonStatus;
+              break;
+            }
+          }
+        }
+
         return GameTile(
           game: game,
           addonCount: relatedAddons.length,
@@ -1350,9 +1377,16 @@ class _LibraryPageState extends State<LibraryPage> {
               }
             });
           },
-          uploadStatus: widget.uploadStatuses[game.installationGuid],
-          isUploading: widget.uploadingGames.contains(game.installationGuid),
-          onUpload: () => widget.onUploadManifest(game),
+          uploadStatus: groupUploadStatus,
+          isUploading: isUploading,
+          onUpload: () async {
+            await widget.onUploadManifest(game);
+            if (_showGrouped) {
+              for (final addon in relatedAddons) {
+                await widget.onUploadManifest(addon);
+              }
+            }
+          },
           onMove: () => _moveGame(game),
           isFollowing: widget.followService.isFollowing(game.catalogItemId),
           onFollowToggle: () => _toggleFollow(game),
