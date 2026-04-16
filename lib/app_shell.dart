@@ -816,6 +816,7 @@ class _AppShellState extends State<AppShell> {
           playtimeService: _playtimeService,
           installedGames: _games,
           db: _db,
+          epicAuthService: widget.epicAuthService,
         );
       case AppPage.library:
         // Desktop: installed games with manifest upload
@@ -850,6 +851,7 @@ class _AppShellState extends State<AppShell> {
           onToggleConsole: () => setState(() => _showConsole = !_showConsole),
           showConsole: _showConsole,
           addLog: _addLog,
+          onNavigateToDashboard: () => setState(() => _currentPage = AppPage.dashboard),
         );
       case AppPage.playtime:
         return PlaytimePage(playtimeService: _playtimeService);

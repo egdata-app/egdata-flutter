@@ -39,6 +39,7 @@ class LibraryPage extends StatefulWidget {
   final VoidCallback onToggleConsole;
   final bool showConsole;
   final Function(String) addLog;
+  final VoidCallback? onNavigateToDashboard;
 
   const LibraryPage({
     super.key,
@@ -62,6 +63,7 @@ class LibraryPage extends StatefulWidget {
     required this.onToggleConsole,
     required this.showConsole,
     required this.addLog,
+    this.onNavigateToDashboard,
   });
 
   @override
@@ -784,6 +786,7 @@ class _LibraryPageState extends State<LibraryPage> {
                   builder: (context) => EpicSyncDialog(
                     authService: widget.epicAuthService!,
                     syncQueueService: widget.syncQueueService!,
+                    onNavigateToDashboard: widget.onNavigateToDashboard,
                   ),
                 );
               },

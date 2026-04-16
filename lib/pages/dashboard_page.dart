@@ -5,20 +5,24 @@ import '../main.dart';
 import '../models/game_info.dart';
 import '../models/playtime_stats.dart';
 import '../services/playtime_service.dart';
+import '../services/epic_auth_service.dart';
 import '../utils/image_utils.dart';
 import '../widgets/weekly_activity_chart.dart';
 import '../widgets/dashboard_completion_row.dart';
+import '../widgets/epic_login_card.dart';
 
 class DashboardPage extends StatefulWidget {
   final PlaytimeService? playtimeService;
   final List<GameInfo> installedGames;
   final DatabaseService? db;
+  final EpicAuthService? epicAuthService;
 
   const DashboardPage({
     super.key,
     this.playtimeService,
     this.installedGames = const [],
     this.db,
+    this.epicAuthService,
   });
 
   @override
@@ -150,6 +154,10 @@ class _DashboardPageState extends State<DashboardPage> {
                   ],
                   _buildStatsRow(),
                   const SizedBox(height: 32),
+                  if (widget.epicAuthService != null) ...[
+                    EpicLoginCard(authService: widget.epicAuthService),
+                    const SizedBox(height: 32),
+                  ],
                   if (widget.playtimeService != null) ...[
                     DashboardCompletionRow(
                       playtimeService: widget.playtimeService!,

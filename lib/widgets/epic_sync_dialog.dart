@@ -9,11 +9,13 @@ import '../main.dart';
 class EpicSyncDialog extends StatefulWidget {
   final EpicAuthService authService;
   final SyncQueueService syncQueueService;
+  final VoidCallback? onNavigateToDashboard;
 
   const EpicSyncDialog({
     super.key,
     required this.authService,
     required this.syncQueueService,
+    this.onNavigateToDashboard,
   });
 
   @override
@@ -229,34 +231,57 @@ class _EpicSyncDialogState extends State<EpicSyncDialog> {
                     ),
                     const SizedBox(height: 16),
                     const Text(
-                      'Authentication Required',
+                      'Login Required',
                       style: TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 18,
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    ElevatedButton(
-                      onPressed: _isLoggingIn ? null : _login,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 32,
-                          vertical: 16,
-                        ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'You need to log in with Epic Games to use Cloud Sync.',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 14,
                       ),
-                      child: _isLoggingIn
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.black,
-                              ),
-                            )
-                          : const Text('Login with Epic Games'),
+                      textAlign: TextAlign.center,
                     ),
+                    const SizedBox(height: 24),
+                    if (widget.onNavigateToDashboard != null)
+                      ElevatedButton(
+                        onPressed: widget.onNavigateToDashboard,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 32,
+                            vertical: 16,
+                          ),
+                        ),
+                        child: const Text('Go to Dashboard to Login'),
+                      )
+                    else
+                      ElevatedButton(
+                        onPressed: _isLoggingIn ? null : _login,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 32,
+                            vertical: 16,
+                          ),
+                        ),
+                        child: _isLoggingIn
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.black,
+                                ),
+                              )
+                            : const Text('Login with Epic Games'),
+                      ),
                   ],
                 ),
               ),
