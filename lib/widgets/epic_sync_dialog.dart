@@ -1,10 +1,13 @@
-import 'package:flutter/material.dart';
-import 'package:desktop_webview_window/desktop_webview_window.dart';
 import 'dart:async';
 import 'dart:convert';
+
+import 'package:desktop_webview_window/desktop_webview_window.dart';
+import 'package:flutter/material.dart';
+
+import '../main.dart';
 import '../services/epic_auth_service.dart';
 import '../services/sync_queue_service.dart';
-import '../main.dart';
+import '../utils/webview_utils.dart';
 
 class EpicSyncDialog extends StatefulWidget {
   final EpicAuthService authService;
@@ -58,6 +61,7 @@ class _EpicSyncDialogState extends State<EpicSyncDialog> {
           windowHeight: 700,
           windowWidth: 500,
           title: 'Login to Epic Games',
+          userDataFolderWindows: await getWebViewUserDataFolder(),
         ),
       );
 

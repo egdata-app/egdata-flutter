@@ -296,236 +296,13 @@ class _SettingsPageState extends State<SettingsPage>
         children: [
           _buildHeader(),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(28, 8, 28, 100),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Country selection only on mobile (desktop doesn't need it)
-                  if (PlatformUtils.isMobile) ...[
-                    _buildSection(
-                      title: 'Preferences',
-                      icon: Icons.tune_rounded,
-                      color: AppColors.primary,
-                      children: [
-                        _buildSettingTile(
-                          title: 'Country',
-                          subtitle: 'Used for pricing and regional content',
-                          trailing: _buildCountrySelector(),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-                  if (!PlatformUtils.isMobile) ...[
-                    _buildSection(
-                      title: 'Sync',
-                      icon: Icons.sync_rounded,
-                      color: AppColors.accent,
-                      children: [
-                        _buildSettingTile(
-                          title: 'Auto Sync',
-                          subtitle:
-                              'Automatically upload manifests at regular intervals',
-                          trailing: Switch(
-                            value: _settings.autoSync,
-                            onChanged: (value) {
-                              _updateSettings(
-                                _settings.copyWith(autoSync: value),
-                              );
-                            },
-                          ),
-                        ),
-                        _buildDivider(),
-                        _buildSettingTile(
-                          title: 'Sync Interval',
-                          subtitle: 'How often to check for new manifests',
-                          trailing: _buildIntervalDropdown(),
-                          enabled: _settings.autoSync,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    _buildSection(
-                      title: 'Startup',
-                      icon: Icons.power_settings_new_rounded,
-                      color: AppColors.success,
-                      children: [
-                        if (Platform.isWindows) ...[
-                          _buildSettingTile(
-                            title: 'Launch at Startup',
-                            subtitle: 'Start EGData Client when you log in',
-                            trailing: Switch(
-                              value: _settings.launchAtStartup,
-                              onChanged: (value) {
-                                _updateSettings(
-                                  _settings.copyWith(launchAtStartup: value),
-                                );
-                              },
-                            ),
-                          ),
-                          _buildDivider(),
-                        ],
-                        _buildSettingTile(
-                          title: 'Minimize to Tray',
-                          subtitle:
-                              'Keep running in system tray when window is closed',
-                          trailing: Switch(
-                            value: _settings.minimizeToTray,
-                            onChanged: (value) {
-                              _updateSettings(
-                                _settings.copyWith(minimizeToTray: value),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  // Desktop: show local notification settings
-                  if (!PlatformUtils.isMobile) ...[
-                    const SizedBox(height: 24),
-                    _buildSection(
-                      title: 'Notifications',
-                      icon: Icons.notifications_rounded,
-                      color: AppColors.warning,
-                      children: [
-                        _buildSettingTile(
-                          title: 'Free Games',
-                          subtitle: 'Notify when free games become available',
-                          trailing: Switch(
-                            value: _settings.notifyFreeGames,
-                            onChanged: (value) {
-                              _updateSettings(
-                                _settings.copyWith(notifyFreeGames: value),
-                              );
-                            },
-                          ),
-                        ),
-                        _buildDivider(),
-                        _buildSettingTile(
-                          title: 'Releases',
-                          subtitle: 'Notify when upcoming games release',
-                          trailing: Switch(
-                            value: _settings.notifyReleases,
-                            onChanged: (value) {
-                              _updateSettings(
-                                _settings.copyWith(notifyReleases: value),
-                              );
-                            },
-                          ),
-                        ),
-                        _buildDivider(),
-                        _buildSettingTile(
-                          title: 'Sales',
-                          subtitle: 'Notify when games go on sale',
-                          trailing: Switch(
-                            value: _settings.notifySales,
-                            onChanged: (value) {
-                              _updateSettings(
-                                _settings.copyWith(notifySales: value),
-                              );
-                            },
-                          ),
-                        ),
-                        _buildDivider(),
-                        _buildSettingTile(
-                          title: 'Followed Games',
-                          subtitle: 'Notify when followed games are updated',
-                          trailing: Switch(
-                            value: _settings.notifyFollowedUpdates,
-                            onChanged: (value) {
-                              _updateSettings(
-                                _settings.copyWith(
-                                  notifyFollowedUpdates: value,
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  // Mobile: show push notification settings
-                  if (PlatformUtils.isMobile && widget.pushService != null) ...[
-                    const SizedBox(height: 24),
-                    _buildPushNotificationsSection(),
-                  ],
-                  if (PlatformUtils.isDesktop) ...[
-                    const SizedBox(height: 24),
-                    _buildSection(
-                      title: 'Data',
-                      icon: Icons.storage_rounded,
-                      color: AppColors.accent,
-                      children: [
-                        _buildActionTile(
-                          title: 'Clear Process Cache',
-                          subtitle:
-                              'Force refresh of game process names from API',
-                          icon: Icons.refresh_rounded,
-                          onTap: _clearProcessCache,
-                        ),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 24),
-                  _buildSection(
-                    title: 'About',
-                    icon: Icons.info_outline_rounded,
-                    color: AppColors.textSecondary,
-                    children: [
-                      _buildSettingTile(
-                        title: 'EGData Client',
-                        subtitle: 'Version 0.1.0',
-                        trailing: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(
-                              AppColors.radiusSmall,
-                            ),
-                            border: Border.all(
-                              color: AppColors.primary.withValues(alpha: 0.25),
-                            ),
-                          ),
-                          child: const Text(
-                            'FLUTTER',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.5,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ),
-                      ),
-                      _buildDivider(),
-                      _buildSettingTile(
-                        title: 'Purpose',
-                        subtitle:
-                            'Helps preserve Epic Games Store manifest data for research',
-                        trailing: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceLight,
-                            borderRadius: BorderRadius.circular(
-                              AppColors.radiusSmall,
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.science_rounded,
-                            color: AppColors.textMuted,
-                            size: 18,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(28, 8, 28, 100),
+                  child: _buildSettingsLayout(constraints.maxWidth),
+                );
+              },
             ),
           ),
         ],
@@ -533,30 +310,277 @@ class _SettingsPageState extends State<SettingsPage>
     );
   }
 
+  Widget _buildSettingsLayout(double width) {
+    final useColumns = PlatformUtils.isDesktop && width >= 880;
+    final primarySections = <Widget>[
+      if (PlatformUtils.isMobile) _buildPreferencesSection(),
+      if (!PlatformUtils.isMobile) ...[
+        _buildSyncSection(),
+        _buildStartupSection(),
+        _buildDesktopNotificationsSection(),
+      ],
+      if (PlatformUtils.isMobile && widget.pushService != null)
+        _buildPushNotificationsSection(),
+    ];
+    final secondarySections = <Widget>[
+      if (PlatformUtils.isDesktop) _buildDataSection(),
+      _buildAboutSection(),
+    ];
+
+    if (!useColumns) {
+      return _buildSectionStack([...primarySections, ...secondarySections]);
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(flex: 7, child: _buildSectionStack(primarySections)),
+        const SizedBox(width: 22),
+        Expanded(flex: 5, child: _buildSectionStack(secondarySections)),
+      ],
+    );
+  }
+
+  Widget _buildSectionStack(List<Widget> sections) {
+    return Column(
+      children: [
+        for (var index = 0; index < sections.length; index++) ...[
+          if (index > 0) const SizedBox(height: 20),
+          sections[index],
+        ],
+      ],
+    );
+  }
+
+  Widget _buildPreferencesSection() {
+    return _buildSection(
+      title: 'Preferences',
+      description: 'Regional pricing and storefront behavior.',
+      icon: Icons.tune_rounded,
+      color: AppColors.primary,
+      children: [
+        _buildSettingTile(
+          icon: Icons.public_rounded,
+          title: 'Country',
+          subtitle: 'Used for pricing and regional content',
+          trailing: _buildCountrySelector(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSyncSection() {
+    return _buildSection(
+      title: 'Sync',
+      description: 'Control manifest uploads and background checks.',
+      icon: Icons.sync_rounded,
+      color: AppColors.accent,
+      children: [
+        _buildSettingTile(
+          icon: Icons.cloud_upload_rounded,
+          title: 'Auto Sync',
+          subtitle: 'Automatically upload manifests at regular intervals',
+          trailing: _SettingsToggle(
+            value: _settings.autoSync,
+            onChanged: (value) {
+              _updateSettings(_settings.copyWith(autoSync: value));
+            },
+          ),
+        ),
+        _buildDivider(),
+        _buildSettingTile(
+          icon: Icons.schedule_rounded,
+          title: 'Sync Interval',
+          subtitle: 'How often to check for new manifests',
+          trailing: _buildIntervalSelector(),
+          enabled: _settings.autoSync,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStartupSection() {
+    return _buildSection(
+      title: 'Startup',
+      description: 'Decide how EGData behaves with the desktop shell.',
+      icon: Icons.power_settings_new_rounded,
+      color: AppColors.success,
+      children: [
+        if (Platform.isWindows) ...[
+          _buildSettingTile(
+            icon: Icons.login_rounded,
+            title: 'Launch at Startup',
+            subtitle: 'Start EGData Client when you log in',
+            trailing: _SettingsToggle(
+              value: _settings.launchAtStartup,
+              onChanged: (value) {
+                _updateSettings(_settings.copyWith(launchAtStartup: value));
+              },
+            ),
+          ),
+          _buildDivider(),
+        ],
+        _buildSettingTile(
+          icon: Icons.move_to_inbox_rounded,
+          title: 'Minimize to Tray',
+          subtitle: 'Keep running in system tray when window is closed',
+          trailing: _SettingsToggle(
+            value: _settings.minimizeToTray,
+            onChanged: (value) {
+              _updateSettings(_settings.copyWith(minimizeToTray: value));
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesktopNotificationsSection() {
+    return _buildSection(
+      title: 'Notifications',
+      description: 'Choose which local desktop alerts should appear.',
+      icon: Icons.notifications_rounded,
+      color: AppColors.warning,
+      children: [
+        _buildSettingTile(
+          icon: Icons.card_giftcard_rounded,
+          title: 'Free Games',
+          subtitle: 'Notify when free games become available',
+          trailing: _SettingsToggle(
+            value: _settings.notifyFreeGames,
+            onChanged: (value) {
+              _updateSettings(_settings.copyWith(notifyFreeGames: value));
+            },
+          ),
+        ),
+        _buildDivider(),
+        _buildSettingTile(
+          icon: Icons.rocket_launch_rounded,
+          title: 'Releases',
+          subtitle: 'Notify when upcoming games release',
+          trailing: _SettingsToggle(
+            value: _settings.notifyReleases,
+            onChanged: (value) {
+              _updateSettings(_settings.copyWith(notifyReleases: value));
+            },
+          ),
+        ),
+        _buildDivider(),
+        _buildSettingTile(
+          icon: Icons.sell_rounded,
+          title: 'Sales',
+          subtitle: 'Notify when games go on sale',
+          trailing: _SettingsToggle(
+            value: _settings.notifySales,
+            onChanged: (value) {
+              _updateSettings(_settings.copyWith(notifySales: value));
+            },
+          ),
+        ),
+        _buildDivider(),
+        _buildSettingTile(
+          icon: Icons.star_rounded,
+          title: 'Followed Games',
+          subtitle: 'Notify when followed games are updated',
+          trailing: _SettingsToggle(
+            value: _settings.notifyFollowedUpdates,
+            onChanged: (value) {
+              _updateSettings(_settings.copyWith(notifyFollowedUpdates: value));
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDataSection() {
+    return _buildSection(
+      title: 'Data',
+      description: 'Maintenance actions for local app data.',
+      icon: Icons.storage_rounded,
+      color: AppColors.accentPink,
+      children: [
+        _buildActionTile(
+          title: 'Clear Process Cache',
+          subtitle: 'Force refresh of game process names from API',
+          icon: Icons.refresh_rounded,
+          onTap: _clearProcessCache,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAboutSection() {
+    return _buildSection(
+      title: 'About',
+      description: 'Client information and project purpose.',
+      icon: Icons.info_outline_rounded,
+      color: AppColors.textSecondary,
+      children: [
+        _buildSettingTile(
+          icon: Icons.memory_rounded,
+          title: 'EGData Client',
+          subtitle: 'Version 0.1.0',
+          trailing: _buildBadge('FLUTTER'),
+        ),
+        _buildDivider(),
+        _buildSettingTile(
+          icon: Icons.science_rounded,
+          title: 'Purpose',
+          subtitle: 'Preserves Epic Games Store manifest data for research',
+          trailing: _buildIconBadge(Icons.science_rounded),
+        ),
+      ],
+    );
+  }
+
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(28, 24, 28, 20),
+      padding: const EdgeInsets.fromLTRB(28, 24, 28, 18),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Settings',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                  letterSpacing: -0.5,
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.28),
+              ),
+            ),
+            child: const Icon(
+              Icons.settings_rounded,
+              color: AppColors.primary,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 14),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Settings',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                    letterSpacing: 0,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Configure app behavior',
-                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
-              ),
-            ],
+                SizedBox(height: 4),
+                Text(
+                  'Configure sync, startup, notifications, and local data.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textSecondary,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -565,49 +589,85 @@ class _SettingsPageState extends State<SettingsPage>
 
   Widget _buildSection({
     required String title,
+    required String description,
     required IconData icon,
     required Color color,
     required List<Widget> children,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface.withValues(alpha: 0.84),
+          borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+          border: Border.all(color: AppColors.borderLight),
+        ),
+        child: Column(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+                color: color.withValues(alpha: 0.04),
+                border: Border(
+                  bottom: BorderSide(color: AppColors.borderLight),
+                ),
               ),
-              child: Icon(icon, size: 18, color: color),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
+              child: Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.13),
+                      borderRadius: BorderRadius.circular(
+                        AppColors.radiusSmall,
+                      ),
+                      border: Border.all(color: color.withValues(alpha: 0.28)),
+                    ),
+                    child: Icon(icon, size: 19, color: color),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimary,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          description,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textMuted,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
+            Column(children: children),
           ],
         ),
-        const SizedBox(height: 16),
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(AppColors.radiusMedium),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Column(children: children),
-        ),
-      ],
+      ),
     );
   }
 
   Widget _buildDivider() {
-    return Container(height: 1, color: AppColors.border);
+    return Container(
+      height: 1,
+      margin: const EdgeInsets.only(left: 70),
+      color: AppColors.border,
+    );
   }
 
   Widget _buildPushNotificationsSection() {
@@ -617,6 +677,7 @@ class _SettingsPageState extends State<SettingsPage>
 
     return _buildSection(
       title: 'Notifications',
+      description: 'Mobile push delivery and notification topics.',
       icon: Icons.notifications_rounded,
       color: AppColors.primary,
       children: [
@@ -702,66 +763,22 @@ class _SettingsPageState extends State<SettingsPage>
                     ),
                     const SizedBox(width: 16),
                     if (isSubscribed)
-                      ElevatedButton(
+                      _SettingsButton(
+                        label: 'Unsubscribe',
+                        color: AppColors.error,
+                        foregroundColor: Colors.white,
+                        loading: _isUnsubscribing,
                         onPressed: _isUnsubscribing
                             ? null
                             : _unsubscribeFromPush,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.error,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppColors.radiusSmall,
-                            ),
-                          ),
-                        ),
-                        child: _isUnsubscribing
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Text(
-                                'Unsubscribe',
-                                style: TextStyle(fontWeight: FontWeight.w600),
-                              ),
                       )
                     else
-                      ElevatedButton(
+                      _SettingsButton(
+                        label: 'Subscribe',
+                        color: AppColors.primary,
+                        foregroundColor: AppColors.background,
+                        loading: _isSubscribing,
                         onPressed: _isSubscribing ? null : _subscribeToPush,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppColors.radiusSmall,
-                            ),
-                          ),
-                        ),
-                        child: _isSubscribing
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.black,
-                                ),
-                              )
-                            : const Text(
-                                'Subscribe',
-                                style: TextStyle(fontWeight: FontWeight.w600),
-                              ),
                       ),
                   ],
                 ),
@@ -806,9 +823,10 @@ class _SettingsPageState extends State<SettingsPage>
           if (isSubscribed) ...[
             _buildDivider(),
             _buildSettingTile(
+              icon: Icons.card_giftcard_rounded,
               title: 'Free Games',
               subtitle: 'Receive notifications for new free games',
-              trailing: Switch(
+              trailing: _SettingsToggle(
                 value: subscribedTopics.contains(PushTopics.freeGames),
                 onChanged: (value) {
                   _toggleTopic(PushTopics.freeGames, value);
@@ -834,6 +852,7 @@ class _SettingsPageState extends State<SettingsPage>
   }
 
   Widget _buildSettingTile({
+    IconData? icon,
     required String title,
     required String subtitle,
     required Widget trailing,
@@ -841,38 +860,125 @@ class _SettingsPageState extends State<SettingsPage>
   }) {
     return Opacity(
       opacity: enabled ? 1.0 : 0.4,
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 560;
+          final leading = icon == null
+              ? const SizedBox.shrink()
+              : _buildTileIcon(icon);
+          final text = Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                    letterSpacing: 0,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textSecondary,
-                    ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.35,
+                    color: AppColors.textSecondary,
+                    letterSpacing: 0,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            const SizedBox(width: 16),
-            trailing,
-          ],
+          );
+
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: compact
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (icon != null) ...[
+                            leading,
+                            const SizedBox(width: 12),
+                          ],
+                          text,
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      Align(alignment: Alignment.centerLeft, child: trailing),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      if (icon != null) ...[leading, const SizedBox(width: 12)],
+                      text,
+                      const SizedBox(width: 16),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: constraints.maxWidth * 0.52,
+                        ),
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          widthFactor: 1,
+                          child: trailing,
+                        ),
+                      ),
+                    ],
+                  ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTileIcon(IconData icon) {
+    return Container(
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLight,
+        borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+        border: Border.all(color: AppColors.borderLight),
+      ),
+      child: Icon(icon, color: AppColors.textSecondary, size: 18),
+    );
+  }
+
+  Widget _buildBadge(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.26)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0,
+          color: AppColors.primary,
         ),
       ),
+    );
+  }
+
+  Widget _buildIconBadge(IconData icon) {
+    return Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLight,
+        borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+        border: Border.all(color: AppColors.borderLight),
+      ),
+      child: Icon(icon, color: AppColors.textMuted, size: 18),
     );
   }
 
@@ -886,10 +992,12 @@ class _SettingsPageState extends State<SettingsPage>
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(18),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
           child: Row(
             children: [
+              _buildTileIcon(icon),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -898,7 +1006,7 @@ class _SettingsPageState extends State<SettingsPage>
                       title,
                       style: const TextStyle(
                         fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary,
                       ),
                     ),
@@ -915,13 +1023,20 @@ class _SettingsPageState extends State<SettingsPage>
               ),
               const SizedBox(width: 16),
               Container(
-                padding: const EdgeInsets.all(10),
+                width: 34,
+                height: 34,
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceLight,
+                  color: AppColors.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(AppColors.radiusSmall),
-                  border: Border.all(color: AppColors.borderLight),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.26),
+                  ),
                 ),
-                child: Icon(icon, color: AppColors.textSecondary, size: 18),
+                child: const Icon(
+                  Icons.arrow_forward_rounded,
+                  color: AppColors.primary,
+                  size: 18,
+                ),
               ),
             ],
           ),
@@ -930,52 +1045,35 @@ class _SettingsPageState extends State<SettingsPage>
     );
   }
 
-  Widget _buildIntervalDropdown() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceLight,
-        borderRadius: BorderRadius.circular(AppColors.radiusSmall),
-        border: Border.all(color: AppColors.borderLight),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<int>(
-          value: _settings.syncIntervalMinutes,
-          isDense: true,
-          dropdownColor: AppColors.surface,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
-            fontFamily: 'Inter',
-          ),
-          icon: const Padding(
-            padding: EdgeInsets.only(left: 8),
-            child: Icon(
-              Icons.expand_more_rounded,
-              size: 18,
-              color: AppColors.textSecondary,
+  Widget _buildIntervalSelector() {
+    const options = [
+      (15, '15m'),
+      (30, '30m'),
+      (60, '1h'),
+      (120, '2h'),
+      (360, '6h'),
+      (720, '12h'),
+      (1440, '24h'),
+    ];
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 292),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          for (final option in options)
+            _SettingsChoice(
+              label: option.$2,
+              selected: _settings.syncIntervalMinutes == option.$1,
+              enabled: _settings.autoSync,
+              onTap: () {
+                _updateSettings(
+                  _settings.copyWith(syncIntervalMinutes: option.$1),
+                );
+              },
             ),
-          ),
-          onChanged: _settings.autoSync
-              ? (value) {
-                  if (value != null) {
-                    _updateSettings(
-                      _settings.copyWith(syncIntervalMinutes: value),
-                    );
-                  }
-                }
-              : null,
-          items: const [
-            DropdownMenuItem(value: 15, child: Text('15 min')),
-            DropdownMenuItem(value: 30, child: Text('30 min')),
-            DropdownMenuItem(value: 60, child: Text('1 hour')),
-            DropdownMenuItem(value: 120, child: Text('2 hours')),
-            DropdownMenuItem(value: 360, child: Text('6 hours')),
-            DropdownMenuItem(value: 720, child: Text('12 hours')),
-            DropdownMenuItem(value: 1440, child: Text('24 hours')),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -1004,35 +1102,42 @@ class _SettingsPageState extends State<SettingsPage>
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: () => _showCountryPicker(),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceLight,
-            borderRadius: BorderRadius.circular(AppColors.radiusSmall),
-            border: Border.all(color: AppColors.borderLight),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (flag.isNotEmpty) ...[
-                Text(flag, style: const TextStyle(fontSize: 16)),
-                const SizedBox(width: 8),
-              ],
-              Text(
-                displayName,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 280),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceLight,
+              borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+              border: Border.all(color: AppColors.borderLight),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (flag.isNotEmpty) ...[
+                  Text(flag, style: const TextStyle(fontSize: 16)),
+                  const SizedBox(width: 8),
+                ],
+                Flexible(
+                  child: Text(
+                    displayName,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                      letterSpacing: 0,
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              const Icon(
-                Icons.expand_more_rounded,
-                size: 18,
-                color: AppColors.textSecondary,
-              ),
-            ],
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.expand_more_rounded,
+                  size: 18,
+                  color: AppColors.textSecondary,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1051,6 +1156,207 @@ class _SettingsPageState extends State<SettingsPage>
           _updateSettings(_settings.copyWith(country: code));
           Navigator.pop(context);
         },
+      ),
+    );
+  }
+}
+
+class _SettingsToggle extends StatelessWidget {
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _SettingsToggle({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final trackColor = value
+        ? AppColors.primary.withValues(alpha: 0.22)
+        : AppColors.surfaceLight;
+    final borderColor = value
+        ? AppColors.primary.withValues(alpha: 0.55)
+        : AppColors.borderLight;
+    final knobColor = value ? AppColors.primary : AppColors.textMuted;
+
+    return Semantics(
+      button: true,
+      toggled: value,
+      enabled: true,
+      onTap: () => onChanged(!value),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: () => onChanged(!value),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            width: 66,
+            height: 34,
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: trackColor,
+              borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+              border: Border.all(color: borderColor),
+            ),
+            child: Stack(
+              children: [
+                Align(
+                  alignment: value
+                      ? Alignment.centerLeft
+                      : Alignment.centerRight,
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      left: value ? 7 : 0,
+                      right: value ? 0 : 7,
+                    ),
+                    child: Text(
+                      value ? 'ON' : 'OFF',
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
+                        color: value ? AppColors.primary : AppColors.textMuted,
+                      ),
+                    ),
+                  ),
+                ),
+                AnimatedAlign(
+                  duration: const Duration(milliseconds: 150),
+                  curve: Curves.easeOutCubic,
+                  alignment: value
+                      ? Alignment.centerRight
+                      : Alignment.centerLeft,
+                  child: Container(
+                    width: 26,
+                    height: 26,
+                    decoration: BoxDecoration(
+                      color: knobColor,
+                      borderRadius: BorderRadius.circular(6),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.28),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsChoice extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _SettingsChoice({
+    required this.label,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = selected
+        ? AppColors.primary.withValues(alpha: 0.55)
+        : AppColors.borderLight;
+    final backgroundColor = selected
+        ? AppColors.primary.withValues(alpha: 0.14)
+        : AppColors.surfaceLight;
+    final textColor = selected ? AppColors.primary : AppColors.textSecondary;
+
+    return MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      child: GestureDetector(
+        onTap: enabled ? onTap : null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          constraints: const BoxConstraints(minWidth: 48),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+            border: Border.all(color: borderColor),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0,
+              color: enabled ? textColor : AppColors.textMuted,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsButton extends StatelessWidget {
+  final String label;
+  final Color color;
+  final Color foregroundColor;
+  final bool loading;
+  final VoidCallback? onPressed;
+
+  const _SettingsButton({
+    required this.label,
+    required this.color,
+    required this.foregroundColor,
+    required this.loading,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null;
+
+    return MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      child: GestureDetector(
+        onTap: onPressed,
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 120),
+          opacity: enabled ? 1 : 0.55,
+          child: Container(
+            constraints: const BoxConstraints(minWidth: 116, minHeight: 40),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+              border: Border.all(color: color.withValues(alpha: 0.65)),
+            ),
+            child: Center(
+              child: loading
+                  ? SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: foregroundColor,
+                      ),
+                    )
+                  : Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
+                        color: foregroundColor,
+                      ),
+                    ),
+            ),
+          ),
+        ),
       ),
     );
   }

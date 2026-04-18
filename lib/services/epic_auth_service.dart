@@ -1,11 +1,14 @@
-import 'dart:convert';
 import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
+// Platform-specific import for WebView
+import 'package:desktop_webview_window/desktop_webview_window.dart'
+    if (dart.library.js) 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Platform-specific import for WebView
-import 'package:desktop_webview_window/desktop_webview_window.dart' if (dart.library.js) 'package:flutter/foundation.dart';
+import '../utils/webview_utils.dart';
 
 class EpicAuthService {
   static const String _tokenEndpoint =
@@ -87,7 +90,7 @@ class EpicAuthService {
       await _saveTokens();
       return true;
     } else {
-      print('Auth failed: ${response.body}');
+      debugPrint('Auth failed: ${response.body}');
       return false;
     }
   }
@@ -132,6 +135,7 @@ class EpicAuthService {
           windowHeight: 700,
           windowWidth: 500,
           title: 'Login to Epic Games',
+          userDataFolderWindows: await getWebViewUserDataFolder(),
         ),
       );
 
@@ -153,7 +157,9 @@ class EpicAuthService {
         redirectTriggered = true;
 
         try {
-          final content = await webview.evaluateJavaScript('document.body.innerText');
+          final content = await webview.evaluateJavaScript(
+            'document.body.innerText',
+          );
           if (content != null) {
             final rawContent = content.startsWith('"') && content.endsWith('"')
                 ? jsonDecode(content) as String
@@ -168,7 +174,10 @@ class EpicAuthService {
                 pollingTimer?.cancel();
                 webview.close();
 
-                final success = await exchangeCode(code, isAuthorizationCode: true);
+                final success = await exchangeCode(
+                  code,
+                  isAuthorizationCode: true,
+                );
                 completer.complete(success);
                 return;
               }
@@ -183,11 +192,16 @@ class EpicAuthService {
       webview.addOnUrlRequestCallback((url) {
         if (isClosing || completer.isCompleted) return;
         if (url.contains('/id/api/redirect')) {
-          Future.delayed(const Duration(milliseconds: 500), processRedirectResponse);
+          Future.delayed(
+            const Duration(milliseconds: 500),
+            processRedirectResponse,
+          );
         }
       });
 
-      pollingTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) async {
+      pollingTimer = Timer.periodic(const Duration(milliseconds: 500), (
+        timer,
+      ) async {
         if (completer.isCompleted) {
           timer.cancel();
           return;
