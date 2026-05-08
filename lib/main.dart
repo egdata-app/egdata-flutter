@@ -156,6 +156,7 @@ Future<void> _initDesktop(List<String> args) async {
   }
 
   await windowManager.ensureInitialized();
+  await windowManager.setPreventClose(true);
 
   const windowOptions = WindowOptions(
     size: Size(1280, 800),
@@ -307,6 +308,7 @@ class _EGDataAppState extends State<EGDataApp> {
     _syncQueueService = SyncQueueService(
       authService: _epicAuthService,
       uploadService: _uploadService,
+      db: widget.dbService,
     );
 
     if (PlatformUtils.isDesktop) {
@@ -481,16 +483,6 @@ class _EGDataAppState extends State<EGDataApp> {
                   shellController: _shellController,
                 ),
               ),
-              if (_shellController.syncPopupVisible &&
-                  _shellController.syncAnchorRect != null &&
-                  _shellController.syncQueueService != null)
-                Positioned.fill(
-                  child: SyncPopup(
-                    anchorRect: _shellController.syncAnchorRect!,
-                    queueService: _shellController.syncQueueService!,
-                    onClose: () => _shellController.hideSyncPopup(),
-                  ),
-                ),
             ],
           ),
         );

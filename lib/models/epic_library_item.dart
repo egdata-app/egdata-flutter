@@ -1,5 +1,6 @@
 class EpicLibraryItem {
   final String appName;
+  final String title;
   final String catalogItemId;
   final String namespace;
   final String assetId;
@@ -7,6 +8,7 @@ class EpicLibraryItem {
 
   EpicLibraryItem({
     required this.appName,
+    required this.title,
     required this.catalogItemId,
     required this.namespace,
     required this.assetId,
@@ -16,6 +18,7 @@ class EpicLibraryItem {
   factory EpicLibraryItem.fromJson(Map<String, dynamic> json) {
     return EpicLibraryItem(
       appName: json['appName'] as String,
+      title: json['title'] as String? ?? '',
       catalogItemId: json['catalogItemId'] as String,
       namespace: json['namespace'] as String,
       assetId: json['assetId'] as String? ?? json['appName'] as String,

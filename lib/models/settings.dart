@@ -1,3 +1,5 @@
+const Object _unset = Object();
+
 class AppSettings {
   final bool autoSync;
   final int syncIntervalMinutes;
@@ -12,6 +14,15 @@ class AppSettings {
   final String? deviceId;
   final bool pushNotificationsEnabled;
   final bool hasSeenFreeGamesNotificationPrompt;
+  final String libraryViewMode;
+  final String libraryFilter;
+  final String libraryOfferTypeFilter;
+  final String? librarySelectedTag;
+  final String? librarySelectedCategoryName;
+  final bool libraryOnlyOnSale;
+  final bool libraryOnlyFree;
+  final String librarySortBy;
+  final bool librarySortAscending;
 
   AppSettings({
     this.autoSync = false,
@@ -26,8 +37,18 @@ class AppSettings {
     this.deviceId,
     this.pushNotificationsEnabled = false,
     this.hasSeenFreeGamesNotificationPrompt = false,
+    this.libraryViewMode = 'grid',
+    this.libraryFilter = 'all',
+    this.libraryOfferTypeFilter = 'any',
+    this.librarySelectedTag,
+    this.librarySelectedCategoryName,
+    this.libraryOnlyOnSale = false,
+    this.libraryOnlyFree = false,
+    this.librarySortBy = 'title',
+    this.librarySortAscending = true,
   });
 
+  // Nullable fields use a sentinel so callers can pass `null` to clear them.
   AppSettings copyWith({
     bool? autoSync,
     int? syncIntervalMinutes,
@@ -41,6 +62,15 @@ class AppSettings {
     String? deviceId,
     bool? pushNotificationsEnabled,
     bool? hasSeenFreeGamesNotificationPrompt,
+    String? libraryViewMode,
+    String? libraryFilter,
+    String? libraryOfferTypeFilter,
+    Object? librarySelectedTag = _unset,
+    Object? librarySelectedCategoryName = _unset,
+    bool? libraryOnlyOnSale,
+    bool? libraryOnlyFree,
+    String? librarySortBy,
+    bool? librarySortAscending,
   }) {
     return AppSettings(
       autoSync: autoSync ?? this.autoSync,
@@ -59,6 +89,21 @@ class AppSettings {
       hasSeenFreeGamesNotificationPrompt:
           hasSeenFreeGamesNotificationPrompt ??
           this.hasSeenFreeGamesNotificationPrompt,
+      libraryViewMode: libraryViewMode ?? this.libraryViewMode,
+      libraryFilter: libraryFilter ?? this.libraryFilter,
+      libraryOfferTypeFilter:
+          libraryOfferTypeFilter ?? this.libraryOfferTypeFilter,
+      librarySelectedTag: identical(librarySelectedTag, _unset)
+          ? this.librarySelectedTag
+          : librarySelectedTag as String?,
+      librarySelectedCategoryName:
+          identical(librarySelectedCategoryName, _unset)
+          ? this.librarySelectedCategoryName
+          : librarySelectedCategoryName as String?,
+      libraryOnlyOnSale: libraryOnlyOnSale ?? this.libraryOnlyOnSale,
+      libraryOnlyFree: libraryOnlyFree ?? this.libraryOnlyFree,
+      librarySortBy: librarySortBy ?? this.librarySortBy,
+      librarySortAscending: librarySortAscending ?? this.librarySortAscending,
     );
   }
 
@@ -76,6 +121,15 @@ class AppSettings {
       'deviceId': deviceId,
       'pushNotificationsEnabled': pushNotificationsEnabled,
       'hasSeenFreeGamesNotificationPrompt': hasSeenFreeGamesNotificationPrompt,
+      'libraryViewMode': libraryViewMode,
+      'libraryFilter': libraryFilter,
+      'libraryOfferTypeFilter': libraryOfferTypeFilter,
+      'librarySelectedTag': librarySelectedTag,
+      'librarySelectedCategoryName': librarySelectedCategoryName,
+      'libraryOnlyOnSale': libraryOnlyOnSale,
+      'libraryOnlyFree': libraryOnlyFree,
+      'librarySortBy': librarySortBy,
+      'librarySortAscending': librarySortAscending,
     };
   }
 
@@ -94,6 +148,16 @@ class AppSettings {
       pushNotificationsEnabled: json['pushNotificationsEnabled'] ?? false,
       hasSeenFreeGamesNotificationPrompt:
           json['hasSeenFreeGamesNotificationPrompt'] ?? false,
+      libraryViewMode: json['libraryViewMode'] ?? 'grid',
+      libraryFilter: json['libraryFilter'] ?? 'all',
+      libraryOfferTypeFilter: json['libraryOfferTypeFilter'] ?? 'any',
+      librarySelectedTag: json['librarySelectedTag'] as String?,
+      librarySelectedCategoryName:
+          json['librarySelectedCategoryName'] as String?,
+      libraryOnlyOnSale: json['libraryOnlyOnSale'] ?? false,
+      libraryOnlyFree: json['libraryOnlyFree'] ?? false,
+      librarySortBy: json['librarySortBy'] ?? 'title',
+      librarySortAscending: json['librarySortAscending'] ?? true,
     );
   }
 }

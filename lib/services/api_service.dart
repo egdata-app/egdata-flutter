@@ -22,6 +22,7 @@ class ApiService {
   static const String baseUrl = 'https://api.egdata.app';
 
   final http.Client _client;
+  bool _bulkItemOffersSupported = true;
 
   ApiService({http.Client? client}) : _client = client ?? http.Client();
 
@@ -401,6 +402,42 @@ class ApiService {
     return Item.fromJson(data);
   }
 
+  /// Bulk-fetches item metadata for up to 100 catalog item IDs per call.
+  /// Larger inputs are transparently split into 100-item batches.
+  ///
+  /// Returns a map keyed by catalog item ID. Items whose metadata couldn't
+  /// be resolved are simply absent from the map.
+  Future<Map<String, Item>> bulkGetItems(
+    Iterable<String> catalogItemIds,
+  ) async {
+    final ids = catalogItemIds
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    if (ids.isEmpty) return const {};
+
+    final result = <String, Item>{};
+    const batchSize = 100;
+    for (var start = 0; start < ids.length; start += batchSize) {
+      final end = (start + batchSize).clamp(0, ids.length);
+      final batch = ids.sublist(start, end);
+      try {
+        final data = await _post('/items/bulk', {'items': batch});
+        if (data is List) {
+          for (final raw in data) {
+            if (raw is! Map<String, dynamic>) continue;
+            final item = Item.fromJson(raw);
+            if (item.id.isNotEmpty) result[item.id] = item;
+          }
+        }
+      } on ApiException {
+        // Best-effort batch — don't abort the whole sync on a 5xx blip.
+        continue;
+      }
+    }
+    return result;
+  }
+
   /// Fetches the offer associated with an item
   Future<Offer?> getItemOffer(String itemId) async {
     try {
@@ -410,6 +447,94 @@ class ApiService {
       if (e.statusCode == 404) return null;
       rethrow;
     }
+  }
+
+  /// Resolves the store offer associated with each catalog item ID.
+  ///
+  /// Returns a map of `catalogItemId -> Offer?` (null when no associated
+  /// offer was found). If the deployed API does not support the bulk route
+  /// yet, this falls back to the legacy single-item endpoint without logging
+  /// a batch error for every item.
+  Future<Map<String, Offer?>> bulkGetItemOffers(
+    Iterable<String> catalogItemIds, {
+    int concurrency = 8,
+    void Function(String itemId, Object error)? onError,
+  }) async {
+    final ids = catalogItemIds
+        .where((id) => id.trim().isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    if (ids.isEmpty) return const {};
+
+    final result = <String, Offer?>{};
+    const batchSize = 100;
+    for (var start = 0; start < ids.length; start += batchSize) {
+      final end = (start + batchSize).clamp(0, ids.length);
+      final batch = ids.sublist(start, end);
+      if (_bulkItemOffersSupported) {
+        try {
+          final data = await _post('/items/bulk/offers', {'items': batch});
+          if (data is Map<String, dynamic>) {
+            for (final id in batch) {
+              final raw = data[id];
+              result[id] = raw is Map<String, dynamic>
+                  ? Offer.fromJson(raw)
+                  : null;
+            }
+            continue;
+          }
+        } on ApiException catch (e) {
+          if (e.statusCode == 404) {
+            _bulkItemOffersSupported = false;
+          } else {
+            for (final id in batch) {
+              if (onError != null) onError(id, e);
+            }
+          }
+        } catch (e) {
+          for (final id in batch) {
+            if (onError != null) onError(id, e);
+          }
+        }
+      }
+
+      result.addAll(
+        await _bulkGetItemOffersLegacy(
+          batch,
+          concurrency: concurrency,
+          onError: onError,
+        ),
+      );
+    }
+
+    return result;
+  }
+
+  Future<Map<String, Offer?>> _bulkGetItemOffersLegacy(
+    List<String> ids, {
+    required int concurrency,
+    void Function(String itemId, Object error)? onError,
+  }) async {
+    final result = <String, Offer?>{};
+    final iter = ids.iterator;
+    final workerCount = concurrency.clamp(1, 16);
+
+    Future<void> worker() async {
+      while (true) {
+        String? id;
+        if (iter.moveNext()) id = iter.current;
+        if (id == null) return;
+        try {
+          result[id] = await getItemOffer(id);
+        } catch (e) {
+          result[id] = null;
+          if (onError != null) onError(id, e);
+        }
+      }
+    }
+
+    await Future.wait(List.generate(workerCount, (_) => worker()));
+    return result;
   }
 
   /// Searches for offers with various filters

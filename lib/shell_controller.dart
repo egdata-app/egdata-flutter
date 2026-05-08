@@ -8,8 +8,6 @@ class ShellController extends ChangeNotifier {
   String _currentVersion = '';
   SyncQueueService? _syncQueueService;
   VoidCallback? _handleClose;
-  bool _syncPopupVisible = false;
-  Rect? _syncAnchorRect;
   void Function(AppPage page)? _onPageSelectedFromOverlay;
 
   AppPage get currentPage => _currentPage;
@@ -17,8 +15,6 @@ class ShellController extends ChangeNotifier {
   String get currentVersion => _currentVersion;
   SyncQueueService? get syncQueueService => _syncQueueService;
   VoidCallback? get handleClose => _handleClose;
-  bool get syncPopupVisible => _syncPopupVisible;
-  Rect? get syncAnchorRect => _syncAnchorRect;
 
   void updateFromShell({
     AppPage? currentPage,
@@ -59,17 +55,6 @@ class ShellController extends ChangeNotifier {
     if (_currentPage == page) return;
     _currentPage = page;
     _onPageSelectedFromOverlay?.call(page);
-    notifyListeners();
-  }
-
-  void showSyncPopup(Rect anchorRect) {
-    _syncPopupVisible = true;
-    _syncAnchorRect = anchorRect;
-    notifyListeners();
-  }
-
-  void hideSyncPopup() {
-    _syncPopupVisible = false;
     notifyListeners();
   }
 }

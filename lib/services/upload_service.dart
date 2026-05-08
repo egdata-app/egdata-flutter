@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'dart:convert';
@@ -20,12 +21,14 @@ class UploadService {
   Future<UploadStatus> uploadManifest(GameInfo game) async {
     try {
       // Use the new method that leverages pre-stored paths
-      final manifestData = await _scanner.getManifestDataFromGame(game).timeout(
-        const Duration(seconds: 15),
-        onTimeout: () => throw TimeoutException(
-          'Reading manifest timed out for ${game.displayName}',
-        ),
-      );
+      final manifestData = await _scanner
+          .getManifestDataFromGame(game)
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw TimeoutException(
+              'Reading manifest timed out for ${game.displayName}',
+            ),
+          );
 
       if (manifestData == null) {
         return UploadStatus(
@@ -58,9 +61,8 @@ class UploadService {
 
       final streamedResponse = await request.send().timeout(
         const Duration(seconds: 30),
-        onTimeout: () => throw TimeoutException(
-          'Upload timed out for ${game.displayName}',
-        ),
+        onTimeout: () =>
+            throw TimeoutException('Upload timed out for ${game.displayName}'),
       );
       final response = await http.Response.fromStream(streamedResponse);
 
@@ -129,7 +131,9 @@ class UploadService {
   }
 
   Future<UploadStatus> uploadCloudManifest(
-      EpicLibraryItem item, List<int> manifestBytes) async {
+    EpicLibraryItem item,
+    List<int> manifestBytes,
+  ) async {
     try {
       final mockItem = {
         'InstallLocation': 'C:\\Program Files\\Epic Games\\${item.appName}',
@@ -137,12 +141,12 @@ class UploadService {
         'CatalogItemId': item.catalogItemId,
         'CatalogNamespace': item.namespace,
         'InstallationGuid': item.assetId,
-        'DisplayName': item.appName,
+        'DisplayName': item.title,
         'AppVersionString': item.buildVersion ?? '1.0.0',
         'MainGameCatalogNamespace': item.namespace,
         'MainGameCatalogItemId': item.catalogItemId,
         'MainGameAppName': item.appName,
-        'AppCategories': ['games']
+        'AppCategories': ['games'],
       };
 
       final itemContent = jsonEncode(mockItem);
@@ -156,16 +160,15 @@ class UploadService {
         http.MultipartFile.fromBytes(
           'manifest',
           manifestBytes,
-          filename: '${item.assetId}.manifest',
+          filename: '${item.title}.manifest',
           contentType: MediaType('application', 'octet-stream'),
         ),
       );
 
       final streamedResponse = await request.send().timeout(
         const Duration(seconds: 30),
-        onTimeout: () => throw TimeoutException(
-          'Upload timed out for ${item.appName}',
-        ),
+        onTimeout: () =>
+            throw TimeoutException('Upload timed out for ${item.title}'),
       );
       final response = await http.Response.fromStream(streamedResponse);
 
@@ -203,7 +206,9 @@ class UploadService {
 
       for (final item in library) {
         try {
-          final manifestBytes = await manifestService.getManifestForLibraryItem(item);
+          final manifestBytes = await manifestService.getManifestForLibraryItem(
+            item,
+          );
           if (manifestBytes != null) {
             final status = await uploadCloudManifest(item, manifestBytes);
             results[item.assetId] = status;
@@ -227,9 +232,11 @@ class UploadService {
       }
 
       final successCount = results.values
-          .where((s) =>
-              s.status == UploadStatusType.uploaded ||
-              s.status == UploadStatusType.alreadyUploaded)
+          .where(
+            (s) =>
+                s.status == UploadStatusType.uploaded ||
+                s.status == UploadStatusType.alreadyUploaded,
+          )
           .length;
       final success = successCount > 0 && successCount == results.length;
 
@@ -239,9 +246,8 @@ class UploadService {
           success: success,
         );
       }
-
     } catch (e) {
-      print('Cloud sync failed: $e');
+      debugPrint('Cloud sync failed: $e');
     }
 
     return results;

@@ -29,10 +29,13 @@ import 'services/tray_service.dart';
 import 'services/update_service.dart';
 import 'services/window_channel_service.dart';
 import 'services/epic_auth_service.dart';
+import 'services/epic_library_service.dart';
+import 'services/library_metadata_service.dart';
 import 'widgets/app_sidebar.dart';
 import 'pages/dashboard_page.dart';
 import 'pages/library_page.dart';
 import 'pages/playtime_page.dart';
+import 'pages/cloud_sync_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/free_games_page.dart';
 import 'pages/mobile_browse_page.dart';
@@ -62,7 +65,7 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends State<AppShell> with WindowListener {
   // Navigation
   AppPage _currentPage = AppPage.dashboard;
 
@@ -93,20 +96,25 @@ class _AppShellState extends State<AppShell> {
   PlaytimeService? _playtimeService; // Desktop only
   PushService? _pushService; // Mobile only
   ChatSessionService? _chatSessionService; // Mobile only
+  LibraryMetadataService? _libraryMetadataService;
 
   // Shared state
   List<GameInfo> _games = [];
   List<GameInfo> _allGames = [];
+  List<OwnedGameEntry> _ownedGames = [];
   final Map<String, UploadStatus> _uploadStatuses = {};
   final Set<String> _uploadingGames = {};
   bool _isLoading = true;
   bool _isUploadingAll = false;
+  bool _isFetchingOwnedLibrary = false;
   AppSettings _settings = AppSettings();
   Timer? _syncTimer;
   final List<String> _logs = [];
   bool _showConsole = false;
   String? _latestVersion;
   String _currentVersion = '';
+  bool _isHandlingClose = false;
+  bool _isQuitting = false;
 
   // Tray popup subscriptions (macOS)
   StreamSubscription<PlaytimeStats>? _trayStatsSubscription;
@@ -115,12 +123,18 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
+    if (PlatformUtils.isDesktop) {
+      windowManager.addListener(this);
+    }
     _mobilePageController = PageController();
     _init();
   }
 
   @override
   void dispose() {
+    if (PlatformUtils.isDesktop) {
+      windowManager.removeListener(this);
+    }
     _syncTimer?.cancel();
     _trayStatsSubscription?.cancel();
     _trayActiveGameSubscription?.cancel();
@@ -130,6 +144,15 @@ class _AppShellState extends State<AppShell> {
     _pushService?.dispose();
     _notificationService.dispose();
     super.dispose();
+  }
+
+  @override
+  void onWindowClose() {
+    unawaited(
+      _handleClose().catchError((Object e, StackTrace stackTrace) {
+        debugPrint('Error handling window close: $e');
+      }),
+    );
   }
 
   Future<void> _init() async {
@@ -144,6 +167,11 @@ class _AppShellState extends State<AppShell> {
     // Initialize universal services
     _followService = FollowService(db: _db!);
     _syncService = SyncService(db: _db!, notification: _notificationService);
+    _libraryMetadataService = LibraryMetadataService(
+      database: _db!,
+      api: _apiService,
+    );
+    await _libraryMetadataService!.loadFromDatabase();
 
     // Initialize desktop-only services
     if (PlatformUtils.isDesktop) {
@@ -177,6 +205,7 @@ class _AppShellState extends State<AppShell> {
     // Desktop: scan local games
     if (PlatformUtils.isDesktop) {
       await _scanGames();
+      await _loadOwnedGames();
     }
 
     await _followService!.loadFollowedGames();
@@ -406,10 +435,15 @@ class _AppShellState extends State<AppShell> {
   }
 
   Future<void> _quitApp() async {
-    if (!PlatformUtils.isDesktop) return;
+    if (!PlatformUtils.isDesktop || _isQuitting) return;
+    _isQuitting = true;
 
     // Hide window immediately for responsive UI
-    await windowManager.hide();
+    try {
+      await windowManager.hide();
+    } catch (e) {
+      debugPrint('Error hiding window during app shutdown: $e');
+    }
 
     // Continue with cleanup in the background
     // We use a try-catch to ensure cleanup doesn't prevent app exit
@@ -437,21 +471,26 @@ class _AppShellState extends State<AppShell> {
   }
 
   Future<void> _handleClose() async {
-    if (!PlatformUtils.isDesktop) return;
+    if (!PlatformUtils.isDesktop || _isHandlingClose || _isQuitting) return;
 
-    if (_trayService != null && !_trayService!.isInitialized) {
-      await _initTray();
-    }
-
-    if (_settings.minimizeToTray) {
-      if (Platform.isWindows) {
-        await windowManager.setSkipTaskbar(true);
-        await windowManager.minimize();
-      } else {
-        await windowManager.hide();
+    _isHandlingClose = true;
+    try {
+      if (_trayService != null && !_trayService!.isInitialized) {
+        await _initTray();
       }
-    } else {
-      await _quitApp();
+
+      if (_settings.minimizeToTray) {
+        if (Platform.isWindows) {
+          await windowManager.setSkipTaskbar(true);
+          await windowManager.minimize();
+        } else {
+          await windowManager.hide();
+        }
+      } else {
+        await _quitApp();
+      }
+    } finally {
+      _isHandlingClose = false;
     }
   }
 
@@ -566,12 +605,147 @@ class _AppShellState extends State<AppShell> {
       _addLog(
         'Found ${games.length} installed games from ${allGames.length} manifests',
       );
+      _syncLibraryMetadata();
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
       _addLog('Error scanning games: $e');
     }
+  }
+
+  Future<void> _loadOwnedGames() async {
+    if (!PlatformUtils.isDesktop || _db == null) return;
+    final ownedGames = await _db!.getAllOwnedGames();
+    if (mounted) {
+      setState(() {
+        _ownedGames = ownedGames;
+      });
+    }
+    _syncLibraryMetadata();
+  }
+
+  /// Fire-and-forget background sync of offer-level metadata for every
+  /// item in the library (installed + owned). Used to power right-sidebar
+  /// filters by offer type, tags, release date, and price.
+  void _syncLibraryMetadata() {
+    final service = _libraryMetadataService;
+    if (service == null) return;
+    final ids = <String>{
+      for (final game in _games)
+        if (game.catalogItemId.isNotEmpty) game.catalogItemId,
+      for (final owned in _ownedGames)
+        if (owned.catalogItemId.isNotEmpty) owned.catalogItemId,
+    };
+    if (ids.isEmpty) return;
+    Future.microtask(() async {
+      try {
+        final result = await service.syncStale(ids);
+        if (result != null && result.requested > 0) {
+          _addLog(
+            'Library metadata synced: ${result.resolved} resolved, '
+            '${result.empty} empty, ${result.errors} errors '
+            '(${result.elapsed.inMilliseconds} ms)',
+          );
+          if (mounted) setState(() {});
+        }
+      } catch (e) {
+        _addLog('Library metadata sync failed: $e');
+      }
+    });
+  }
+
+  Future<void> _fetchOwnedLibrary() async {
+    if (!PlatformUtils.isDesktop ||
+        _db == null ||
+        widget.epicAuthService == null) {
+      return;
+    }
+
+    setState(() {
+      _isFetchingOwnedLibrary = true;
+    });
+
+    try {
+      await widget.epicAuthService!.loadTokens();
+      if (!widget.epicAuthService!.isAuthenticated) {
+        final success = await widget.epicAuthService!.login();
+        if (!success) {
+          _addLog('Epic library fetch cancelled: login required');
+          return;
+        }
+      }
+
+      final libraryService = EpicLibraryService(
+        authService: widget.epicAuthService!,
+      );
+      final library = await libraryService.getLibrary();
+
+      // Filter out Unreal Engine assets (engine versions, marketplace
+      // assets) before we hit the metadata API — they're not games and
+      // make up a large fraction of every Epic account.
+      final games = library
+          .where((item) => item.namespace.toLowerCase() != 'ue')
+          .toList(growable: false);
+      final skipped = library.length - games.length;
+      if (skipped > 0) {
+        _addLog('Skipping $skipped Unreal Engine assets');
+      }
+
+      // One round trip per 100 items instead of one per item.
+      final itemIds = games
+          .map((g) => g.catalogItemId)
+          .where((id) => id.isNotEmpty)
+          .toSet();
+      _addLog('Fetching metadata for ${itemIds.length} items…');
+      final metadataMap = await _apiService.bulkGetItems(itemIds);
+
+      final now = DateTime.now();
+      final entries = <OwnedGameEntry>[];
+      for (final item in games) {
+        final metadata = metadataMap[item.catalogItemId];
+        final keyImages = metadata?.keyImages ?? const [];
+        String? imageOfType(String type) {
+          for (final img in keyImages) {
+            if (img.type == type && img.url.isNotEmpty) return img.url;
+          }
+          return null;
+        }
+
+        entries.add(
+          OwnedGameEntry.fromLibraryItem(
+            item,
+            title: metadata?.title,
+            boxArtUrl: imageOfType('DieselGameBoxTall'),
+            wideImageUrl: imageOfType('DieselGameBox'),
+            developer: metadata?.developer,
+            publisher: metadata?.publisher,
+            syncedAt: now,
+          ),
+        );
+      }
+
+      await _db!.saveOwnedGames(entries);
+      await _loadOwnedGames();
+      _addLog('Fetched ${entries.length} Epic library items');
+    } catch (e) {
+      _addLog('Epic library fetch failed: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isFetchingOwnedLibrary = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _syncOwnedGames(List<OwnedGameEntry> ownedGames) async {
+    final queue = widget.syncQueueService;
+    if (queue == null || ownedGames.isEmpty || queue.isRunning) return;
+    await queue.startSync(
+      items: ownedGames.map((entry) => entry.toLibraryItem()).toList(),
+    );
+    await _loadOwnedGames();
   }
 
   Future<void> _uploadManifest(GameInfo game) async {
@@ -833,17 +1007,42 @@ class _AppShellState extends State<AppShell> {
         return LibraryPage(
           games: _games,
           allGames: _allGames,
+          ownedGames: _ownedGames,
           uploadStatuses: _uploadStatuses,
           uploadingGames: _uploadingGames,
           isLoading: _isLoading,
           isUploadingAll: _isUploadingAll,
+          isFetchingOwnedLibrary: _isFetchingOwnedLibrary,
+          libraryViewMode: _settings.libraryViewMode,
+          settings: _settings,
           followService: _followService!,
           playtimeService: _playtimeService,
           epicAuthService: widget.epicAuthService,
           uploadService: widget.uploadService,
           syncQueueService: widget.syncQueueService,
+          metadataService: _libraryMetadataService,
+          onRefreshMetadata: () async {
+            final service = _libraryMetadataService;
+            if (service == null) return;
+            final ids = <String>{
+              for (final game in _games)
+                if (game.catalogItemId.isNotEmpty) game.catalogItemId,
+              for (final owned in _ownedGames)
+                if (owned.catalogItemId.isNotEmpty) owned.catalogItemId,
+            };
+            final result = await service.refresh(ids);
+            if (result != null) {
+              _addLog(
+                'Library metadata refreshed: ${result.resolved} resolved, '
+                '${result.empty} empty, ${result.errors} errors',
+              );
+              if (mounted) setState(() {});
+            }
+          },
           manifestPath: _scanner?.getManifestsPath() ?? '',
           onScanGames: _scanGames,
+          onFetchOwnedLibrary: _fetchOwnedLibrary,
+          onSyncOwnedGames: _syncOwnedGames,
           onUploadManifest: _uploadManifest,
           onUploadAll: _uploadAll,
           onManifestHealthCheck: _runManifestHealthCheck,
@@ -851,10 +1050,27 @@ class _AppShellState extends State<AppShell> {
           onToggleConsole: () => setState(() => _showConsole = !_showConsole),
           showConsole: _showConsole,
           addLog: _addLog,
-          onNavigateToDashboard: () => setState(() => _currentPage = AppPage.dashboard),
+          onLibraryViewModeChanged: (mode) =>
+              _onSettingsChanged(_settings.copyWith(libraryViewMode: mode)),
+          onLibraryFiltersChanged: _onSettingsChanged,
+          onNavigateToDashboard: () =>
+              setState(() => _currentPage = AppPage.dashboard),
         );
       case AppPage.playtime:
         return PlaytimePage(playtimeService: _playtimeService);
+      case AppPage.cloudSync:
+        if (PlatformUtils.isMobile || widget.syncQueueService == null) {
+          return DashboardPage(
+            playtimeService: _playtimeService,
+            installedGames: _games,
+            db: _db,
+            epicAuthService: widget.epicAuthService,
+          );
+        }
+        return CloudSyncPage(
+          authService: widget.epicAuthService,
+          syncQueueService: widget.syncQueueService!,
+        );
       case AppPage.browse:
         // Mobile only: browse/search games
         return MobileBrowsePage(

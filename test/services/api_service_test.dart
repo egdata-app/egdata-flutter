@@ -120,6 +120,104 @@ void main() {
       );
     });
 
+    test('bulkGetItemOffers uses bulk associated offer endpoint', () async {
+      final mockResponse = {
+        'item-dlc': {
+          'id': 'offer-dlc',
+          'title': 'DLC Pack',
+          'namespace': 'ns1',
+          'description': 'Description',
+          'effectiveDate': '2023-01-01T00:00:00.000Z',
+          'offerType': 'DLC',
+          'keyImages': [],
+          'seller': {'id': 's1', 'name': 'Seller 1'},
+          'productSlug': null,
+          'urlSlug': 'dlc-pack',
+          'items': [
+            {'id': 'item-dlc', 'namespace': 'ns1'},
+          ],
+          'customAttributes': {},
+          'categories': [],
+          'tags': [],
+        },
+        'missing-item': null,
+      };
+
+      final client = MockClient((request) async {
+        expect(request.url.toString(), '$baseUrl/items/bulk/offers');
+        expect(request.method, 'POST');
+        expect(jsonDecode(request.body), {
+          'items': ['item-dlc', 'missing-item'],
+        });
+        return http.Response(jsonEncode(mockResponse), 200);
+      });
+
+      final apiService = ApiService(client: client);
+      final offers = await apiService.bulkGetItemOffers([
+        'item-dlc',
+        'missing-item',
+      ]);
+
+      expect(offers['item-dlc']?.offerType, 'DLC');
+      expect(offers['missing-item'], isNull);
+    });
+
+    test('bulkGetItemOffers disables unsupported bulk endpoint', () async {
+      final requestedUrls = <String>[];
+      final loggedErrors = <String>[];
+
+      final client = MockClient((request) async {
+        requestedUrls.add(request.url.toString());
+        if (request.url.path == '/items/bulk/offers') {
+          return http.Response('Not Found', 404);
+        }
+        if (request.url.path == '/items/item-base/offer') {
+          return http.Response(
+            jsonEncode({
+              'id': 'offer-base',
+              'title': 'Base Game',
+              'namespace': 'ns1',
+              'description': 'Description',
+              'effectiveDate': '2023-01-01T00:00:00.000Z',
+              'offerType': 'BASE_GAME',
+              'keyImages': [],
+              'seller': {'id': 's1', 'name': 'Seller 1'},
+              'productSlug': null,
+              'urlSlug': 'base-game',
+              'items': [
+                {'id': 'item-base', 'namespace': 'ns1'},
+              ],
+              'customAttributes': {},
+              'categories': [],
+              'tags': [],
+            }),
+            200,
+          );
+        }
+        return http.Response('Not Found', 404);
+      });
+
+      final apiService = ApiService(client: client);
+      final first = await apiService.bulkGetItemOffers(
+        ['item-base'],
+        onError: (id, error) => loggedErrors.add('$id: $error'),
+      );
+      final second = await apiService.bulkGetItemOffers(
+        ['item-base'],
+        onError: (id, error) => loggedErrors.add('$id: $error'),
+      );
+
+      expect(first['item-base']?.offerType, 'BASE_GAME');
+      expect(second['item-base']?.offerType, 'BASE_GAME');
+      expect(loggedErrors, isEmpty);
+      expect(
+        requestedUrls
+            .where((url) => url == '$baseUrl/items/bulk/offers')
+            .length,
+        1,
+      );
+    });
+
     test('getOfferPrice returns TotalPrice on 200', () async {
       final mockResponse = {
         'price': {

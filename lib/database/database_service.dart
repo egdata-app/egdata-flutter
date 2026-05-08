@@ -13,6 +13,10 @@ import 'collections/game_process_cache_entry.dart';
 import 'collections/push_subscription_entry.dart';
 import 'collections/chat_message_entry.dart';
 import 'collections/chat_session_entry.dart';
+import 'collections/owned_game_entry.dart';
+import 'collections/custom_category.dart';
+import 'collections/library_metadata_entry.dart';
+import '../models/upload_status.dart';
 
 export 'collections/free_game_entry.dart';
 export 'collections/followed_game_entry.dart';
@@ -22,6 +26,9 @@ export 'collections/game_process_cache_entry.dart';
 export 'collections/push_subscription_entry.dart';
 export 'collections/chat_message_entry.dart';
 export 'collections/chat_session_entry.dart';
+export 'collections/owned_game_entry.dart';
+export 'collections/custom_category.dart';
+export 'collections/library_metadata_entry.dart';
 
 class DatabaseService {
   static DatabaseService? _instance;
@@ -52,6 +59,9 @@ class DatabaseService {
         PushSubscriptionEntrySchema,
         ChatMessageEntrySchema,
         ChatSessionEntrySchema,
+        OwnedGameEntrySchema,
+        CustomCategorySchema,
+        LibraryMetadataEntrySchema,
       ],
       directory: dir.path,
       name: 'egdata',
@@ -351,6 +361,117 @@ class DatabaseService {
 
   Future<void> clearProcessCache() async {
     await _isar.writeTxn(() => _isar.gameProcessCacheEntrys.clear());
+  }
+
+  // Custom Category operations
+  Future<List<CustomCategory>> getCustomCategories() async {
+    return _isar.customCategorys.where().findAll();
+  }
+
+  Future<void> saveCustomCategory(CustomCategory category) async {
+    await _isar.writeTxn(() => _isar.customCategorys.put(category));
+  }
+
+  Future<void> deleteCustomCategory(int id) async {
+    await _isar.writeTxn(() => _isar.customCategorys.delete(id));
+  }
+
+  Future<void> addGameToCategory(int categoryId, String gameIdentityKey) async {
+    await _isar.writeTxn(() async {
+      final category = await _isar.customCategorys.get(categoryId);
+      if (category != null) {
+        category.gameIdentityKeys = List.from(category.gameIdentityKeys)
+          ..add(gameIdentityKey);
+        await _isar.customCategorys.put(category);
+      }
+    });
+  }
+
+  Future<void> removeGameFromCategory(int categoryId, String gameIdentityKey) async {
+    await _isar.writeTxn(() async {
+      final category = await _isar.customCategorys.get(categoryId);
+      if (category != null) {
+        category.gameIdentityKeys = List.from(category.gameIdentityKeys)
+          ..remove(gameIdentityKey);
+        await _isar.customCategorys.put(category);
+      }
+    });
+  }
+
+  // Owned Epic Library operations
+  Future<List<OwnedGameEntry>> getAllOwnedGames() async {
+    return _isar.ownedGameEntrys.where().sortByTitle().findAll();
+  }
+
+  Future<OwnedGameEntry?> getOwnedGameByIdentityKey(String identityKey) async {
+    return _isar.ownedGameEntrys
+        .filter()
+        .identityKeyEqualTo(identityKey)
+        .findFirst();
+  }
+
+  Future<void> saveOwnedGame(OwnedGameEntry entry) async {
+    await _isar.writeTxn(() => _isar.ownedGameEntrys.put(entry));
+  }
+
+  Future<void> saveOwnedGames(List<OwnedGameEntry> entries) async {
+    if (entries.isEmpty) return;
+    await _isar.writeTxn(() => _isar.ownedGameEntrys.putAll(entries));
+  }
+
+  Future<void> clearOwnedGames() async {
+    await _isar.writeTxn(() => _isar.ownedGameEntrys.clear());
+  }
+
+  Future<void> updateOwnedGameUploadStatus(
+    String identityKey,
+    UploadStatus status,
+  ) async {
+    await _isar.writeTxn(() async {
+      final entry = await _isar.ownedGameEntrys
+          .filter()
+          .identityKeyEqualTo(identityKey)
+          .findFirst();
+      if (entry == null) return;
+      entry.lastCloudSyncAt = DateTime.now();
+      entry.lastUploadStatus = status.status.name;
+      entry.lastUploadMessage = status.message;
+      entry.manifestHash = status.manifestHash;
+      await _isar.ownedGameEntrys.put(entry);
+    });
+  }
+
+  // Library Metadata operations
+  Future<List<LibraryMetadataEntry>> getAllLibraryMetadata() async {
+    return _isar.libraryMetadataEntrys.where().findAll();
+  }
+
+  Future<LibraryMetadataEntry?> getLibraryMetadata(String catalogItemId) async {
+    if (catalogItemId.isEmpty) return null;
+    return _isar.libraryMetadataEntrys
+        .filter()
+        .catalogItemIdEqualTo(catalogItemId)
+        .findFirst();
+  }
+
+  Future<Map<String, LibraryMetadataEntry>> getLibraryMetadataMap() async {
+    final entries = await getAllLibraryMetadata();
+    return {for (final e in entries) e.catalogItemId: e};
+  }
+
+  Future<void> saveLibraryMetadata(LibraryMetadataEntry entry) async {
+    await _isar.writeTxn(() => _isar.libraryMetadataEntrys.put(entry));
+  }
+
+  Future<void> saveLibraryMetadataBatch(
+    List<LibraryMetadataEntry> entries,
+  ) async {
+    if (entries.isEmpty) return;
+    await _isar.writeTxn(() => _isar.libraryMetadataEntrys.putAll(entries));
+  }
+
+  Future<void> clearLibraryMetadata() async {
+    await _isar.writeTxn(() => _isar.libraryMetadataEntrys.clear());
   }
 
   // Push Subscription operations
