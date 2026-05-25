@@ -42,9 +42,15 @@ jobs:
       - name: Update version (if provided)
         if: ${{ github.event.inputs.version != '' }}
         run: |
+          $version = "$env:VERSION_INPUT"
+          if ($version -notmatch '^\d+\.\d+\.\d+\.\d+$') {
+            throw "Invalid version format: $version. Expected x.x.x.x"
+          }
           $content = Get-Content pubspec.yaml -Raw
-          $content = $content -replace 'msix_version: \d+\.\d+\.\d+\.\d+', "msix_version: ${{ github.event.inputs.version }}"
+          $content = $content -replace 'msix_version: \d+\.\d+\.\d+\.\d+', "msix_version: $version"
           Set-Content pubspec.yaml $content
+        env:
+          VERSION_INPUT: ${{ github.event.inputs.version }}
 
       - name: Create MSIX package
         run: dart run msix:create --store
