@@ -33,6 +33,7 @@ test.beforeAll(async () => {
       predicate: (candidate) => !candidate.url().startsWith('devtools://'),
     }))
   await page.waitForLoadState('domcontentloaded')
+  await page.setViewportSize({ width: 1280, height: 720 })
 })
 
 test.afterAll(async () => {
