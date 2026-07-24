@@ -73,6 +73,9 @@ describe('macOS packaging migration', () => {
 
     expect(builderConfig).toContain('  appId: com.example.egdataFlutter')
     expect(builderConfig).toContain('  executableName: egdata_flutter')
+    expect(builderConfig).toContain(
+      "  x64ArchFiles: 'Contents/Resources/app.asar.unpacked/node_modules/@egdata/manifests-parser-darwin-*/**'",
+    )
     expect(builderConfig).toContain('        - universal')
     expect(builderConfig).toContain('    CFBundleDisplayName: egdata.app')
   })

@@ -50,6 +50,7 @@ mac:
   executableName: egdata_flutter
   icon: resources/icon.png
   category: public.app-category.utilities
+  x64ArchFiles: 'Contents/Resources/app.asar.unpacked/node_modules/@egdata/manifests-parser-darwin-*/**'
   target:
     - target: dmg
       arch:
