@@ -190,13 +190,13 @@ class _EpicSyncDialogState extends State<EpicSyncDialog> {
             Row(
               children: [
                 const Icon(
-                  Icons.cloud_sync,
+                  Icons.health_and_safety_rounded,
                   color: AppColors.primary,
                   size: 32,
                 ),
                 const SizedBox(width: 16),
                 const Text(
-                  'Epic Cloud Sync',
+                  'Epic Sync Center',
                   style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 24,
@@ -218,7 +218,7 @@ class _EpicSyncDialogState extends State<EpicSyncDialog> {
               )
             else
               const Text(
-                'Sync your Epic Games library manifests directly to egdata.app without installing the games.',
+                'Validate your Epic library data and upload manifests in the background without installing every game.',
                 style: TextStyle(color: AppColors.textSecondary),
               ),
             const SizedBox(height: 24),
@@ -243,7 +243,7 @@ class _EpicSyncDialogState extends State<EpicSyncDialog> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'You need to log in with Epic Games to use Cloud Sync.',
+                      'You need to log in with Epic Games to run library sync.',
                       style: TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 14,
@@ -262,7 +262,7 @@ class _EpicSyncDialogState extends State<EpicSyncDialog> {
                             vertical: 16,
                           ),
                         ),
-                        child: const Text('Go to Dashboard to Login'),
+                        child: const Text('Go to Home to Login'),
                       )
                     else
                       ElevatedButton(
@@ -362,7 +362,7 @@ class _EpicSyncDialogState extends State<EpicSyncDialog> {
                     queue.startSync();
                   },
                   icon: const Icon(Icons.sync),
-                  label: const Text('Start Full Cloud Sync'),
+                  label: const Text('Start Library Sync'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.black,
@@ -380,7 +380,7 @@ class _EpicSyncDialogState extends State<EpicSyncDialog> {
                 ElevatedButton.icon(
                   onPressed: queue.startSync,
                   icon: const Icon(Icons.sync),
-                  label: const Text('Start Full Cloud Sync'),
+                  label: const Text('Start Library Sync'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.black,
@@ -397,7 +397,7 @@ class _EpicSyncDialogState extends State<EpicSyncDialog> {
               ],
               const SizedBox(height: 16),
               const Text(
-                'Sync Logs',
+                'Sync Center Logs',
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontWeight: FontWeight.bold,

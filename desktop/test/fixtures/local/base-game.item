@@ -1,0 +1,14 @@
+{
+  "DisplayName": "Fixture Game",
+  "InstallationGuid": "base-guid",
+  "InstallLocation": "__INSTALL_LOCATION__",
+  "CatalogNamespace": "namespace",
+  "CatalogItemId": "base-id",
+  "AppName": "base-app",
+  "LaunchExecutable": "game.exe",
+  "InstallSize": 1000,
+  "MainGameCatalogNamespace": "namespace",
+  "MainGameCatalogItemId": "base-id",
+  "MainGameAppName": "base-app",
+  "AppCategories": ["games"]
+}

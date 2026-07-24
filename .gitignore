@@ -55,3 +55,12 @@ key.properties
 ue_images
 generated_icons
 nul
+
+# Electron desktop build and test output
+/desktop/node_modules/
+/desktop/out/
+/desktop/dist/
+/desktop/coverage/
+/desktop/test-results/
+/desktop/playwright-report/
+/desktop/native/egstore-scanner/target/

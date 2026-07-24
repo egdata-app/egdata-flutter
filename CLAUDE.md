@@ -4,10 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-EGData Client - A cross-platform Flutter application for Epic Games data. The app has different capabilities depending on the platform:
+egdata.app is a cross-platform Flutter application for Epic Games data. The app has different capabilities depending on the platform:
+
+## Product Branding
+
+- The product display name is exactly `egdata.app`.
+- Use `egdata.app` in all user-facing copy, accessibility labels, window titles, notifications, documentation, and newly written prose.
+- Do not use `EGData`, `EGDATA`, `EGData Client`, or title-cased variants as the product name.
+- Preserve technical identifiers such as package names, bundle IDs, API hosts, repository names, storage keys, and legacy artifact names when changing them would break compatibility.
 
 ### Desktop (Windows, macOS) - Full Featured
-- Scans Epic Games installations and uploads manifest data to EGData for preservation
+- Scans Epic Games installations and uploads manifest data to egdata.app for preservation
 - Tracks playtime for installed games via process detection
 - Background sync for free game notifications and followed game updates
 - System tray integration with minimize-to-tray
@@ -90,7 +97,7 @@ The app uses a custom Flutter title bar instead of the native Windows title bar 
 - **referenced_offer.dart** - Game offers referenced by AI in chat responses
 
 ### API Models (`lib/models/api/`)
-Typed models for EGData API responses. All `fromJson` methods are null-safe with sensible defaults.
+Typed models for egdata.app API responses. All `fromJson` methods are null-safe with sensible defaults.
 - **offer.dart** - Game offers with pricing, images, tags (KeyImage, Seller, Tag, TotalPrice, etc.)
 - **free_game.dart** - Free game promotions with giveaway dates
 - **item.dart** - Item metadata with customAttributes (handles both Map and List formats)
@@ -100,7 +107,7 @@ Typed models for EGData API responses. All `fromJson` methods are null-safe with
 ### Services (`lib/services/`)
 
 **Shared (All Platforms):**
-- **api_service.dart** - Centralized API client for all EGData endpoints (search, offers, items, free games, push notifications)
+- **api_service.dart** - Centralized API client for all egdata.app endpoints (search, offers, items, free games, push notifications)
 - **follow_service.dart** - Manages followed games (persisted in Isar database)
 - **sync_service.dart** - Background sync for free games, followed game prices, and changelogs
 
@@ -108,7 +115,7 @@ Typed models for EGData API responses. All `fromJson` methods are null-safe with
 - **manifest_scanner.dart** - Scans Epic Games manifest directory for .item files
   - Windows: `C:\ProgramData\Epic\EpicGamesLauncher\Data\Manifests`
   - macOS: `~/Library/Application Support/Epic/EpicGamesLauncher/Data/Manifests`
-- **upload_service.dart** - Uploads manifests to EGData API
+- **upload_service.dart** - Uploads manifests to the egdata.app API
 - **playtime_service.dart** - Tracks game playtime via process detection, stores sessions in database
   - Windows: Uses `wmic` to detect processes running from game's `InstallLocation` directory
   - macOS: Falls back to process name matching via `pgrep`
@@ -118,7 +125,7 @@ Typed models for EGData API responses. All `fromJson` methods are null-safe with
 - **metadata_service.dart** - Fetches game metadata (images, descriptions) from items API
 
 **Mobile Only:**
-- **push_service.dart** - Push notification subscription management via EGData API
+- **push_service.dart** - Push notification subscription management via the egdata.app API
 - **chat_websocket_service.dart** - WebSocket client for real-time AI chat streaming
 - **chat_session_service.dart** - Session management (create, list, delete, rename chats)
 - **ai_chat_service.dart** - HTTP fallback for chat API (when WebSocket unavailable)
@@ -280,7 +287,7 @@ useEffect(() {
 - No manual state management (`setState`, `initState`, `dispose`)
 - Query invalidation triggers automatic refetches
 
-## EGData API
+## egdata.app API
 
 Base URL: `https://api.egdata.app`
 
@@ -331,7 +338,7 @@ The app uses an Unreal Engine-inspired dark theme:
 
 ## AI Chat Feature (Mobile)
 
-The mobile app includes an AI chat assistant powered by the EGData AI service at `ai.egdata.app`. Users can ask questions about games, get recommendations, and view pricing information.
+The mobile app includes an AI chat assistant powered by the egdata.app AI service at `ai.egdata.app`. Users can ask questions about games, get recommendations, and view pricing information.
 
 ### Architecture
 

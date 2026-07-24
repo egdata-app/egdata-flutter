@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:isar_community/isar.dart';
 import 'package:path_provider/path_provider.dart';
@@ -16,6 +17,13 @@ import 'collections/chat_session_entry.dart';
 import 'collections/owned_game_entry.dart';
 import 'collections/custom_category.dart';
 import 'collections/library_metadata_entry.dart';
+import 'collections/installed_game_entry.dart';
+import 'collections/library_progress_entry.dart';
+import 'collections/library_sync_state_entry.dart';
+import 'collections/activity_event_entry.dart';
+import '../models/epic_progress.dart';
+import '../models/game_info.dart';
+import '../models/drive_discovery.dart';
 import '../models/upload_status.dart';
 
 export 'collections/free_game_entry.dart';
@@ -29,6 +37,10 @@ export 'collections/chat_session_entry.dart';
 export 'collections/owned_game_entry.dart';
 export 'collections/custom_category.dart';
 export 'collections/library_metadata_entry.dart';
+export 'collections/installed_game_entry.dart';
+export 'collections/library_progress_entry.dart';
+export 'collections/library_sync_state_entry.dart';
+export 'collections/activity_event_entry.dart';
 
 class DatabaseService {
   static DatabaseService? _instance;
@@ -62,6 +74,10 @@ class DatabaseService {
         OwnedGameEntrySchema,
         CustomCategorySchema,
         LibraryMetadataEntrySchema,
+        InstalledGameEntrySchema,
+        LibraryProgressEntrySchema,
+        LibrarySyncStateEntrySchema,
+        ActivityEventEntrySchema,
       ],
       directory: dir.path,
       name: 'egdata',
@@ -387,7 +403,10 @@ class DatabaseService {
     });
   }
 
-  Future<void> removeGameFromCategory(int categoryId, String gameIdentityKey) async {
+  Future<void> removeGameFromCategory(
+    int categoryId,
+    String gameIdentityKey,
+  ) async {
     await _isar.writeTxn(() async {
       final category = await _isar.customCategorys.get(categoryId);
       if (category != null) {
@@ -472,6 +491,110 @@ class DatabaseService {
 
   Future<void> clearLibraryMetadata() async {
     await _isar.writeTxn(() => _isar.libraryMetadataEntrys.clear());
+  }
+
+  // Installed Desktop Library operations
+  Future<List<InstalledGameEntry>> getAllInstalledGameEntries() async {
+    return _isar.installedGameEntrys.where().sortByDisplayName().findAll();
+  }
+
+  Future<List<GameInfo>> getAllInstalledGames() async {
+    final entries = await getAllInstalledGameEntries();
+    return entries.map((entry) => entry.gameInfo).toList(growable: false);
+  }
+
+  Future<void> replaceInstalledGames(List<GameInfo> games) async {
+    final now = DateTime.now();
+    final existingEntries = await getAllInstalledGameEntries();
+    final existingByGuid = {
+      for (final entry in existingEntries) entry.installationGuid: entry,
+    };
+    final seenGuids = games.map((game) => game.installationGuid).toSet();
+    final entries = <InstalledGameEntry>[];
+
+    for (final game in games) {
+      final existing = existingByGuid[game.installationGuid];
+      if (existing == null) {
+        entries.add(InstalledGameEntry.fromGameInfo(game, scannedAt: now));
+      } else {
+        existing.updateFromGameInfo(game, now);
+        entries.add(existing);
+      }
+    }
+
+    for (final existing in existingEntries) {
+      if (seenGuids.contains(existing.installationGuid)) continue;
+      final root = existing.installLocation.length >= 3
+          ? existing.installLocation.substring(0, 3)
+          : existing.installLocation;
+      final drivePresent = root.isNotEmpty && await Directory(root).exists();
+      final installPresent = await Directory(existing.installLocation).exists();
+      existing.availability = !drivePresent
+          ? InstalledGameAvailability.driveMissing
+          : installPresent
+          ? InstalledGameAvailability.launcherUnregistered
+          : InstalledGameAvailability.unknown;
+      existing.scannedAt = now;
+      entries.add(existing);
+    }
+
+    await _isar.writeTxn(() async {
+      if (entries.isNotEmpty) {
+        await _isar.installedGameEntrys.putAll(entries);
+      }
+    });
+  }
+
+  Future<void> saveInstalledGameEntries(
+    List<InstalledGameEntry> entries,
+  ) async {
+    if (entries.isEmpty) return;
+    await _isar.writeTxn(() => _isar.installedGameEntrys.putAll(entries));
+  }
+
+  Future<List<ActivityEventEntry>> getRecentActivityEvents({int limit = 20}) {
+    return _isar.activityEventEntrys
+        .where()
+        .sortByOccurredAtDesc()
+        .limit(limit)
+        .findAll();
+  }
+
+  Future<void> addActivityEvent(ActivityEventEntry entry) async {
+    await _isar.writeTxn(() => _isar.activityEventEntrys.put(entry));
+  }
+
+  // Official Epic progress cache operations
+  Future<Map<String, EpicGameProgress>> getLibraryProgressMap() async {
+    final entries = await _isar.libraryProgressEntrys.where().findAll();
+    return {for (final entry in entries) entry.catalogItemId: entry.progress};
+  }
+
+  Future<void> saveLibraryProgressBatch(
+    Iterable<EpicGameProgress> progress,
+  ) async {
+    final entries = progress
+        .map(LibraryProgressEntry.fromProgress)
+        .toList(growable: false);
+    if (entries.isEmpty) return;
+    await _isar.writeTxn(() => _isar.libraryProgressEntrys.putAll(entries));
+  }
+
+  Future<void> clearLibraryProgress() async {
+    await _isar.writeTxn(() => _isar.libraryProgressEntrys.clear());
+  }
+
+  Future<EpicProgressProofResult?> getOfficialProgressProof() async {
+    final entry = await _isar.librarySyncStateEntrys
+        .filter()
+        .keyEqualTo('official_progress')
+        .findFirst();
+    return entry?.progressProof;
+  }
+
+  Future<void> saveOfficialProgressProof(EpicProgressProofResult proof) async {
+    final entry = LibrarySyncStateEntry.fromProgressProof(proof);
+    await _isar.writeTxn(() => _isar.librarySyncStateEntrys.put(entry));
   }
 
   // Push Subscription operations

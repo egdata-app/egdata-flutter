@@ -1,5 +1,6 @@
 import 'package:egdata_flutter/database/collections/owned_game_entry.dart';
 import 'package:egdata_flutter/models/epic_library_item.dart';
+import 'package:egdata_flutter/models/epic_progress.dart';
 import 'package:egdata_flutter/models/game_info.dart';
 import 'package:egdata_flutter/models/library_game.dart';
 import 'package:egdata_flutter/models/upload_status.dart';
@@ -140,6 +141,31 @@ void main() {
 
       expect(games.single.statusLabel, 'Uploaded');
       expect(games.single.uploadStatus?.status, UploadStatusType.uploaded);
+    });
+
+    test('attaches official progress enrichment by catalog item id', () {
+      final installed = createInstalledGame(
+        displayName: 'Progress Title',
+        catalogItemId: 'catalog-1',
+        appName: 'AppName',
+        installationGuid: 'local-guid',
+      );
+      const progress = EpicGameProgress(
+        catalogItemId: 'catalog-1',
+        officialPlaytime: Duration(hours: 12),
+        unlockedAchievements: 4,
+        totalAchievements: 10,
+      );
+
+      final games = LibraryGame.merge(
+        installedGames: [installed],
+        ownedGames: const [],
+        progressByCatalogItemId: const {'catalog-1': progress},
+      );
+
+      expect(games.single.progress, progress);
+      expect(games.single.progress?.hasOfficialPlaytime, isTrue);
+      expect(games.single.progress?.hasAchievementProgress, isTrue);
     });
   });
 }

@@ -165,7 +165,7 @@ Future<void> _initDesktop(List<String> args) async {
     backgroundColor: Colors.transparent,
     skipTaskbar: false,
     titleBarStyle: TitleBarStyle.hidden,
-    title: 'EGData Client',
+    title: 'EGData Library Companion',
   );
 
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
@@ -175,7 +175,7 @@ Future<void> _initDesktop(List<String> args) async {
 
   if (PlatformUtils.isWindows) {
     launchAtStartup.setup(
-      appName: 'EGData Client',
+      appName: 'EGData Library Companion',
       appPath: Platform.resolvedExecutable,
     );
   }
@@ -412,7 +412,7 @@ class _EGDataAppState extends State<EGDataApp> {
       client: _queryClient,
       child: MaterialApp(
         navigatorKey: navigatorKey,
-        title: 'EGData Client',
+        title: 'EGData Library Companion',
         debugShowCheckedModeBanner: false,
         themeMode: ThemeMode.dark,
         navigatorObservers: [

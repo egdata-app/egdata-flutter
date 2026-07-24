@@ -4,12 +4,12 @@ import 'package:fluquery/fluquery.dart';
 import '../main.dart';
 import '../database/database_service.dart';
 import '../models/settings.dart';
-import '../services/api_service.dart';
 import '../services/chat_session_service.dart';
 import '../services/follow_service.dart';
 import '../services/playtime_service.dart';
 import '../services/push_service.dart';
 import '../services/sync_service.dart';
+import '../utils/platform_utils.dart';
 import '../widgets/free_game_card.dart';
 import 'mobile_offer_detail_page.dart';
 
@@ -33,43 +33,24 @@ class FreeGamesPage extends HookWidget {
     this.settings,
   });
 
-  Future<List<FreeGameEntry>> _fetchFreeGames() async {
-    final apiService = ApiService();
-    final allGames = await apiService.getFreeGames();
+  Future<List<FreeGameEntry>> _loadLocalFreeGames() async {
+    final games = await db.getAllFreeGames();
+    games.sort((a, b) {
+      final aActive = a.isActive ? 0 : 1;
+      final bActive = b.isActive ? 0 : 1;
+      if (aActive != bActive) return aActive.compareTo(bActive);
+      final aDate = a.startDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bDate = b.startDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bDate.compareTo(aDate);
+    });
+    return games;
+  }
 
-    // Convert FreeGame API models to FreeGameEntry for the card widget
-    return allGames.map((game) {
-      // Find thumbnail from key images
-      String? thumbnail;
-      for (final type in [
-        'OfferImageWide',
-        'DieselStoreFrontWide',
-        'DieselGameBoxTall',
-      ]) {
-        final image = game.keyImages
-            .where((img) => img.type == type)
-            .firstOrNull;
-        if (image != null) {
-          thumbnail = image.url;
-          break;
-        }
-      }
-      if (thumbnail == null && game.keyImages.isNotEmpty) {
-        thumbnail = game.keyImages.first.url;
-      }
-
-      return FreeGameEntry()
-        ..offerId = game.id
-        ..title = game.title
-        ..namespace = game.namespace
-        ..thumbnailUrl = thumbnail
-        ..startDate = game.giveaway?.startDate
-        ..endDate = game.giveaway?.endDate
-        ..platforms =
-            ['epic'] // Default to Epic platform
-        ..syncedAt = DateTime.now()
-        ..notifiedNewGame = false;
-    }).toList();
+  Future<void> _syncFreeGames() async {
+    await syncService.performSync(
+      settings ?? AppSettings(),
+      skipLocalNotifications: PlatformUtils.isMobile,
+    );
   }
 
   void _navigateToOffer(BuildContext context, FreeGameEntry game) {
@@ -92,12 +73,21 @@ class FreeGamesPage extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Query for free games with 1-minute stale time and automatic refetch
+    final dbVersion = useState(0);
+
+    useEffect(() {
+      final sub = db.isar.freeGameEntrys.watchLazy().listen((_) {
+        dbVersion.value++;
+      });
+      return sub.cancel;
+    }, [db]);
+
+    // Local-first query: startup/background sync writes Isar; this page reads
+    // the local DB and only asks the sync service to refresh on user action.
     final freeGamesQuery = useQuery<List<FreeGameEntry>, Object>(
-      queryKey: ['free-games-page'],
-      queryFn: (_) => _fetchFreeGames(),
-      staleTime: StaleTime(const Duration(minutes: 1)),
-      refetchInterval: const Duration(minutes: 1),
+      queryKey: ['free-games-page-local', dbVersion.value],
+      queryFn: (_) => _loadLocalFreeGames(),
+      staleTime: StaleTime(const Duration(hours: 24)),
     );
 
     // Extract active and upcoming games
@@ -113,6 +103,7 @@ class FreeGamesPage extends HookWidget {
 
     return RefreshIndicator(
       onRefresh: () async {
+        await _syncFreeGames();
         await freeGamesQuery.refetch();
       },
       color: AppColors.primary,

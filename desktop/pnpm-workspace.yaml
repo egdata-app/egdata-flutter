@@ -1,0 +1,14 @@
+allowBuilds:
+  electron: true
+  electron-winstaller: true
+  esbuild: true
+supportedArchitectures:
+  os:
+    - current
+    - win32
+  cpu:
+    - current
+    - x64
+    - arm64
+overrides:
+  'electron-vite@5.0.0>vite': 8.1.5

@@ -1,8 +1,15 @@
-# EGData Flutter Project
+# egdata.app Flutter Project
 
 ## Project Overview
 
-`egdata_flutter` is a cross-platform Flutter application serving as the client for EGData (Epic Games data). It allows users to browse offers, view game details, and potentially upload manifests. The application targets Android, iOS, Windows, Linux, and macOS.
+`egdata_flutter` is a cross-platform Flutter application serving as the client for egdata.app (Epic Games data). It allows users to browse offers, view game details, and potentially upload manifests. The application targets Android, iOS, Windows, Linux, and macOS.
+
+## Product Branding
+
+- The product display name is exactly `egdata.app`.
+- Use `egdata.app` in all user-facing copy, accessibility labels, window titles, notifications, documentation, and newly written prose.
+- Do not use `EGData`, `EGDATA`, `EGData Client`, or title-cased variants as the product name.
+- Preserve technical identifiers such as package names, bundle IDs, API hosts, repository names, storage keys, and legacy artifact names when changing them would break compatibility.
 
 **Key Technologies:**
 *   **Framework:** Flutter (SDK ^3.10.4)

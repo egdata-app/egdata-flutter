@@ -1,0 +1,66 @@
+appId: app.egdata.desktop
+productName: egdata.app
+asar: true
+asarUnpack:
+  - '**/*.node'
+directories:
+  buildResources: resources
+  output: dist
+files:
+  - out/**
+extraResources:
+  - from: resources/native
+    to: native
+    filter:
+      - '**/egdata-native-scanner-v2.node'
+  - from: resources/fonts
+    to: fonts
+    filter:
+      - '**/*'
+  - from: resources/icon.png
+    to: icon.png
+  - from: resources/icon.ico
+    to: icon.ico
+win:
+  icon: resources/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+        - arm64
+    - target: appx
+      arch:
+        - x64
+        - arm64
+  artifactName: egdata-app-${version}-setup.${ext}
+nsis:
+  oneClick: false
+  perMachine: true
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+appx:
+  identityName: IgnacioAldamaVicente.egdata.app
+  applicationId: egdataflutter
+  publisher: CN=D9F4560B-64F8-46C1-AB63-C46F5454F331
+  publisherDisplayName: Ignacio Aldama Vicente
+  displayName: egdata.app
+  backgroundColor: '#121212'
+mac:
+  appId: com.example.egdataFlutter
+  executableName: egdata_flutter
+  icon: resources/icon.png
+  category: public.app-category.utilities
+  target:
+    - target: dmg
+      arch:
+        - universal
+    - target: zip
+      arch:
+        - universal
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  extendInfo:
+    CFBundleDisplayName: egdata.app
+    CFBundleName: egdata.app
+dmg:
+  artifactName: egdata-app-${version}-macos.${ext}

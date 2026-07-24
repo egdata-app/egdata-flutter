@@ -1,7 +1,7 @@
 name: egdata_flutter
-description: "EGData Client - Epic Games manifest uploader"
+description: "EGData Client - Epic Games library companion"
 publish_to: "none"
-version: 1.2.0
+version: 1.2.0+10
 environment:
   sdk: ^3.10.4
 

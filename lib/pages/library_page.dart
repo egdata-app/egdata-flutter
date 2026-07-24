@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../main.dart';
 import '../models/followed_game.dart';
-import '../models/daily_playtime_bucket.dart';
 import '../models/game_info.dart';
+import '../models/epic_progress.dart';
 import '../models/library_game.dart';
 import '../models/settings.dart';
 import '../database/database_service.dart';
@@ -14,9 +14,8 @@ import '../models/upload_status.dart';
 import '../services/follow_service.dart';
 import '../services/library_metadata_service.dart';
 import '../services/playtime_service.dart';
-import '../widgets/playtime_completion_card.dart';
-import '../services/api_service.dart';
 import '../services/epic_auth_service.dart';
+import '../services/epic_progress_service.dart';
 import '../services/upload_service.dart';
 import '../services/sync_queue_service.dart';
 import '../widgets/follow_button.dart';
@@ -40,9 +39,14 @@ class LibraryPage extends StatefulWidget {
   final FollowService followService;
   final PlaytimeService? playtimeService;
   final EpicAuthService? epicAuthService;
+  final EpicProgressService? epicProgressService;
   final UploadService? uploadService;
   final SyncQueueService? syncQueueService;
   final LibraryMetadataService? metadataService;
+  final Map<String, EpicGameProgress> progressByCatalogItemId;
+  final EpicProgressProofResult? progressProof;
+  final Future<void> Function({bool forceRefresh})? onRefreshOfficialProgress;
+  final ValueChanged<LibraryGame>? onOpenGameDetail;
   final Future<void> Function()? onRefreshMetadata;
   final String manifestPath;
   final Future<void> Function() onScanGames;
@@ -74,9 +78,14 @@ class LibraryPage extends StatefulWidget {
     required this.followService,
     this.playtimeService,
     this.epicAuthService,
+    this.epicProgressService,
     this.uploadService,
     this.syncQueueService,
     this.metadataService,
+    this.progressByCatalogItemId = const {},
+    this.progressProof,
+    this.onRefreshOfficialProgress,
+    this.onOpenGameDetail,
     this.onRefreshMetadata,
     required this.manifestPath,
     required this.onScanGames,
@@ -107,6 +116,7 @@ class _LibraryPageState extends State<LibraryPage> {
   String? _selectedTag;
   bool _onlyOnSale = false;
   bool _onlyFree = false;
+  bool _showFilters = false;
   CustomCategory? _selectedCategory;
   bool _categoryRestored = false;
   LibrarySortBy _sortBy = LibrarySortBy.title;
@@ -119,13 +129,6 @@ class _LibraryPageState extends State<LibraryPage> {
   int _queueCompleted = 0;
   int _queueTotal = 0;
   final List<GameInfo> _queueFailed = [];
-  GameInfo? _detailsGame;
-  bool _detailsLoading = false;
-  Duration? _detailsTotalPlaytime;
-  DateTime? _detailsLastPlayedAt;
-  OfferIgdb? _detailsIgdb;
-  OfferHltb? _detailsHltb;
-  List<DailyPlaytimeBucket> _detailsTimeline = const [];
 
   /// Active library entry for the inline store-style detail view.
   /// When non-null, the library page renders [LibraryGameDetailPage] in place
@@ -134,6 +137,9 @@ class _LibraryPageState extends State<LibraryPage> {
 
   /// Cached `catalogItemId → total playtime` for card chips.
   Map<String, Duration> _playtimeByGameId = const {};
+
+  /// Cached `catalogItemId → official Epic progress` from LibraryService.
+  Map<String, EpicGameProgress> _officialProgressByCatalogItemId = const {};
 
   /// True while the unified top-bar refresh is running (scan + fetch + sync).
   bool _isRefreshing = false;
@@ -168,8 +174,14 @@ class _LibraryPageState extends State<LibraryPage> {
       uploadingInstalledIds: widget.uploadingGames,
       syncingOwnedKeys: queue?.syncingIdentityKeys ?? const {},
       metadataByCatalogItemId: widget.metadataService?.cache ?? const {},
+      progressByCatalogItemId: _effectiveProgressByCatalogItemId,
     );
   }
+
+  Map<String, EpicGameProgress> get _effectiveProgressByCatalogItemId =>
+      widget.progressByCatalogItemId.isNotEmpty
+      ? widget.progressByCatalogItemId
+      : _officialProgressByCatalogItemId;
 
   List<LibraryGame> get _filteredLibraryGames {
     final query = _searchQuery.trim().toLowerCase();
@@ -191,8 +203,9 @@ class _LibraryPageState extends State<LibraryPage> {
       if (_onlyFree && !game.isFreeMetadata) return false;
       if (tagFilter != null && !game.tags.contains(tagFilter)) return false;
       if (categoryFilter != null &&
-          !categoryFilter.gameIdentityKeys.contains(game.identityKey))
+          !categoryFilter.gameIdentityKeys.contains(game.identityKey)) {
         return false;
+      }
       if (query.isEmpty) return true;
       return game.title.toLowerCase().contains(query) ||
           game.appName.toLowerCase().contains(query) ||
@@ -273,6 +286,11 @@ class _LibraryPageState extends State<LibraryPage> {
     });
     _searchFocusNode.addListener(_onSearchFocusChanged);
     _loadPlaytime();
+    if (widget.progressByCatalogItemId.isNotEmpty) {
+      _officialProgressByCatalogItemId = widget.progressByCatalogItemId;
+    } else {
+      _loadOfficialProgress();
+    }
   }
 
   void _hydrateFiltersFromSettings() {
@@ -328,6 +346,71 @@ class _LibraryPageState extends State<LibraryPage> {
       });
     } catch (_) {
       // Non-fatal: cards just won't show hours.
+    }
+  }
+
+  Future<void> _loadOfficialProgress({bool forceRefresh = false}) async {
+    if (forceRefresh && widget.onRefreshOfficialProgress != null) {
+      await widget.onRefreshOfficialProgress!(forceRefresh: true);
+      return;
+    }
+    if (!forceRefresh && widget.progressByCatalogItemId.isNotEmpty) {
+      setState(() {
+        _officialProgressByCatalogItemId = widget.progressByCatalogItemId;
+      });
+      return;
+    }
+    if (!forceRefresh && widget.onRefreshOfficialProgress != null) {
+      return;
+    }
+
+    final service = widget.epicProgressService;
+    if (service == null) return;
+
+    final artifactIdByCatalogItemId = <String, String>{};
+    final productIdByCatalogItemId = <String, String>{};
+    for (final game in widget.ownedGames) {
+      final catalogItemId = game.catalogItemId.trim();
+      final appName = game.appName.trim();
+      final productId = game.assetId.trim();
+      if (catalogItemId.isEmpty || appName.isEmpty) {
+        continue;
+      }
+      artifactIdByCatalogItemId[catalogItemId] = appName;
+      if (productId.isNotEmpty &&
+          productId.toLowerCase() != appName.toLowerCase()) {
+        productIdByCatalogItemId[catalogItemId] = productId;
+      }
+    }
+    for (final game in widget.games) {
+      if (game.catalogItemId.trim().isEmpty || game.appName.trim().isEmpty) {
+        continue;
+      }
+      artifactIdByCatalogItemId[game.catalogItemId] = game.appName;
+    }
+
+    if (artifactIdByCatalogItemId.isEmpty) return;
+
+    try {
+      final snapshot = await service.loadProgressSnapshot(
+        artifactIdByCatalogItemId.keys,
+        artifactIdByCatalogItemId: artifactIdByCatalogItemId,
+        productIdByCatalogItemId: productIdByCatalogItemId,
+        achievementProductLimit: 50,
+        forceRefresh: forceRefresh,
+      );
+      if (!mounted) return;
+      setState(() {
+        _officialProgressByCatalogItemId = snapshot.gamesByCatalogItemId;
+      });
+      if (snapshot.proof.isBlocked) {
+        widget.addLog(
+          'Official progress blocked: ${snapshot.proof.title} - '
+          '${snapshot.proof.message}',
+        );
+      }
+    } catch (e) {
+      widget.addLog('Official progress load failed: $e');
     }
   }
 
@@ -389,6 +472,7 @@ class _LibraryPageState extends State<LibraryPage> {
 
       announce('Updating playtime…');
       await _loadPlaytime();
+      await _loadOfficialProgress(forceRefresh: true);
     } finally {
       if (mounted) {
         setState(() {
@@ -569,6 +653,18 @@ class _LibraryPageState extends State<LibraryPage> {
       oldWidget.metadataService?.removeListener(_onMetadataChanged);
       widget.metadataService?.addListener(_onMetadataChanged);
     }
+    if (oldWidget.games != widget.games ||
+        oldWidget.ownedGames != widget.ownedGames ||
+        oldWidget.epicProgressService != widget.epicProgressService ||
+        oldWidget.progressByCatalogItemId != widget.progressByCatalogItemId) {
+      if (widget.progressByCatalogItemId.isNotEmpty) {
+        setState(() {
+          _officialProgressByCatalogItemId = widget.progressByCatalogItemId;
+        });
+        return;
+      }
+      _loadOfficialProgress();
+    }
   }
 
   @override
@@ -637,6 +733,11 @@ class _LibraryPageState extends State<LibraryPage> {
   }
 
   void _openLibraryDetail(LibraryGame game) {
+    final open = widget.onOpenGameDetail;
+    if (open != null) {
+      open(game);
+      return;
+    }
     setState(() => _detailLibraryGame = game);
   }
 
@@ -712,75 +813,6 @@ class _LibraryPageState extends State<LibraryPage> {
       _isQueuePaused = false;
       _queueCancelRequested = false;
     });
-  }
-
-  Future<void> _openDetailsDrawer(GameInfo game) async {
-    setState(() {
-      _detailsGame = game;
-      _detailsLoading = true;
-      _detailsTimeline = const [];
-      _detailsTotalPlaytime = null;
-      _detailsLastPlayedAt = null;
-      _detailsIgdb = null;
-      _detailsHltb = null;
-    });
-
-    final apiService = ApiService();
-    final playtimeService = widget.playtimeService;
-
-    // First, try to get the offer for this item
-    final offer = await apiService
-        .getItemOffer(game.catalogItemId)
-        .catchError((_) => null);
-
-    // Fetch playtime and API data in parallel
-    final results = await Future.wait([
-      if (playtimeService != null)
-        playtimeService.getTotalPlaytime(game.catalogItemId)
-      else
-        Future.value(Duration.zero),
-      if (playtimeService != null)
-        playtimeService.getRecentSessions(limit: 50)
-      else
-        Future.value(<PlaytimeSessionEntry>[]),
-      if (playtimeService != null)
-        playtimeService.getDailyTimeline(game.catalogItemId, days: 14)
-      else
-        Future.value(<DailyPlaytimeBucket>[]),
-      if (offer != null)
-        apiService.getOfferIgdb(offer.id).catchError((_) => null)
-      else
-        Future.value(null),
-      if (offer != null)
-        apiService.getOfferHltb(offer.id).catchError((_) => null)
-      else
-        Future.value(null),
-    ]);
-
-    if (mounted && _detailsGame?.installationGuid == game.installationGuid) {
-      final total = results[0] as Duration;
-      final sessions = results[1] as List<PlaytimeSessionEntry>;
-      final timeline = results[2] as List<DailyPlaytimeBucket>;
-      final igdb = results[3] as OfferIgdb?;
-      final hltb = results[4] as OfferHltb?;
-
-      DateTime? lastPlayedAt;
-      for (final session in sessions) {
-        if (session.gameId == game.catalogItemId) {
-          lastPlayedAt = session.startTime;
-          break;
-        }
-      }
-
-      setState(() {
-        _detailsTotalPlaytime = total;
-        _detailsLastPlayedAt = lastPlayedAt;
-        _detailsTimeline = timeline;
-        _detailsIgdb = igdb;
-        _detailsHltb = hltb;
-        _detailsLoading = false;
-      });
-    }
   }
 
   Future<void> _showManifestHealthDialog() async {
@@ -992,7 +1024,7 @@ class _LibraryPageState extends State<LibraryPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_detailLibraryGame != null) {
+    if (_detailLibraryGame != null && widget.onOpenGameDetail == null) {
       final detailGame = _refreshDetailGame(_detailLibraryGame!);
       // Wrapped in a nested Navigator so sub-routes pushed from the detail
       // page (e.g. the full-screen screenshot carousel) stay inside the
@@ -1004,6 +1036,7 @@ class _LibraryPageState extends State<LibraryPage> {
             game: detailGame,
             followService: widget.followService,
             playtimeService: widget.playtimeService,
+            epicProgressService: widget.epicProgressService,
             onLaunch: _launchGame,
             onInstall: _installGame,
             onMove: _moveGame,
@@ -1040,14 +1073,13 @@ class _LibraryPageState extends State<LibraryPage> {
                       Expanded(
                         child: _buildLibraryContent(filteredLibraryGames),
                       ),
-                      if (_detailsGame != null) _buildDetailsPanel(),
                     ],
                   ),
                 ),
               ],
             ),
           ),
-          _buildFilterPanel(),
+          if (_showFilters) _buildFilterPanel(),
         ],
       ),
     );
@@ -1074,6 +1106,23 @@ class _LibraryPageState extends State<LibraryPage> {
           _buildSortMenu(),
           const SizedBox(width: 12),
           _buildViewToggle(),
+          const SizedBox(width: 12),
+          OutlinedButton.icon(
+            onPressed: () => setState(() => _showFilters = !_showFilters),
+            icon: const Icon(Icons.tune_rounded, size: 17),
+            label: Text(_showFilters ? 'Hide filters' : 'Filters'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _hasActiveFilters()
+                  ? AppColors.primary
+                  : AppColors.textSecondary,
+              side: BorderSide(
+                color: _hasActiveFilters()
+                    ? AppColors.primary
+                    : AppColors.border,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            ),
+          ),
           const SizedBox(width: 12),
           _buildUnifiedRefreshButton(),
         ],
@@ -1436,6 +1485,8 @@ class _LibraryPageState extends State<LibraryPage> {
     );
   }
 
+  // Retained for the compact filter treatment used by narrow layouts.
+  // ignore: unused_element
   Widget _buildQuickFilterChip(
     LibraryFilter filter,
     String label,
@@ -2244,219 +2295,6 @@ class _LibraryPageState extends State<LibraryPage> {
     );
   }
 
-  Widget _buildDetailsPanel() {
-    final game = _detailsGame;
-    if (game == null) {
-      return const SizedBox.shrink();
-    }
-
-    final relatedAddons = _getRelatedAddons(game);
-
-    return Container(
-      width: 360,
-      margin: const EdgeInsets.only(right: 28, bottom: 28),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppColors.radiusMedium),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  game.displayName,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              IconButton(
-                onPressed: () => setState(() => _detailsGame = null),
-                icon: const Icon(Icons.close_rounded),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            game.installLocation,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontFamily: 'JetBrainsMono',
-              fontSize: 11,
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (_detailsLoading)
-            const LinearProgressIndicator(color: AppColors.primary)
-          else ...[
-            _buildDetailRow('Version', game.version),
-            _buildDetailRow('Install size', game.formattedSize),
-            _buildDetailRow('Manifest hash', game.manifestHash ?? 'Unknown'),
-            _buildDetailRow(
-              'Last played',
-              _detailsLastPlayedAt?.toLocal().toString().substring(0, 16) ??
-                  'Never',
-            ),
-            _buildDetailRow(
-              'Total playtime',
-              _formatDuration(_detailsTotalPlaytime ?? Duration.zero),
-            ),
-            const SizedBox(height: 16),
-            PlaytimeCompletionCard(
-              offerId: game.catalogItemId,
-              igdb: _detailsIgdb,
-              hltb: _detailsHltb,
-              playtimeService: widget.playtimeService,
-            ),
-            const SizedBox(height: 16),
-            _buildTimelineChart(),
-            if (relatedAddons.isNotEmpty) ...[
-              const SizedBox(height: 14),
-              const Text(
-                'Add-ons',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              ...relatedAddons
-                  .take(5)
-                  .map(
-                    (addon) => Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.extension_rounded,
-                            size: 14,
-                            color: AppColors.primary,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              addon.displayName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-            ],
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 96,
-            child: Text(
-              label,
-              style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 12,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimelineChart() {
-    if (_detailsTimeline.isEmpty) {
-      return const Text(
-        'No timeline data yet',
-        style: TextStyle(color: AppColors.textMuted, fontSize: 12),
-      );
-    }
-
-    final maxSeconds = _detailsTimeline
-        .map((bucket) => bucket.playtime.inSeconds)
-        .fold<int>(0, (a, b) => a > b ? a : b);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          '14-day Timeline',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.w700,
-            fontSize: 12,
-          ),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 64,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: _detailsTimeline.map((bucket) {
-              final ratio = maxSeconds == 0
-                  ? 0.0
-                  : bucket.playtime.inSeconds / maxSeconds;
-              final height = (ratio * 52).clamp(4.0, 52.0);
-              return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 1),
-                  child: Tooltip(
-                    message:
-                        '${bucket.day.month}/${bucket.day.day}: ${_formatDuration(bucket.playtime)}',
-                    child: Container(
-                      height: height,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.8),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-      ],
-    );
-  }
-
-  String _formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes % 60;
-    if (hours > 0) {
-      return '${hours}h ${minutes}m';
-    }
-    return '${minutes}m';
-  }
-
   Widget _buildDetailChip({
     required IconData icon,
     required String label,
@@ -2993,139 +2831,141 @@ class _LibraryPageState extends State<LibraryPage> {
       child: GestureDetector(
         onTap: () => _openLibraryDetail(game),
         child: Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: selected ? AppColors.primary : AppColors.border,
-        ),
-      ),
-      child: Row(
-        children: [
-          if (_selectionMode) ...[
-            Checkbox(
-              value: selected,
-              onChanged: (value) {
-                setState(() {
-                  if (value ?? false) {
-                    _selectedGameIds.add(game.identityKey);
-                  } else {
-                    _selectedGameIds.remove(game.identityKey);
-                  }
-                });
-              },
-              activeColor: AppColors.primary,
-            ),
-            const SizedBox(width: 8),
-          ],
-          SizedBox(
-            width: 54,
-            height: 54,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: imageUrl != null
-                  ? Image.network(
-                      ImageUtils.getOptimizedUrl(
-                        imageUrl,
-                        width: 108,
-                        height: 108,
-                      ),
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => _buildCardPlaceholder(),
-                    )
-                  : _buildCardPlaceholder(),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: selected ? AppColors.primary : AppColors.border,
             ),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  game.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
+          child: Row(
+            children: [
+              if (_selectionMode) ...[
+                Checkbox(
+                  value: selected,
+                  onChanged: (value) {
+                    setState(() {
+                      if (value ?? false) {
+                        _selectedGameIds.add(game.identityKey);
+                      } else {
+                        _selectedGameIds.remove(game.identityKey);
+                      }
+                    });
+                  },
+                  activeColor: AppColors.primary,
                 ),
-                const SizedBox(height: 6),
-                Row(
+                const SizedBox(width: 8),
+              ],
+              SizedBox(
+                width: 54,
+                height: 54,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: imageUrl != null
+                      ? Image.network(
+                          ImageUtils.getOptimizedUrl(
+                            imageUrl,
+                            width: 108,
+                            height: 108,
+                          ),
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => _buildCardPlaceholder(),
+                        )
+                      : _buildCardPlaceholder(),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildDetailChip(
-                      icon: Icons.tag_rounded,
-                      label: game.appName,
-                      isMono: true,
+                    Text(
+                      game.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
                     ),
-                    const SizedBox(width: 12),
-                    _buildDetailChip(
-                      icon: Icons.apps_rounded,
-                      label: game.namespace,
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        _buildDetailChip(
+                          icon: Icons.tag_rounded,
+                          label: game.appName,
+                          isMono: true,
+                        ),
+                        const SizedBox(width: 12),
+                        _buildDetailChip(
+                          icon: Icons.apps_rounded,
+                          label: game.namespace,
+                        ),
+                        if (game.versionLabel.isNotEmpty) ...[
+                          const SizedBox(width: 12),
+                          _buildDetailChip(
+                            icon: Icons.update_rounded,
+                            label: game.versionLabel,
+                          ),
+                        ],
+                      ],
                     ),
-                    if (game.versionLabel.isNotEmpty) ...[
-                      const SizedBox(width: 12),
-                      _buildDetailChip(
-                        icon: Icons.update_rounded,
-                        label: game.versionLabel,
+                    if (game.installLocation.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        game.installLocation,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textMuted,
+                          fontFamily: 'JetBrainsMono',
+                          fontSize: 10,
+                        ),
                       ),
                     ],
                   ],
                 ),
-                if (game.installLocation.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    game.installLocation,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textMuted,
-                      fontFamily: 'JetBrainsMono',
-                      fontSize: 10,
-                    ),
+              ),
+              const SizedBox(width: 12),
+              _buildStatusChip(
+                game.isInstalled ? 'Installed' : 'Not installed',
+                game.isInstalled ? AppColors.success : AppColors.textMuted,
+              ),
+              const SizedBox(width: 8),
+              _buildStatusChip(game.statusLabel, _statusColor(game)),
+              const SizedBox(width: 12),
+              if (game.catalogItemId.isNotEmpty)
+                FollowButton(
+                  isFollowing: widget.followService.isFollowing(
+                    game.catalogItemId,
                   ),
-                ],
+                  onToggle: () => _toggleFollowLibraryGame(game),
+                  compact: true,
+                ),
+              const SizedBox(width: 8),
+              if (game.isInstalled) ...[
+                _buildSmallActionButton(
+                  icon: Icons.drive_file_move_rounded,
+                  tooltip: 'Move game',
+                  onPressed: () => _moveGame(game.installedGame!),
+                ),
+                const SizedBox(width: 8),
               ],
-            ),
+              _buildSmallActionButton(
+                icon: game.isInstalled
+                    ? Icons.cloud_upload_rounded
+                    : Icons.cloud_sync_rounded,
+                tooltip: game.isInstalled
+                    ? 'Upload manifest'
+                    : 'Sync cloud manifest',
+                onPressed: game.isUploadRunning
+                    ? null
+                    : () => _syncLibraryGames([game]),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          _buildStatusChip(
-            game.isInstalled ? 'Installed' : 'Not installed',
-            game.isInstalled ? AppColors.success : AppColors.textMuted,
-          ),
-          const SizedBox(width: 8),
-          _buildStatusChip(game.statusLabel, _statusColor(game)),
-          const SizedBox(width: 12),
-          if (game.catalogItemId.isNotEmpty)
-            FollowButton(
-              isFollowing: widget.followService.isFollowing(game.catalogItemId),
-              onToggle: () => _toggleFollowLibraryGame(game),
-              compact: true,
-            ),
-          const SizedBox(width: 8),
-          if (game.isInstalled) ...[
-            _buildSmallActionButton(
-              icon: Icons.drive_file_move_rounded,
-              tooltip: 'Move game',
-              onPressed: () => _moveGame(game.installedGame!),
-            ),
-            const SizedBox(width: 8),
-          ],
-          _buildSmallActionButton(
-            icon: game.isInstalled
-                ? Icons.cloud_upload_rounded
-                : Icons.cloud_sync_rounded,
-            tooltip: game.isInstalled
-                ? 'Upload manifest'
-                : 'Sync cloud manifest',
-            onPressed: game.isUploadRunning
-                ? null
-                : () => _syncLibraryGames([game]),
-          ),
-        ],
-      ),
         ),
       ),
     );
@@ -3158,9 +2998,7 @@ class _LibraryPageState extends State<LibraryPage> {
       onSelected: (value) {
         switch (value) {
           case 'details':
-            if (game.isInstalled) {
-              _openDetailsDrawer(game.installedGame!);
-            }
+            _openLibraryDetail(game);
             break;
           case 'sync':
             _syncLibraryGames([game]);
@@ -3176,17 +3014,16 @@ class _LibraryPageState extends State<LibraryPage> {
         }
       },
       itemBuilder: (context) => [
-        if (game.isInstalled)
-          const PopupMenuItem(
-            value: 'details',
-            child: Row(
-              children: [
-                Icon(Icons.info_outline_rounded, size: 16),
-                SizedBox(width: 10),
-                Text('View details'),
-              ],
-            ),
+        const PopupMenuItem(
+          value: 'details',
+          child: Row(
+            children: [
+              Icon(Icons.info_outline_rounded, size: 16),
+              SizedBox(width: 10),
+              Text('View details'),
+            ],
           ),
+        ),
         PopupMenuItem(
           value: 'sync',
           enabled: !game.isUploadRunning,
@@ -3348,4 +3185,3 @@ class _HoverRegionState extends State<_HoverRegion> {
     );
   }
 }
-

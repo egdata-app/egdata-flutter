@@ -1,0 +1,27 @@
+{
+  "records": [
+    {
+      "recordType": "APPLICATION",
+      "appName": "Alpha App",
+      "title": "Alpha",
+      "catalogItemId": "catalog-alpha",
+      "namespace": "games",
+      "productId": "asset-alpha"
+    },
+    {
+      "recordType": "SUBSCRIPTION",
+      "appName": "subscription",
+      "catalogItemId": "subscription-id",
+      "namespace": "games"
+    },
+    {
+      "recordType": "APPLICATION",
+      "appName": "engine",
+      "catalogItemId": "engine-id",
+      "namespace": "ue"
+    }
+  ],
+  "responseMetadata": {
+    "nextCursor": "page two/+="
+  }
+}

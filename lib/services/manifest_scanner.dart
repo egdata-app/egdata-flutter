@@ -5,7 +5,9 @@ import '../models/epic_manifest.dart';
 import '../models/game_info.dart';
 import '../models/manifest_health_issue.dart';
 import '../models/game_metadata.dart';
+import '../models/drive_discovery.dart';
 import 'metadata_service.dart';
+import 'windows_volume_service.dart';
 
 class ManifestScanner {
   final MetadataService _metadataService = MetadataService();
@@ -55,11 +57,14 @@ class ManifestScanner {
     }
 
     final List<GameInfo> games = [];
+    final volumes = Platform.isWindows
+        ? await const WindowsVolumeService().listVolumes()
+        : const <DriveIdentity>[];
 
     await for (final entity in dir.list()) {
       if (entity is File && entity.path.endsWith('.item')) {
         try {
-          final gameInfo = await _parseManifestFile(entity);
+          final gameInfo = await _parseManifestFile(entity, volumes);
           if (gameInfo != null) {
             games.add(gameInfo);
           }
@@ -177,7 +182,10 @@ class ManifestScanner {
     return false;
   }
 
-  Future<GameInfo?> _parseManifestFile(File itemFile) async {
+  Future<GameInfo?> _parseManifestFile(
+    File itemFile,
+    List<DriveIdentity> volumes,
+  ) async {
     final content = await itemFile.readAsString();
     final json = jsonDecode(content) as Map<String, dynamic>;
     final manifest = EpicGameManifest.fromJson(json);
@@ -214,6 +222,13 @@ class ManifestScanner {
       metadata = await _metadataService.fetchMetadata(manifest.catalogItemId);
     }
 
+    final drive = WindowsVolumeService.findForPath(
+      manifest.installLocation,
+      volumes,
+    );
+    final installExists = await Directory(manifest.installLocation).exists();
+    final seenAt = DateTime.now();
+
     return GameInfo(
       displayName: manifest.displayName,
       appName: manifest.appName,
@@ -234,6 +249,20 @@ class ManifestScanner {
       mainGameAppName: manifest.mainGameAppName,
       appCategories: manifest.appCategories,
       metadata: metadata,
+      rawItemJson: content,
+      itemFileName: p.basename(itemFile.path),
+      volumeId: drive?.volumeId,
+      volumeSerialNumber: drive?.serialNumber,
+      relativeInstallPath: WindowsVolumeService.relativePathFor(
+        manifest.installLocation,
+        drive,
+      ),
+      lastSeenAt: installExists ? seenAt : null,
+      availability: installExists
+          ? InstalledGameAvailability.available
+          : drive == null
+          ? InstalledGameAvailability.driveMissing
+          : InstalledGameAvailability.launcherUnregistered,
     );
   }
 

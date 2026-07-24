@@ -8,8 +8,10 @@ import '../main.dart';
 import '../models/followed_game.dart';
 import '../models/game_info.dart';
 import '../models/library_game.dart';
+import '../models/epic_progress.dart';
 import '../models/upload_status.dart';
 import '../services/api_service.dart';
+import '../services/epic_progress_service.dart';
 import '../services/follow_service.dart';
 import '../services/playtime_service.dart';
 import '../utils/image_utils.dart';
@@ -29,6 +31,7 @@ class LibraryGameDetailPage extends StatefulWidget {
   final LibraryGame game;
   final FollowService followService;
   final PlaytimeService? playtimeService;
+  final EpicProgressService? epicProgressService;
   final void Function(LibraryGame) onLaunch;
   final void Function(LibraryGame) onInstall;
   final void Function(GameInfo) onMove;
@@ -45,6 +48,7 @@ class LibraryGameDetailPage extends StatefulWidget {
     required this.onSyncManifest,
     required this.onBack,
     this.playtimeService,
+    this.epicProgressService,
   });
 
   @override
@@ -68,6 +72,8 @@ class _LibraryGameDetailPageState extends State<LibraryGameDetailPage> {
 
   Duration _totalPlaytime = Duration.zero;
   DateTime? _lastPlayedAt;
+  EpicProgressProofResult? _progressProof;
+  EpicGameProgress? _officialProgress;
 
   bool _isFollowing = false;
   bool _followBusy = false;
@@ -75,9 +81,11 @@ class _LibraryGameDetailPageState extends State<LibraryGameDetailPage> {
   @override
   void initState() {
     super.initState();
-    _isFollowing = widget.game.catalogItemId.isNotEmpty &&
+    _isFollowing =
+        widget.game.catalogItemId.isNotEmpty &&
         widget.followService.isFollowing(widget.game.catalogItemId);
     _loadPlaytime();
+    _loadProgressProof();
     _loadOffer();
   }
 
@@ -110,6 +118,47 @@ class _LibraryGameDetailPageState extends State<LibraryGameDetailPage> {
     setState(() {
       _totalPlaytime = total;
       _lastPlayedAt = lastPlayed;
+    });
+  }
+
+  Future<void> _loadProgressProof() async {
+    final service = widget.epicProgressService;
+    if (service == null) return;
+    final catalogItemId = widget.game.catalogItemId;
+    if (catalogItemId.isEmpty) {
+      final proof = await service.verifyOfficialProgressAccess();
+      if (!mounted) return;
+      setState(() {
+        _progressProof = proof;
+      });
+      return;
+    }
+
+    final artifactIdByCatalogItemId = <String, String>{
+      if (widget.game.appName.trim().isNotEmpty)
+        catalogItemId: widget.game.appName,
+    };
+    final ownedGame = widget.game.ownedGame;
+    final productId = ownedGame?.assetId.trim();
+    final appName = ownedGame?.appName.trim() ?? '';
+    final productIdByCatalogItemId = <String, String>{
+      if (productId != null &&
+          productId.isNotEmpty &&
+          productId.toLowerCase() != appName.toLowerCase())
+        catalogItemId: productId,
+    };
+
+    final snapshot = await service.loadProgressSnapshot(
+      [catalogItemId],
+      artifactIdByCatalogItemId: artifactIdByCatalogItemId,
+      productIdByCatalogItemId: productIdByCatalogItemId,
+      forceRefresh: true,
+    );
+    if (!mounted) return;
+    setState(() {
+      _progressProof = snapshot.proof;
+      _officialProgress =
+          snapshot.gamesByCatalogItemId[catalogItemId] ?? widget.game.progress;
     });
   }
 
@@ -238,8 +287,7 @@ class _LibraryGameDetailPageState extends State<LibraryGameDetailPage> {
         'Featured',
       ];
       for (final type in wideTypes) {
-        final img =
-            offer.keyImages.where((i) => i.type == type).firstOrNull;
+        final img = offer.keyImages.where((i) => i.type == type).firstOrNull;
         if (img != null && img.url.isNotEmpty) return img.url;
       }
       if (offer.keyImages.isNotEmpty) return offer.keyImages.first.url;
@@ -264,8 +312,7 @@ class _LibraryGameDetailPageState extends State<LibraryGameDetailPage> {
     if (offer != null) {
       const types = ['DieselGameBoxTall', 'OfferImageTall', 'Thumbnail'];
       for (final type in types) {
-        final img =
-            offer.keyImages.where((i) => i.type == type).firstOrNull;
+        final img = offer.keyImages.where((i) => i.type == type).firstOrNull;
         if (img != null && img.url.isNotEmpty) return img.url;
       }
     }
@@ -359,11 +406,7 @@ class _LibraryGameDetailPageState extends State<LibraryGameDetailPage> {
           width: double.infinity,
           child: heroUrl != null
               ? Image.network(
-                  ImageUtils.getOptimizedUrl(
-                    heroUrl,
-                    width: 1600,
-                    height: 720,
-                  ),
+                  ImageUtils.getOptimizedUrl(heroUrl, width: 1600, height: 720),
                   fit: BoxFit.cover,
                   errorBuilder: (_, _, _) =>
                       Container(color: AppColors.surfaceLight),
@@ -440,7 +483,8 @@ class _LibraryGameDetailPageState extends State<LibraryGameDetailPage> {
                               ? AppColors.success
                               : AppColors.textMuted,
                         ),
-                        if ((_offer?.offerType ?? widget.game.offerType) != null)
+                        if ((_offer?.offerType ?? widget.game.offerType) !=
+                            null)
                           _heroPill(
                             _formatOfferType(
                               _offer?.offerType ?? widget.game.offerType!,
@@ -496,6 +540,8 @@ class _LibraryGameDetailPageState extends State<LibraryGameDetailPage> {
       _buildActionBar(),
       const SizedBox(height: 24),
       _buildStatsStrip(),
+      const SizedBox(height: 24),
+      _buildOfficialProgressCard(),
       const SizedBox(height: 24),
     ];
 
@@ -633,8 +679,9 @@ class _LibraryGameDetailPageState extends State<LibraryGameDetailPage> {
               ? Icons.cloud_upload_rounded
               : Icons.cloud_sync_rounded,
           label: game.isInstalled ? 'Upload manifest' : 'Sync manifest',
-          onPressed:
-              game.isUploadRunning ? null : () => widget.onSyncManifest(game),
+          onPressed: game.isUploadRunning
+              ? null
+              : () => widget.onSyncManifest(game),
         ),
         if (installed && game.installedGame != null)
           _secondaryButton(
@@ -667,9 +714,7 @@ class _LibraryGameDetailPageState extends State<LibraryGameDetailPage> {
           backgroundColor: AppColors.primary,
           foregroundColor: AppColors.background,
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(4),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         ),
         icon: Icon(icon, size: 18),
         label: Text(
@@ -694,14 +739,10 @@ class _LibraryGameDetailPageState extends State<LibraryGameDetailPage> {
               ? AppColors.textMuted
               : AppColors.textPrimary,
           side: BorderSide(
-            color: onPressed == null
-                ? AppColors.border
-                : AppColors.borderLight,
+            color: onPressed == null ? AppColors.border : AppColors.borderLight,
           ),
           padding: const EdgeInsets.symmetric(horizontal: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(4),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         ),
         icon: Icon(icon, size: 16),
         label: Text(
@@ -741,8 +782,8 @@ class _LibraryGameDetailPageState extends State<LibraryGameDetailPage> {
       return game.isInstalled ? AppColors.success : AppColors.textMuted;
     }
     return switch (status) {
-      UploadStatusType.uploaded || UploadStatusType.alreadyUploaded =>
-        AppColors.success,
+      UploadStatusType.uploaded ||
+      UploadStatusType.alreadyUploaded => AppColors.success,
       UploadStatusType.failed => AppColors.error,
       UploadStatusType.pending => AppColors.textMuted,
       UploadStatusType.uploading => AppColors.warning,
@@ -826,6 +867,186 @@ class _LibraryGameDetailPageState extends State<LibraryGameDetailPage> {
           _installLocationRow(game.installLocation),
         ],
       ],
+    );
+  }
+
+  Widget _buildOfficialProgressCard() {
+    final explicitProgress = _officialProgress ?? widget.game.progress;
+    if (explicitProgress != null &&
+        (explicitProgress.hasOfficialPlaytime ||
+            explicitProgress.hasAchievementProgress)) {
+      return _section(
+        'Official Epic Progress',
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              _officialProgressMetric(
+                Icons.timer_rounded,
+                'Official playtime',
+                explicitProgress.officialPlaytime == null
+                    ? 'Unavailable'
+                    : _formatPlaytime(explicitProgress.officialPlaytime!),
+              ),
+              const SizedBox(width: 14),
+              _officialProgressMetric(
+                Icons.emoji_events_rounded,
+                'Achievement progress',
+                _formatAchievementProgress(explicitProgress),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final proof = _progressProof;
+    final title = proof?.title ?? 'Checking official progress access';
+    final message =
+        proof?.message ??
+        'EGData is checking whether official Epic progress can be loaded.';
+    final color = proof == null
+        ? AppColors.warning
+        : proof.isAvailable
+        ? AppColors.success
+        : proof.needsLogin
+        ? AppColors.primary
+        : AppColors.error;
+    final icon = proof == null
+        ? Icons.sync_rounded
+        : proof.isAvailable
+        ? Icons.verified_rounded
+        : proof.needsLogin
+        ? Icons.login_rounded
+        : Icons.block_rounded;
+
+    return _section(
+      'Official Epic Progress',
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    message,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                      height: 1.45,
+                    ),
+                  ),
+                  if (proof != null && proof.evidence.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    for (final item in proof.evidence)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '- ',
+                              style: TextStyle(color: color, fontSize: 12),
+                            ),
+                            Expanded(
+                              child: Text(
+                                item,
+                                style: const TextStyle(
+                                  color: AppColors.textMuted,
+                                  fontSize: 12,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _officialProgressMetric(IconData icon, String label, String value) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.background.withValues(alpha: 0.36),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: AppColors.primary, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -915,7 +1136,11 @@ class _LibraryGameDetailPageState extends State<LibraryGameDetailPage> {
       ),
       child: const Row(
         children: [
-          Icon(Icons.info_outline_rounded, color: AppColors.textMuted, size: 20),
+          Icon(
+            Icons.info_outline_rounded,
+            color: AppColors.textMuted,
+            size: 20,
+          ),
           SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -975,10 +1200,8 @@ class _LibraryGameDetailPageState extends State<LibraryGameDetailPage> {
     Navigator.of(context).push(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (_) => ScreenshotCarousel(
-          images: _media!.images,
-          initialIndex: index,
-        ),
+        builder: (_) =>
+            ScreenshotCarousel(images: _media!.images, initialIndex: index),
       ),
     );
   }
@@ -999,11 +1222,7 @@ class _LibraryGameDetailPageState extends State<LibraryGameDetailPage> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                _featureIcon(feature),
-                size: 14,
-                color: AppColors.primary,
-              ),
+              Icon(_featureIcon(feature), size: 14, color: AppColors.primary),
               const SizedBox(width: 8),
               Text(
                 feature,
@@ -1045,7 +1264,8 @@ class _LibraryGameDetailPageState extends State<LibraryGameDetailPage> {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final twoColumn = constraints.maxWidth >= 600 &&
+          final twoColumn =
+              constraints.maxWidth >= 600 &&
               reqs.minimum.isNotEmpty &&
               reqs.recommended.isNotEmpty;
           if (twoColumn) {
@@ -1312,9 +1532,7 @@ class _LibraryGameDetailPageState extends State<LibraryGameDetailPage> {
                   .where((i) => i.type == 'Thumbnail')
                   .firstOrNull
                   ?.url ??
-              (offer.keyImages.isNotEmpty
-                  ? offer.keyImages.first.url
-                  : null);
+              (offer.keyImages.isNotEmpty ? offer.keyImages.first.url : null);
           return SizedBox(
             width: 130,
             child: Column(
@@ -1459,6 +1677,22 @@ class _LibraryGameDetailPageState extends State<LibraryGameDetailPage> {
     if (hours < 1) return '${duration.inMinutes} min';
     if (hours < 10) return '${hours.toStringAsFixed(1)} hrs';
     return '${hours.toStringAsFixed(0)} hrs';
+  }
+
+  String _formatAchievementProgress(EpicGameProgress progress) {
+    final unlocked = progress.unlockedAchievements;
+    final total = progress.totalAchievements;
+    if (unlocked != null && total != null && total > 0) {
+      return '$unlocked / $total unlocked';
+    }
+    final percent = progress.achievementPercent;
+    if (percent != null) {
+      final fraction = percent > 1
+          ? (percent / 100).clamp(0.0, 1.0)
+          : percent.clamp(0.0, 1.0);
+      return '${(fraction * 100).round()}% complete';
+    }
+    return 'Unavailable';
   }
 
   String _formatRelativeDate(DateTime date) {

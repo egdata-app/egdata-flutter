@@ -1,6 +1,13 @@
 # AGENTS.md
 
-This file provides guidance to agentic coding agents working with the EGData Flutter codebase.
+This file provides guidance to agentic coding agents working with the egdata.app Flutter codebase.
+
+## Product Branding
+
+- The product display name is exactly `egdata.app`.
+- Use `egdata.app` in all user-facing copy, accessibility labels, window titles, notifications, documentation, and newly written prose.
+- Do not use `EGData`, `EGDATA`, `EGData Client`, or title-cased variants as the product name.
+- Preserve technical identifiers such as package names, bundle IDs, API hosts, repository names, storage keys, and legacy artifact names when changing them would break compatibility.
 
 ## Build Commands
 

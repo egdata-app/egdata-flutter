@@ -1,5 +1,6 @@
 import '../database/collections/library_metadata_entry.dart';
 import '../database/collections/owned_game_entry.dart';
+import 'epic_progress.dart';
 import 'game_info.dart';
 import 'upload_status.dart';
 
@@ -67,6 +68,7 @@ class LibraryGame {
   final UploadStatus? uploadStatus;
   final bool isUploadRunning;
   final LibraryMetadataEntry? metadata;
+  final EpicGameProgress? progress;
 
   const LibraryGame({
     required this.identityKey,
@@ -83,6 +85,7 @@ class LibraryGame {
     this.uploadStatus,
     this.isUploadRunning = false,
     this.metadata,
+    this.progress,
   });
 
   String? get offerType => metadata?.offerType;
@@ -137,6 +140,7 @@ class LibraryGame {
     Set<String> uploadingInstalledIds = const {},
     Set<String> syncingOwnedKeys = const {},
     Map<String, LibraryMetadataEntry> metadataByCatalogItemId = const {},
+    Map<String, EpicGameProgress> progressByCatalogItemId = const {},
   }) {
     final byKey = <String, LibraryGame>{};
     final ownedByCatalogApp = <String, OwnedGameEntry>{};
@@ -177,6 +181,7 @@ class LibraryGame {
           (entry) => syncingOwnedKeys.contains(entry.identityKey),
         ),
         metadata: metadataFor(owned.catalogItemId),
+        progress: progressByCatalogItemId[owned.catalogItemId],
       );
     }
 
@@ -214,6 +219,9 @@ class LibraryGame {
             (existing != null &&
                 syncingOwnedKeys.contains(existing.identityKey)),
         metadata: existing?.metadata ?? metadataFor(installed.catalogItemId),
+        progress:
+            existing?.progress ??
+            progressByCatalogItemId[installed.catalogItemId],
       );
     }
 

@@ -85,9 +85,9 @@ void main() {
     await tester.pumpWidget(buildPage(service));
     await tester.pump();
 
-    expect(find.text('Cloud Sync'), findsOneWidget);
-    expect(find.text('No sync queue yet'), findsOneWidget);
-    expect(find.text('Start Full Sync'), findsOneWidget);
+    expect(find.text('Sync Center'), findsOneWidget);
+    expect(find.text('No manifest queue yet'), findsOneWidget);
+    expect(find.text('Start Library Sync'), findsOneWidget);
   });
 
   testWidgets('shows friendly titles instead of catalog ids', (tester) async {

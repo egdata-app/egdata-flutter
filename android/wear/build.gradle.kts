@@ -5,13 +5,13 @@ plugins {
 
 android {
     namespace = "com.ignacioaldama.egdata.wear"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         // Must match main app's applicationId for embedded wear apps
         applicationId = "com.ignacioaldama.egdata"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
     }

@@ -3,200 +3,187 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g., 1.0.1)'
+        description: "Version to release (e.g., 1.4.0 or 1.4.0-beta.1)"
         required: true
         type: string
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
+  release-metadata:
+    runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - name: Resolve release version
+        id: version
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REQUESTED_VERSION: ${{ inputs.version }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            VERSION="$REQUESTED_VERSION"
+          else
+            VERSION="${TAG_NAME#v}"
+          fi
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
+            echo "::error::Release version must be SemVer, for example 1.4.0 or 1.4.0-beta.1."
+            exit 1
+          fi
+          if [[ "$VERSION" == *-* ]]; then
+            PRERELEASE=true
+          else
+            PRERELEASE=false
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION"
+
+  build-windows:
+    needs: release-metadata
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Get version
-        id: version
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-          else
-            VERSION="${GITHUB_REF#refs/tags/v}"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          channel: stable
-          cache: true
+          version: 11.0.9
 
-      - name: Cache pub dependencies
-        uses: actions/cache@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          path: |
-            ~/.pub-cache
-          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pub-
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: desktop/pnpm-lock.yaml
 
       - name: Install dependencies
-        run: flutter pub get
+        run: pnpm install --frozen-lockfile
 
-      - name: Generate Isar bindings
-        run: dart run build_runner build --delete-conflicting-outputs
+      - name: Set Electron version
+        env:
+          RELEASE_VERSION: ${{ needs.release-metadata.outputs.version }}
+        run: node scripts/set-version.mjs "$env:RELEASE_VERSION"
 
-      - name: Run tests
-        run: flutter test
+      - name: Run Electron release checks
+        run: |
+          pnpm typecheck
+          pnpm lint
+          pnpm format:check
+          pnpm test
+          pnpm test:e2e
+          pnpm audit --prod
+          pnpm build
 
-      - name: Update version in pubspec.yaml
+      - name: Build unsigned NSIS installer
+        run: pnpm exec electron-builder --win nsis --x64 --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Create installer checksum
         shell: pwsh
         run: |
-          $version = "${{ steps.version.outputs.version }}"
-          $content = Get-Content pubspec.yaml -Raw
-          $content = $content -replace 'version: [\d.]+', "version: $version"
-          $content = $content -replace 'inno_bundle:\s+id: [^\r\n]+\s+name: [^\r\n]+\s+version: [\d.]+', "inno_bundle:`n  id: ab497711-5d34-47ed-8d75-b0b70e1c7cd6`n  name: egdata.app`n  version: $version"
-          Set-Content pubspec.yaml $content
-
-      - name: Update version in main.dart
-        shell: pwsh
-        run: |
-          $version = "${{ steps.version.outputs.version }}"
-          $content = Get-Content lib/main.dart -Raw
-          $content = $content -replace "const String appVersion = '[^']+';", "const String appVersion = '$version';"
-          Set-Content lib/main.dart $content
-
-      - name: Build Windows app
-        run: flutter build windows --release
-
-      - name: Create Inno Setup installer
-        run: dart run inno_bundle:build --release
-
-      - name: Rename installer
-        shell: pwsh
-        run: |
-          $version = "${{ steps.version.outputs.version }}"
-          $installer = Get-ChildItem "build\windows\x64\installer\Release\*.exe" | Select-Object -First 1
-          Move-Item $installer.FullName "build\windows\x64\installer\Release\egdata-app-$version-setup.exe"
+          $installers = @(Get-ChildItem -LiteralPath dist -Filter 'egdata-app-*-setup.exe' -File)
+          if ($installers.Count -ne 1) {
+            throw "Expected exactly one NSIS installer, found $($installers.Count)."
+          }
+          $installer = $installers[0]
+          $hash = (Get-FileHash -LiteralPath $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $($installer.Name)" | Set-Content -LiteralPath "$($installer.FullName).sha256" -Encoding ascii
 
       - name: Upload Windows installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-installer
-          path: build/windows/x64/installer/Release/egdata-app-*-setup.exe
+          path: |
+            desktop/dist/egdata-app-*-setup.exe
+            desktop/dist/egdata-app-*-setup.exe.sha256
+          if-no-files-found: error
           retention-days: 7
 
   build-macos:
+    needs: release-metadata
     runs-on: macos-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
+    defaults:
+      run:
+        working-directory: desktop
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Get version
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-          else
-            VERSION="${GITHUB_REF#refs/tags/v}"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          channel: stable
-          cache: true
+          version: 11.0.9
 
-      - name: Cache pub dependencies
-        uses: actions/cache@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          path: |
-            ~/.pub-cache
-          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pub-
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: desktop/pnpm-lock.yaml
 
       - name: Install dependencies
-        run: flutter pub get
+        run: pnpm install --frozen-lockfile
 
-      - name: Generate Isar bindings
-        run: dart run build_runner build --delete-conflicting-outputs
+      - name: Set Electron version
+        env:
+          RELEASE_VERSION: ${{ needs.release-metadata.outputs.version }}
+        run: node scripts/set-version.mjs "$RELEASE_VERSION"
 
-      - name: Run tests
-        run: flutter test
-
-      - name: Update version in pubspec.yaml
+      - name: Build unsigned universal macOS DMG
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          sed -i '' "s/version: [0-9.]*$/version: $VERSION/" pubspec.yaml
+          pnpm build
+          pnpm exec electron-builder --mac dmg --universal --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
-      - name: Update version in main.dart
+      - name: Create DMG checksum
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          sed -i '' "s/const String appVersion = '[^']*';/const String appVersion = '$VERSION';/" lib/main.dart
-
-      - name: Build macOS app
-        run: flutter build macos --release
-
-      - name: Create DMG
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          APP_PATH="build/macos/Build/Products/Release/egdata_flutter.app"
-          DMG_PATH="build/macos/egdata-app-$VERSION-macos.dmg"
-
-          # Create a temporary directory for DMG contents
-          mkdir -p build/macos/dmg
-          cp -R "$APP_PATH" build/macos/dmg/
-          ln -s /Applications build/macos/dmg/Applications
-
-          # Create DMG
-          hdiutil create -volname "EGData Client" -srcfolder build/macos/dmg -ov -format UDZO "$DMG_PATH"
+          set -euo pipefail
+          shopt -s nullglob
+          packages=(dist/egdata-app-*-macos.dmg)
+          if [[ "${#packages[@]}" -ne 1 ]]; then
+            echo "Expected exactly one DMG, found ${#packages[@]}." >&2
+            exit 1
+          fi
+          package="${packages[0]}"
+          shasum -a 256 "$package" | sed 's#  dist/#  #' > "$package.sha256"
 
       - name: Upload macOS DMG artifact
         uses: actions/upload-artifact@v4
         with:
           name: macos-dmg
-          path: build/macos/egdata-app-*-macos.dmg
+          path: |
+            desktop/dist/egdata-app-*-macos.dmg
+            desktop/dist/egdata-app-*-macos.dmg.sha256
+          if-no-files-found: error
           retention-days: 7
 
   build-android:
+    needs: release-metadata
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Get version
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-          else
-            VERSION="${GITHUB_REF#refs/tags/v}"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
-
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: "temurin"
+          java-version: "17"
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -234,12 +221,12 @@ jobs:
 
       - name: Update version in pubspec.yaml
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          sed -i "s/version: [0-9.]*$/version: $VERSION/" pubspec.yaml
+          VERSION="${{ needs.release-metadata.outputs.version }}"
+          sed -i -E "s/^version: .*/version: $VERSION+$GITHUB_RUN_NUMBER/" pubspec.yaml
 
       - name: Update version in main.dart
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
+          VERSION="${{ needs.release-metadata.outputs.version }}"
           sed -i "s/const String appVersion = '[^']*';/const String appVersion = '$VERSION';/" lib/main.dart
 
       - name: Decode keystore
@@ -268,7 +255,7 @@ jobs:
 
       - name: Rename artifacts
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
+          VERSION="${{ needs.release-metadata.outputs.version }}"
           mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/egdata-app-$VERSION-android.apk
           mv build/app/outputs/bundle/release/app-release.aab build/app/outputs/bundle/release/egdata-app-$VERSION-android.aab
 
@@ -285,8 +272,6 @@ jobs:
           name: android-appbundle
           path: build/app/outputs/bundle/release/egdata-app-*-android.aab
           retention-days: 7
-
-
 
   build-ios:
     runs-on: macos-latest
@@ -336,7 +321,7 @@ jobs:
         run: flutter build ios --simulator --no-codesign
 
   create-release:
-    needs: [build-windows, build-macos, build-android, build-ios]
+    needs: [release-metadata, build-windows, build-macos, build-android, build-ios]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -369,16 +354,23 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ needs.build-windows.outputs.version }}
-          name: EGData Client v${{ needs.build-windows.outputs.version }}
+          tag_name: v${{ needs.release-metadata.outputs.version }}
+          name: egdata.app v${{ needs.release-metadata.outputs.version }}
           draft: false
-          prerelease: false
+          prerelease: ${{ needs.release-metadata.outputs.prerelease == 'true' }}
           generate_release_notes: true
+          body: |
+            ## Desktop package trust notice
+
+            The Windows and macOS desktop packages are unsigned community builds. Operating-system reputation warnings are expected. Verify each desktop download against its accompanying SHA-256 checksum before running it.
+
+            On macOS, use Finder's **Open** confirmation for the downloaded application if Gatekeeper identifies it as an unsigned application.
           files: |
             artifacts/egdata-app-*-setup.exe
+            artifacts/egdata-app-*-setup.exe.sha256
             artifacts/egdata-app-*-macos.dmg
+            artifacts/egdata-app-*-macos.dmg.sha256
             artifacts/egdata-app-*-android.apk
             artifacts/egdata-app-*-android.aab
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-

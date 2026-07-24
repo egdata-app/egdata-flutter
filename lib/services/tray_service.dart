@@ -30,7 +30,7 @@ class TrayService with TrayListener {
       await trayManager.setIcon(iconPath);
       print('TrayService: Icon set successfully');
 
-      await trayManager.setToolTip('EGData Client');
+      await trayManager.setToolTip('EGData Library Companion');
 
       await _updateMenu();
       print('TrayService: Context menu set successfully');

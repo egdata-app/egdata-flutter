@@ -23,6 +23,7 @@ class AppSettings {
   final bool libraryOnlyFree;
   final String librarySortBy;
   final bool librarySortAscending;
+  final bool diskMonitoringEnabled;
 
   AppSettings({
     this.autoSync = false,
@@ -46,6 +47,7 @@ class AppSettings {
     this.libraryOnlyFree = false,
     this.librarySortBy = 'title',
     this.librarySortAscending = true,
+    this.diskMonitoringEnabled = true,
   });
 
   // Nullable fields use a sentinel so callers can pass `null` to clear them.
@@ -71,6 +73,7 @@ class AppSettings {
     bool? libraryOnlyFree,
     String? librarySortBy,
     bool? librarySortAscending,
+    bool? diskMonitoringEnabled,
   }) {
     return AppSettings(
       autoSync: autoSync ?? this.autoSync,
@@ -104,6 +107,8 @@ class AppSettings {
       libraryOnlyFree: libraryOnlyFree ?? this.libraryOnlyFree,
       librarySortBy: librarySortBy ?? this.librarySortBy,
       librarySortAscending: librarySortAscending ?? this.librarySortAscending,
+      diskMonitoringEnabled:
+          diskMonitoringEnabled ?? this.diskMonitoringEnabled,
     );
   }
 
@@ -130,6 +135,7 @@ class AppSettings {
       'libraryOnlyFree': libraryOnlyFree,
       'librarySortBy': librarySortBy,
       'librarySortAscending': librarySortAscending,
+      'diskMonitoringEnabled': diskMonitoringEnabled,
     };
   }
 
@@ -158,6 +164,7 @@ class AppSettings {
       libraryOnlyFree: json['libraryOnlyFree'] ?? false,
       librarySortBy: json['librarySortBy'] ?? 'title',
       librarySortAscending: json['librarySortAscending'] ?? true,
+      diskMonitoringEnabled: json['diskMonitoringEnabled'] ?? true,
     );
   }
 }

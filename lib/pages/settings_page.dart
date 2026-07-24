@@ -372,14 +372,15 @@ class _SettingsPageState extends State<SettingsPage>
   Widget _buildSyncSection() {
     return _buildSection(
       title: 'Sync',
-      description: 'Control manifest uploads and background checks.',
+      description: 'Control library sync and background checks.',
       icon: Icons.sync_rounded,
       color: AppColors.accent,
       children: [
         _buildSettingTile(
           icon: Icons.cloud_upload_rounded,
           title: 'Auto Sync',
-          subtitle: 'Automatically upload manifests at regular intervals',
+          subtitle:
+              'Automatically validate and upload manifests at regular intervals',
           trailing: _SettingsToggle(
             value: _settings.autoSync,
             onChanged: (value) {
@@ -391,10 +392,26 @@ class _SettingsPageState extends State<SettingsPage>
         _buildSettingTile(
           icon: Icons.schedule_rounded,
           title: 'Sync Interval',
-          subtitle: 'How often to check for new manifests',
+          subtitle: 'How often to check library sync state',
           trailing: _buildIntervalSelector(),
           enabled: _settings.autoSync,
         ),
+        if (Platform.isWindows) ...[
+          _buildDivider(),
+          _buildSettingTile(
+            icon: Icons.storage_rounded,
+            title: 'Disk Monitoring',
+            subtitle: 'Detect known Epic installations when a drive reconnects',
+            trailing: _SettingsToggle(
+              value: _settings.diskMonitoringEnabled,
+              onChanged: (value) {
+                _updateSettings(
+                  _settings.copyWith(diskMonitoringEnabled: value),
+                );
+              },
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -410,7 +427,7 @@ class _SettingsPageState extends State<SettingsPage>
           _buildSettingTile(
             icon: Icons.login_rounded,
             title: 'Launch at Startup',
-            subtitle: 'Start EGData Client when you log in',
+            subtitle: 'Start EGData Library Companion when you log in',
             trailing: _SettingsToggle(
               value: _settings.launchAtStartup,
               onChanged: (value) {
@@ -519,7 +536,7 @@ class _SettingsPageState extends State<SettingsPage>
       children: [
         _buildSettingTile(
           icon: Icons.memory_rounded,
-          title: 'EGData Client',
+          title: 'EGData Library Companion',
           subtitle: 'Version 0.1.0',
           trailing: _buildBadge('FLUTTER'),
         ),
@@ -527,7 +544,7 @@ class _SettingsPageState extends State<SettingsPage>
         _buildSettingTile(
           icon: Icons.science_rounded,
           title: 'Purpose',
-          subtitle: 'Preserves Epic Games Store manifest data for research',
+          subtitle: 'Epic Games library companion for PC power users',
           trailing: _buildIconBadge(Icons.science_rounded),
         ),
       ],

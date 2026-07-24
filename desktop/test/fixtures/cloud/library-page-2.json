@@ -1,0 +1,28 @@
+{
+  "records": [
+    {
+      "recordType": "APPLICATION",
+      "appName": "Alpha App",
+      "title": "Duplicate Alpha",
+      "catalogItemId": "catalog-alpha",
+      "namespace": "games",
+      "productId": "asset-alpha"
+    },
+    {
+      "recordType": "APPLICATION",
+      "appName": "Beta",
+      "title": "Beta Game",
+      "catalogItemId": "catalog-beta",
+      "namespace": "other",
+      "productId": "asset-beta",
+      "buildVersion": "2.4.1"
+    },
+    {
+      "recordType": "APPLICATION",
+      "appName": "",
+      "catalogItemId": "invalid",
+      "namespace": "games"
+    }
+  ],
+  "responseMetadata": {}
+}

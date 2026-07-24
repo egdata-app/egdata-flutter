@@ -1,0 +1,18 @@
+{
+  "DisplayName": "Fixture Base Game",
+  "InstallationGuid": "fixture-base-guid",
+  "InstallLocation": "C:\\Epic Games\\Fixture",
+  "ManifestLocation": "C:\\Epic Games\\Fixture\\.egstore\\fixture.manifest",
+  "CatalogNamespace": "fixture-namespace",
+  "CatalogItemId": "fixture-base-id",
+  "AppName": "FixtureApp",
+  "AppVersionString": "1.2.3",
+  "LaunchExecutable": "Fixture/Binaries/Fixture.exe",
+  "InstallSize": 4096,
+  "MainGameCatalogNamespace": "fixture-namespace",
+  "MainGameCatalogItemId": "fixture-base-id",
+  "MainGameAppName": "FixtureApp",
+  "AppCategories": ["games", "applications"],
+  "UnknownFixtureField": { "preserve": true },
+  "WhitespaceMustRemain": "  exact  "
+}

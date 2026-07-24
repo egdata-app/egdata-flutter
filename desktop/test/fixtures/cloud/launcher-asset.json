@@ -1,0 +1,16 @@
+{
+  "elements": [
+    {
+      "buildVersion": "5.0.7",
+      "manifests": [
+        {
+          "uri": "https://download.example.invalid/manifests/asset.manifest?existing=kept",
+          "queryParams": [
+            { "name": "signature", "value": "sanitized-signature" },
+            { "name": "expires", "value": "123456" }
+          ]
+        }
+      ]
+    }
+  ]
+}

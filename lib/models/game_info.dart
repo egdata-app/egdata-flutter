@@ -1,4 +1,5 @@
 import 'game_metadata.dart';
+import 'drive_discovery.dart';
 
 class GameInfo {
   final String displayName;
@@ -18,6 +19,13 @@ class GameInfo {
   final String mainGameAppName;
   final List<String> appCategories;
   final GameMetadata? metadata;
+  final String? rawItemJson;
+  final String? itemFileName;
+  final String? volumeId;
+  final int? volumeSerialNumber;
+  final String? relativeInstallPath;
+  final DateTime? lastSeenAt;
+  final InstalledGameAvailability availability;
 
   GameInfo({
     required this.displayName,
@@ -37,6 +45,13 @@ class GameInfo {
     this.mainGameAppName = '',
     this.appCategories = const [],
     this.metadata,
+    this.rawItemJson,
+    this.itemFileName,
+    this.volumeId,
+    this.volumeSerialNumber,
+    this.relativeInstallPath,
+    this.lastSeenAt,
+    this.availability = InstalledGameAvailability.unknown,
   });
 
   String get formattedSize {
@@ -70,6 +85,13 @@ class GameInfo {
     String? mainGameAppName,
     List<String>? appCategories,
     GameMetadata? metadata,
+    String? rawItemJson,
+    String? itemFileName,
+    String? volumeId,
+    int? volumeSerialNumber,
+    String? relativeInstallPath,
+    DateTime? lastSeenAt,
+    InstalledGameAvailability? availability,
   }) {
     return GameInfo(
       displayName: displayName ?? this.displayName,
@@ -91,6 +113,13 @@ class GameInfo {
       mainGameAppName: mainGameAppName ?? this.mainGameAppName,
       appCategories: appCategories ?? this.appCategories,
       metadata: metadata ?? this.metadata,
+      rawItemJson: rawItemJson ?? this.rawItemJson,
+      itemFileName: itemFileName ?? this.itemFileName,
+      volumeId: volumeId ?? this.volumeId,
+      volumeSerialNumber: volumeSerialNumber ?? this.volumeSerialNumber,
+      relativeInstallPath: relativeInstallPath ?? this.relativeInstallPath,
+      lastSeenAt: lastSeenAt ?? this.lastSeenAt,
+      availability: availability ?? this.availability,
     );
   }
 }

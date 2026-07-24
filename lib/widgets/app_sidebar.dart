@@ -3,12 +3,16 @@ import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../services/sync_queue_service.dart';
 import '../shell_controller.dart';
+import '../theme/desktop_theme.dart';
 
 enum AppPage {
   dashboard,
   library,
+  gameDetail,
   playtime,
-  cloudSync,
+  syncCenter,
+  tools,
+  diskDiscovery,
   browse, // Mobile only: browse/search games
   chat, // Mobile only: AI chat assistant
   freeGames, // Mobile only: free games list
@@ -75,10 +79,8 @@ class _AppSidebarState extends State<AppSidebar> {
     return Container(
       width: 220,
       decoration: BoxDecoration(
-        color: AppColors.surfaceGlass,
-        border: Border(
-          right: BorderSide(color: AppColors.borderGlass, width: 1),
-        ),
+        color: DesktopTheme.sidebar,
+        border: Border(right: BorderSide(color: DesktopTheme.border, width: 1)),
       ),
       child: Column(
         children: [
@@ -90,8 +92,8 @@ class _AppSidebarState extends State<AppSidebar> {
               child: Column(
                 children: [
                   _buildNavItem(
-                    icon: Icons.dashboard_rounded,
-                    label: 'Dashboard',
+                    icon: Icons.home_rounded,
+                    label: 'Home',
                     page: AppPage.dashboard,
                   ),
                   const SizedBox(height: 4),
@@ -102,15 +104,15 @@ class _AppSidebarState extends State<AppSidebar> {
                   ),
                   const SizedBox(height: 4),
                   _buildNavItem(
-                    icon: Icons.timer_rounded,
-                    label: 'Playtime',
+                    icon: Icons.timeline_rounded,
+                    label: 'Activity',
                     page: AppPage.playtime,
                   ),
                   const SizedBox(height: 4),
                   _buildNavItem(
-                    icon: Icons.cloud_sync_rounded,
-                    label: 'Cloud Sync',
-                    page: AppPage.cloudSync,
+                    icon: Icons.build_rounded,
+                    label: 'Tools',
+                    page: AppPage.tools,
                     badge: _syncNavBadge(),
                   ),
                   const Spacer(),
@@ -164,7 +166,7 @@ class _AppSidebarState extends State<AppSidebar> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'EGDATA',
+                'EGData',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
@@ -173,7 +175,7 @@ class _AppSidebarState extends State<AppSidebar> {
                 ),
               ),
               Text(
-                'Client',
+                'Companion',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
@@ -194,7 +196,12 @@ class _AppSidebarState extends State<AppSidebar> {
     required AppPage page,
     String? badge,
   }) {
-    final isActive = widget.currentPage == page;
+    final isActive =
+        widget.currentPage == page ||
+        (page == AppPage.library && widget.currentPage == AppPage.gameDetail) ||
+        (page == AppPage.tools &&
+            (widget.currentPage == AppPage.syncCenter ||
+                widget.currentPage == AppPage.diskDiscovery));
     final isHovered = _hoveredPage == page;
 
     return MouseRegion(
@@ -207,14 +214,14 @@ class _AppSidebarState extends State<AppSidebar> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: isActive
-                ? AppColors.primary.withValues(alpha: 0.12)
+                ? DesktopTheme.primary.withValues(alpha: 0.1)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+            borderRadius: BorderRadius.circular(DesktopTheme.radiusSmall),
             border: Border.all(
               color: isActive
-                  ? AppColors.primary.withValues(alpha: 0.25)
+                  ? DesktopTheme.primary.withValues(alpha: 0.34)
                   : isHovered
-                  ? AppColors.primary.withValues(alpha: 0.4)
+                  ? DesktopTheme.borderStrong
                   : Colors.transparent,
               width: 1,
             ),
@@ -225,10 +232,10 @@ class _AppSidebarState extends State<AppSidebar> {
                 icon,
                 size: 20,
                 color: isActive
-                    ? AppColors.primary
+                    ? DesktopTheme.primary
                     : isHovered
-                    ? AppColors.textPrimary
-                    : AppColors.textSecondary,
+                    ? DesktopTheme.textPrimary
+                    : DesktopTheme.textSecondary,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -238,10 +245,10 @@ class _AppSidebarState extends State<AppSidebar> {
                     fontSize: 14,
                     fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
                     color: isActive
-                        ? AppColors.primary
+                        ? DesktopTheme.primary
                         : isHovered
-                        ? AppColors.textPrimary
-                        : AppColors.textSecondary,
+                        ? DesktopTheme.textPrimary
+                        : DesktopTheme.textSecondary,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

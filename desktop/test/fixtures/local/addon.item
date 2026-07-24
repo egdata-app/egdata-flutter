@@ -1,0 +1,13 @@
+{
+  "DisplayName": "Fixture Game Add-on",
+  "InstallationGuid": "addon-guid",
+  "InstallLocation": "__INSTALL_LOCATION__",
+  "CatalogNamespace": "namespace",
+  "CatalogItemId": "addon-id",
+  "AppName": "addon-app",
+  "InstallSize": 10,
+  "MainGameCatalogNamespace": "namespace",
+  "MainGameCatalogItemId": "base-id",
+  "MainGameAppName": "base-app",
+  "AppCategories": ["addons"]
+}

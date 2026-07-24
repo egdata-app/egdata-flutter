@@ -1,13 +1,26 @@
 import 'package:flutter/material.dart';
+import '../models/epic_progress.dart';
 import '../main.dart';
+import '../services/epic_progress_service.dart';
 import '../services/playtime_service.dart';
 import '../widgets/playtime_completion_card.dart';
 import '../services/api_service.dart';
 
 class PlaytimePage extends StatefulWidget {
   final PlaytimeService? playtimeService;
+  final EpicProgressService? epicProgressService;
+  final EpicProgressProofResult? progressProof;
+  final bool useSharedProgressState;
+  final ValueChanged<String>? onOpenGameDetailByCatalogItemId;
 
-  const PlaytimePage({super.key, this.playtimeService});
+  const PlaytimePage({
+    super.key,
+    this.playtimeService,
+    this.epicProgressService,
+    this.progressProof,
+    this.useSharedProgressState = false,
+    this.onOpenGameDetailByCatalogItemId,
+  });
 
   @override
   State<PlaytimePage> createState() => _PlaytimePageState();
@@ -16,11 +29,35 @@ class PlaytimePage extends StatefulWidget {
 class _PlaytimePageState extends State<PlaytimePage> {
   bool _isLoading = true;
   List<_PlaytimeGameData> _games = [];
+  EpicProgressProofResult? _progressProof;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    if (widget.progressProof != null) {
+      _progressProof = widget.progressProof;
+    } else if (widget.useSharedProgressState) {
+      _progressProof = null;
+    } else {
+      _loadProgressProof();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant PlaytimePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.progressProof != widget.progressProof &&
+        (widget.progressProof != null || widget.useSharedProgressState)) {
+      setState(() => _progressProof = widget.progressProof);
+    }
+  }
+
+  Future<void> _loadProgressProof() async {
+    final service = widget.epicProgressService;
+    if (service == null) return;
+    final proof = await service.verifyOfficialProgressAccess();
+    if (mounted) setState(() => _progressProof = proof);
   }
 
   Future<void> _loadData() async {
@@ -100,41 +137,6 @@ class _PlaytimePageState extends State<PlaytimePage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
-      );
-    }
-
-    if (_games.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.timer_off_rounded,
-              size: 64,
-              color: AppColors.textMuted.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'No Playtime Data',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Launch a game to start tracking your playtime',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
-            ),
-          ],
-        ),
-      );
-    }
-
     return Container(
       color: Colors.transparent,
       child: Column(
@@ -146,7 +148,7 @@ class _PlaytimePageState extends State<PlaytimePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Playtime & Completion',
+                  'Progress',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
@@ -156,7 +158,7 @@ class _PlaytimePageState extends State<PlaytimePage> {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  'Track your progress across all games',
+                  'Official Epic progress, local playtime, and completion signals',
                   style: TextStyle(
                     fontSize: 14,
                     color: AppColors.textSecondary,
@@ -168,19 +170,160 @@ class _PlaytimePageState extends State<PlaytimePage> {
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(28, 8, 28, 28),
-              child: Wrap(
-                spacing: 16,
-                runSpacing: 16,
-                children: _games.map((game) {
-                  return SizedBox(
-                    width: _getCardWidth(context),
-                    child: _buildGameCard(game),
-                  );
-                }).toList(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildOfficialProgressGate(),
+                  const SizedBox(height: 22),
+                  if (_isLoading)
+                    const SizedBox(
+                      height: 220,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    )
+                  else if (_games.isEmpty)
+                    _buildEmptyState()
+                  else
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 16,
+                      children: _games.map((game) {
+                        return SizedBox(
+                          width: _getCardWidth(context),
+                          child: _buildGameCard(game),
+                        );
+                      }).toList(),
+                    ),
+                ],
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildOfficialProgressGate() {
+    final proof = _progressProof;
+    final color = proof == null
+        ? AppColors.warning
+        : proof.isAvailable
+        ? AppColors.success
+        : proof.needsLogin
+        ? AppColors.primary
+        : AppColors.error;
+    final icon = proof == null
+        ? Icons.sync_rounded
+        : proof.isAvailable
+        ? Icons.verified_rounded
+        : proof.needsLogin
+        ? Icons.login_rounded
+        : Icons.block_rounded;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppColors.radiusSmall),
+        border: Border.all(color: color.withValues(alpha: 0.32)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  proof?.title ?? 'Checking official Epic progress access',
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  proof?.message ??
+                      'Official progress is required for v1 and is being verified before EGData shows user-specific achievement or playtime data.',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    height: 1.45,
+                  ),
+                ),
+                if (proof != null && proof.evidence.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  for (final item in proof.evidence)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('- ', style: TextStyle(color: color)),
+                          Expanded(
+                            child: Text(
+                              item,
+                              style: const TextStyle(
+                                color: AppColors.textMuted,
+                                fontSize: 12,
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return SizedBox(
+      height: 260,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.timer_off_rounded,
+              size: 64,
+              color: AppColors.textMuted.withValues(alpha: 0.5),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'No Local Playtime Data',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Launch a game to start local tracking while official progress remains gated',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -209,10 +352,10 @@ class _PlaytimePageState extends State<PlaytimePage> {
     final hasCompletionData =
         (game.igdb?.timeToBeat?.normallyHours ?? 0) > 0 || hasHltbData;
 
-    return Container(
+    final card = Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.border),
       ),
       padding: const EdgeInsets.all(20),
@@ -224,7 +367,7 @@ class _PlaytimePageState extends State<PlaytimePage> {
             children: [
               if (game.thumbnail != null)
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(6),
                   child: Image.network(
                     game.thumbnail!,
                     width: 40,
@@ -288,6 +431,13 @@ class _PlaytimePageState extends State<PlaytimePage> {
           ],
         ],
       ),
+    );
+
+    final open = widget.onOpenGameDetailByCatalogItemId;
+    if (open == null) return card;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(onTap: () => open(game.offerId), child: card),
     );
   }
 

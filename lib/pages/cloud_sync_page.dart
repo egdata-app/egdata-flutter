@@ -142,7 +142,7 @@ class _CloudSyncPageState extends State<CloudSyncPage> {
                   borderRadius: BorderRadius.circular(7),
                 ),
                 child: const Icon(
-                  Icons.cloud_sync_rounded,
+                  Icons.sync_alt_rounded,
                   color: AppColors.primary,
                   size: 22,
                 ),
@@ -153,7 +153,7 @@ class _CloudSyncPageState extends State<CloudSyncPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Cloud Sync',
+                      'Sync Center',
                       style: TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 24,
@@ -206,7 +206,7 @@ class _CloudSyncPageState extends State<CloudSyncPage> {
       children: [
         _actionButton(
           icon: isAuthenticated ? Icons.sync_rounded : Icons.login_rounded,
-          label: isAuthenticated ? 'Start Full Sync' : 'Login',
+          label: isAuthenticated ? 'Start Library Sync' : 'Login',
           onPressed: queue.canStart
               ? () {
                   if (isAuthenticated) {
@@ -436,7 +436,7 @@ class _CloudSyncPageState extends State<CloudSyncPage> {
               children: [
                 const Expanded(
                   child: Text(
-                    'Sync Logs',
+                    'Sync Center Logs',
                     style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 13,
@@ -501,7 +501,9 @@ class _CloudSyncPageState extends State<CloudSyncPage> {
           ),
           const SizedBox(height: 10),
           Text(
-            queue.queue.isEmpty ? 'No sync queue yet' : 'No rows match filter',
+            queue.queue.isEmpty
+                ? 'No manifest queue yet'
+                : 'No rows match filter',
             style: const TextStyle(
               color: AppColors.textPrimary,
               fontSize: 15,
@@ -654,9 +656,11 @@ class _CloudSyncPageState extends State<CloudSyncPage> {
   }
 
   String _headerSubtitle(SyncQueueService queue, bool isAuthenticated) {
-    if (!isAuthenticated) return 'Epic account disconnected';
+    if (!isAuthenticated) {
+      return 'Connect Epic Games to validate library sync state';
+    }
     if (queue.statusMessage.isNotEmpty) return queue.statusMessage;
-    return 'Epic account connected';
+    return 'Scan, upload, and repair manifest contribution data';
   }
 
   String _statusLabel(SyncQueueStatus status) {

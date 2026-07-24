@@ -1,0 +1,13 @@
+{
+  "DisplayName": "Fixture Mac Game",
+  "InstallationGuid": "fixture-mac-guid",
+  "InstallLocation": "/Users/fixture/Games/FixtureMac",
+  "ManifestLocation": "/Users/fixture/Games/FixtureMac/.egstore/mac.manifest",
+  "CatalogNamespace": "fixture-namespace",
+  "CatalogItemId": "fixture-mac-id",
+  "AppName": "FixtureMacApp",
+  "AppVersionString": "2.0.0",
+  "LaunchExecutable": "FixtureMac.app",
+  "InstallSize": 8192,
+  "AppCategories": ["games"]
+}

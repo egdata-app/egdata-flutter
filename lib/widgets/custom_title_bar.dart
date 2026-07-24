@@ -10,7 +10,7 @@ class CustomTitleBar extends StatefulWidget {
   const CustomTitleBar({
     super.key,
     required this.onClose,
-    this.title = 'EGData Client',
+    this.title = 'EGData Library Companion',
   });
 
   @override

@@ -9,6 +9,8 @@ import 'main.dart';
 import 'utils/platform_utils.dart';
 import 'database/database_service.dart';
 import 'models/game_info.dart';
+import 'models/epic_progress.dart';
+import 'models/library_game.dart';
 import 'models/notification_topics.dart';
 import 'models/playtime_stats.dart';
 import 'models/settings.dart';
@@ -29,12 +31,21 @@ import 'services/tray_service.dart';
 import 'services/update_service.dart';
 import 'services/window_channel_service.dart';
 import 'services/epic_auth_service.dart';
+import 'services/epic_progress_service.dart';
 import 'services/epic_library_service.dart';
 import 'services/library_metadata_service.dart';
+import 'services/library_repository.dart';
+import 'services/drive_discovery_service.dart';
+import 'services/epic_recovery_service.dart';
 import 'widgets/app_sidebar.dart';
 import 'pages/dashboard_page.dart';
+import 'pages/desktop_home_page.dart';
+import 'pages/desktop_activity_page.dart';
+import 'pages/desktop_tools_page.dart';
+import 'pages/disk_discovery_page.dart';
 import 'pages/library_page.dart';
-import 'pages/playtime_page.dart';
+import 'pages/library_game_detail_page.dart';
+import 'pages/move_game_page.dart';
 import 'pages/cloud_sync_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/free_games_page.dart';
@@ -44,6 +55,8 @@ import 'pages/mobile_chat_sessions_page.dart';
 import 'services/chat_session_service.dart';
 import 'services/user_service.dart';
 import 'shell_controller.dart';
+import 'utils/epic_protocol.dart';
+import 'theme/desktop_theme.dart';
 
 class AppShell extends StatefulWidget {
   final QueryClient? queryClient;
@@ -97,6 +110,11 @@ class _AppShellState extends State<AppShell> with WindowListener {
   PushService? _pushService; // Mobile only
   ChatSessionService? _chatSessionService; // Mobile only
   LibraryMetadataService? _libraryMetadataService;
+  LibraryRepository? _libraryRepository;
+  // Desktop only until mobile progress UX exists.
+  EpicProgressService? _epicProgressService;
+  DriveDiscoveryService? _driveDiscoveryService;
+  EpicRecoveryService? _epicRecoveryService;
 
   // Shared state
   List<GameInfo> _games = [];
@@ -115,6 +133,10 @@ class _AppShellState extends State<AppShell> with WindowListener {
   String _currentVersion = '';
   bool _isHandlingClose = false;
   bool _isQuitting = false;
+  bool _isStartupSyncing = false;
+  String? _selectedGameIdentityKey;
+  Map<String, EpicGameProgress> _officialProgressByCatalogItemId = const {};
+  EpicProgressProofResult? _officialProgressProof;
 
   // Tray popup subscriptions (macOS)
   StreamSubscription<PlaytimeStats>? _trayStatsSubscription;
@@ -139,6 +161,9 @@ class _AppShellState extends State<AppShell> with WindowListener {
     _trayStatsSubscription?.cancel();
     _trayActiveGameSubscription?.cancel();
     _mobilePageController.dispose();
+    _libraryRepository?.removeListener(_onLibraryRepositoryChanged);
+    _driveDiscoveryService?.removeListener(_onDriveDiscoveryChanged);
+    _driveDiscoveryService?.dispose();
     _followService?.dispose();
     _playtimeService?.dispose();
     _pushService?.dispose();
@@ -172,17 +197,38 @@ class _AppShellState extends State<AppShell> with WindowListener {
       api: _apiService,
     );
     await _libraryMetadataService!.loadFromDatabase();
+    _libraryRepository = LibraryRepository(
+      database: _db!,
+      metadataService: _libraryMetadataService!,
+    );
+    _libraryRepository!.addListener(_onLibraryRepositoryChanged);
+    if (PlatformUtils.isDesktop) {
+      await _libraryRepository!.loadCached();
+      _syncShellLibraryStateFromRepository();
+    }
 
     // Initialize desktop-only services
     if (PlatformUtils.isDesktop) {
       _scanner = ManifestScanner();
       _uploadService = UploadService();
       _trayService = TrayService();
+      _epicProgressService = EpicProgressService(
+        authService: widget.epicAuthService ?? EpicAuthService(),
+      );
       _playtimeService = PlaytimeService(
         db: _db!,
         getInstalledGames: () => _games,
       );
       _playtimeService!.startTracking();
+      final launcherManifestDirectory = _scanner!.getManifestsPath();
+      _driveDiscoveryService = DriveDiscoveryService(
+        database: _db!,
+        launcherManifestDirectory: launcherManifestDirectory,
+      )..addListener(_onDriveDiscoveryChanged);
+      _epicRecoveryService = EpicRecoveryService(
+        database: _db!,
+        launcherManifestDirectory: launcherManifestDirectory,
+      );
     }
 
     // Initialize mobile-only services
@@ -202,12 +248,6 @@ class _AppShellState extends State<AppShell> with WindowListener {
       await _initTray();
     }
 
-    // Desktop: scan local games
-    if (PlatformUtils.isDesktop) {
-      await _scanGames();
-      await _loadOwnedGames();
-    }
-
     await _followService!.loadFollowedGames();
 
     // Migrate existing followed games to have notification topics
@@ -222,37 +262,9 @@ class _AppShellState extends State<AppShell> with WindowListener {
 
     await _initNotifications();
 
-    // Perform startup sync
-    // Check if this is the first sync (no free games in database yet)
-    // to avoid flooding with notifications for all existing free games
-    final existingFreeGames = await _db!.getAllFreeGames();
-    final isFirstSync = existingFreeGames.isEmpty;
-
-    // On mobile, skip local notifications entirely since push notifications
-    // handle this. Firebase doesn't support desktop push, so desktop uses
-    // local notifications from the sync service.
-    final skipLocalNotifications = PlatformUtils.isMobile;
-
-    if (isFirstSync) {
-      _addLog('First sync detected - notifications will be skipped');
-    }
-
-    _addLog('Performing startup sync...');
-    final result = await _syncService!.performSync(
-      _settings,
-      isFirstSync: isFirstSync,
-      skipLocalNotifications: skipLocalNotifications,
-    );
-    if (result.error != null) {
-      _addLog('Startup sync error: ${result.error}');
-    } else if (result.hasChanges) {
-      _addLog(
-        'Startup sync: ${result.newFreeGames.length} new free games, '
-        '${result.gamesOnSale.length} games on sale, '
-        '${result.newChangelogs.length} changelog updates',
-      );
-    } else {
-      _addLog('Startup sync complete: no changes detected');
+    await _performStartupSync();
+    if (PlatformUtils.isWindows && _settings.diskMonitoringEnabled) {
+      await _driveDiscoveryService?.start();
     }
 
     // Check for app updates
@@ -507,7 +519,45 @@ class _AppShellState extends State<AppShell> with WindowListener {
     }
     setState(() {
       _currentPage = page;
+      if (page != AppPage.gameDetail) {
+        _selectedGameIdentityKey = null;
+      }
     });
+  }
+
+  void _selectPageFromContent(AppPage page) {
+    setState(() {
+      _currentPage = page;
+      if (page != AppPage.gameDetail) {
+        _selectedGameIdentityKey = null;
+      }
+    });
+    widget.shellController.updateFromShell(currentPage: page);
+  }
+
+  void _onLibraryRepositoryChanged() {
+    if (!mounted) return;
+    setState(_syncShellLibraryStateFromRepository);
+  }
+
+  void _onDriveDiscoveryChanged() {
+    if (!mounted) return;
+    setState(() {});
+    unawaited(_libraryRepository?.loadCached());
+  }
+
+  void _syncShellLibraryStateFromRepository() {
+    final repository = _libraryRepository;
+    if (repository == null) return;
+    _allGames = repository.allInstalledGames;
+    _games = repository.installedGames;
+    _ownedGames = repository.ownedGames;
+    _officialProgressByCatalogItemId = repository.progressByCatalogItemId;
+    _officialProgressProof = repository.progressProof;
+    _isLoading =
+        repository.sync.isRunning &&
+        repository.installedGames.isEmpty &&
+        repository.ownedGames.isEmpty;
   }
 
   Future<void> _loadSettings() async {
@@ -535,6 +585,81 @@ class _AppShellState extends State<AppShell> with WindowListener {
     }
   }
 
+  Future<void> _performStartupSync() async {
+    if (_isStartupSyncing || _db == null || _syncService == null) return;
+    _isStartupSyncing = true;
+
+    try {
+      if (PlatformUtils.isDesktop) {
+        _libraryRepository?.markSync(
+          LibrarySyncPhase.scanningLocal,
+          'Scanning local installs',
+        );
+        await _scanGames(syncMetadata: false);
+        await _loadOwnedGames(syncMetadata: false);
+      }
+
+      final existingFreeGames = await _db!.getAllFreeGames();
+      final isFirstSync = existingFreeGames.isEmpty;
+      if (isFirstSync) {
+        _addLog('First sync detected - notifications will be skipped');
+      }
+
+      _addLog('Startup sync: syncing local database...');
+      final result = await _syncService!.performSync(
+        _settings,
+        isFirstSync: isFirstSync,
+        skipLocalNotifications: PlatformUtils.isMobile,
+      );
+      _logSyncResult('Startup sync', result);
+
+      if (PlatformUtils.isDesktop) {
+        _libraryRepository?.markSync(
+          LibrarySyncPhase.fetchingEpicLibrary,
+          'Fetching Epic library',
+        );
+        await _fetchOwnedLibrary(promptLogin: false, syncMetadata: false);
+        _libraryRepository?.markSync(
+          LibrarySyncPhase.syncingMetadata,
+          'Hydrating EGData metadata',
+        );
+        await _syncLibraryMetadata();
+        _libraryRepository?.markSync(
+          LibrarySyncPhase.syncingProgress,
+          'Syncing official progress',
+        );
+        await _syncOfficialProgress();
+        _libraryRepository?.markSync(
+          LibrarySyncPhase.completed,
+          'Desktop library sync complete',
+        );
+      }
+    } catch (e) {
+      _libraryRepository?.markSync(
+        LibrarySyncPhase.failed,
+        'Desktop library sync failed',
+        error: e,
+      );
+      _addLog('Startup desktop sync failed: $e');
+    } finally {
+      _isStartupSyncing = false;
+    }
+  }
+
+  void _logSyncResult(String label, SyncResult result) {
+    if (result.error != null) {
+      _addLog('$label error: ${result.error}');
+    } else if (result.hasChanges) {
+      _addLog(
+        '$label: ${result.newFreeGames.length} new free games, '
+        '${result.gamesOnSale.length} games on sale, '
+        '${result.newChangelogs.length} changelog updates',
+      );
+    } else {
+      _addLog('$label complete: no changes detected');
+    }
+  }
+
   Future<void> _performAutoSync() async {
     // Sync API data (free games, sales, changelogs)
     _addLog('Auto-sync: syncing API data...');
@@ -555,7 +680,7 @@ class _AppShellState extends State<AppShell> with WindowListener {
       }
     }
 
-    // Desktop only: Scan local games and upload manifests
+    // Desktop only: scan local games and refresh Epic/EGData hydration.
     if (PlatformUtils.isDesktop && _scanner != null) {
       _addLog('Auto-sync: scanning for games...');
       try {
@@ -572,6 +697,9 @@ class _AppShellState extends State<AppShell> with WindowListener {
         _addLog('Auto-sync: scan error - $e');
         return;
       }
+      await _fetchOwnedLibrary(promptLogin: false, syncMetadata: false);
+      await _syncLibraryMetadata();
+      await _syncOfficialProgress();
       if (_games.isNotEmpty) {
         await _uploadAll();
       }
@@ -588,7 +716,7 @@ class _AppShellState extends State<AppShell> with WindowListener {
     });
   }
 
-  Future<void> _scanGames() async {
+  Future<void> _scanGames({bool syncMetadata = true}) async {
     if (!PlatformUtils.isDesktop || _scanner == null) return;
 
     setState(() {
@@ -597,15 +725,26 @@ class _AppShellState extends State<AppShell> with WindowListener {
     try {
       final allGames = await _scanner!.scanGames(groupByMainGame: false);
       final games = ManifestScanner.groupGamesByMainGame(allGames);
-      setState(() {
-        _allGames = allGames;
-        _games = games;
-        _isLoading = false;
-      });
+      final repository = _libraryRepository;
+      if (repository != null) {
+        await repository.replaceInstalledGames(allGames);
+      } else {
+        setState(() {
+          _allGames = allGames;
+          _games = games;
+        });
+      }
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
       _addLog(
         'Found ${games.length} installed games from ${allGames.length} manifests',
       );
-      _syncLibraryMetadata();
+      if (syncMetadata) {
+        unawaited(_syncLibraryMetadata());
+      }
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -614,21 +753,26 @@ class _AppShellState extends State<AppShell> with WindowListener {
     }
   }
 
-  Future<void> _loadOwnedGames() async {
+  Future<void> _loadOwnedGames({bool syncMetadata = true}) async {
     if (!PlatformUtils.isDesktop || _db == null) return;
     final ownedGames = await _db!.getAllOwnedGames();
-    if (mounted) {
+    final repository = _libraryRepository;
+    if (repository != null) {
+      await repository.reloadOwnedGames();
+    } else if (mounted) {
       setState(() {
         _ownedGames = ownedGames;
       });
     }
-    _syncLibraryMetadata();
+    if (syncMetadata) {
+      unawaited(_syncLibraryMetadata());
+    }
   }
 
   /// Fire-and-forget background sync of offer-level metadata for every
   /// item in the library (installed + owned). Used to power right-sidebar
   /// filters by offer type, tags, release date, and price.
-  void _syncLibraryMetadata() {
+  Future<void> _syncLibraryMetadata({bool forceRefresh = false}) async {
     final service = _libraryMetadataService;
     if (service == null) return;
     final ids = <String>{
@@ -638,24 +782,29 @@ class _AppShellState extends State<AppShell> with WindowListener {
         if (owned.catalogItemId.isNotEmpty) owned.catalogItemId,
     };
     if (ids.isEmpty) return;
-    Future.microtask(() async {
-      try {
-        final result = await service.syncStale(ids);
-        if (result != null && result.requested > 0) {
-          _addLog(
-            'Library metadata synced: ${result.resolved} resolved, '
-            '${result.empty} empty, ${result.errors} errors '
-            '(${result.elapsed.inMilliseconds} ms)',
-          );
-          if (mounted) setState(() {});
-        }
-      } catch (e) {
-        _addLog('Library metadata sync failed: $e');
+
+    try {
+      final result = forceRefresh
+          ? await service.refresh(ids)
+          : await service.syncStale(ids);
+      if (result != null && result.requested > 0) {
+        _addLog(
+          'Library metadata synced: ${result.resolved} resolved, '
+          '${result.empty} empty, ${result.errors} errors '
+          '(${result.elapsed.inMilliseconds} ms)',
+        );
+        _libraryRepository?.refreshMetadataCache();
+        if (mounted) setState(() {});
       }
-    });
+    } catch (e) {
+      _addLog('Library metadata sync failed: $e');
+    }
   }
 
-  Future<void> _fetchOwnedLibrary() async {
+  Future<void> _fetchOwnedLibrary({
+    bool promptLogin = true,
+    bool syncMetadata = true,
+  }) async {
     if (!PlatformUtils.isDesktop ||
         _db == null ||
         widget.epicAuthService == null) {
@@ -669,6 +818,10 @@ class _AppShellState extends State<AppShell> with WindowListener {
     try {
       await widget.epicAuthService!.loadTokens();
       if (!widget.epicAuthService!.isAuthenticated) {
+        if (!promptLogin) {
+          _addLog('Epic library startup sync skipped: login required');
+          return;
+        }
         final success = await widget.epicAuthService!.login();
         if (!success) {
           _addLog('Epic library fetch cancelled: login required');
@@ -726,7 +879,10 @@ class _AppShellState extends State<AppShell> with WindowListener {
       }
 
       await _db!.saveOwnedGames(entries);
-      await _loadOwnedGames();
+      await _loadOwnedGames(syncMetadata: false);
+      if (syncMetadata) {
+        await _syncLibraryMetadata();
+      }
       _addLog('Fetched ${entries.length} Epic library items');
     } catch (e) {
       _addLog('Epic library fetch failed: $e');
@@ -739,6 +895,75 @@ class _AppShellState extends State<AppShell> with WindowListener {
     }
   }
 
+  Future<void> _syncOfficialProgress({bool forceRefresh = false}) async {
+    final service = _epicProgressService;
+    if (!PlatformUtils.isDesktop || service == null) return;
+
+    final catalogIds = <String>{};
+    final artifactIdByCatalogItemId = <String, String>{};
+    final productIdByCatalogItemId = <String, String>{};
+
+    for (final game in _games) {
+      final catalogItemId = game.catalogItemId.trim();
+      final appName = game.appName.trim();
+      if (catalogItemId.isEmpty) continue;
+      catalogIds.add(catalogItemId);
+      if (appName.isNotEmpty) {
+        artifactIdByCatalogItemId[catalogItemId] = appName;
+      }
+    }
+
+    for (final game in _ownedGames) {
+      final catalogItemId = game.catalogItemId.trim();
+      final appName = game.appName.trim();
+      final productId = game.assetId.trim();
+      if (catalogItemId.isEmpty) continue;
+      catalogIds.add(catalogItemId);
+      if (appName.isNotEmpty) {
+        artifactIdByCatalogItemId.putIfAbsent(catalogItemId, () => appName);
+      }
+      if (productId.isNotEmpty &&
+          productId.toLowerCase() != appName.toLowerCase()) {
+        productIdByCatalogItemId[catalogItemId] = productId;
+      }
+    }
+
+    if (catalogIds.isEmpty) {
+      final proof = await service.verifyOfficialProgressAccess(
+        forceRefresh: forceRefresh,
+      );
+      await _libraryRepository?.replaceProgressProof(proof);
+      return;
+    }
+
+    try {
+      final snapshot = await service.loadProgressSnapshot(
+        catalogIds,
+        artifactIdByCatalogItemId: artifactIdByCatalogItemId,
+        productIdByCatalogItemId: productIdByCatalogItemId,
+        achievementProductLimit: 50,
+        forceRefresh: forceRefresh,
+      );
+      await _libraryRepository?.replaceProgressSnapshot(snapshot);
+
+      if (snapshot.proof.needsLogin) {
+        _addLog('Official progress sync skipped: Epic login required');
+      } else if (snapshot.proof.isBlocked) {
+        _addLog(
+          'Official progress sync blocked: ${snapshot.proof.title} - '
+          '${snapshot.proof.message}',
+        );
+      } else {
+        _addLog(
+          'Official progress synced: '
+          '${snapshot.gamesByCatalogItemId.length} library item(s)',
+        );
+      }
+    } catch (e) {
+      _addLog('Official progress sync failed: $e');
+    }
+  }
+
   Future<void> _syncOwnedGames(List<OwnedGameEntry> ownedGames) async {
     final queue = widget.syncQueueService;
     if (queue == null || ownedGames.isEmpty || queue.isRunning) return;
@@ -746,6 +971,157 @@ class _AppShellState extends State<AppShell> with WindowListener {
       items: ownedGames.map((entry) => entry.toLibraryItem()).toList(),
     );
     await _loadOwnedGames();
+  }
+
+  List<LibraryGame> get _mergedLibraryGames {
+    final queue = widget.syncQueueService;
+    final repository = _libraryRepository;
+    if (repository != null) {
+      return repository.mergedGames(
+        localUploadStatuses: _uploadStatuses,
+        ownedUploadStatuses: queue?.ownedUploadStatuses ?? const {},
+        uploadingInstalledIds: _uploadingGames,
+        syncingOwnedKeys: queue?.syncingIdentityKeys ?? const {},
+      );
+    }
+    return LibraryGame.merge(
+      installedGames: _games,
+      ownedGames: _ownedGames,
+      localUploadStatuses: _uploadStatuses,
+      ownedUploadStatuses: queue?.ownedUploadStatuses ?? const {},
+      uploadingInstalledIds: _uploadingGames,
+      syncingOwnedKeys: queue?.syncingIdentityKeys ?? const {},
+      metadataByCatalogItemId: _libraryMetadataService?.cache ?? const {},
+      progressByCatalogItemId: _officialProgressByCatalogItemId,
+    );
+  }
+
+  LibraryGame? _selectedDetailGame() {
+    final key = _selectedGameIdentityKey;
+    if (key == null || key.isEmpty) return null;
+    for (final game in _mergedLibraryGames) {
+      if (game.identityKey == key) return game;
+    }
+    return null;
+  }
+
+  void _openGameDetail(LibraryGame game) {
+    setState(() {
+      _selectedGameIdentityKey = game.identityKey;
+      _currentPage = AppPage.gameDetail;
+    });
+    widget.shellController.updateFromShell(currentPage: AppPage.gameDetail);
+  }
+
+  void _openInstalledGameDetail(GameInfo game) {
+    final repository = _libraryRepository;
+    final libraryGame =
+        repository?.findInstalledGame(
+          game,
+          localUploadStatuses: _uploadStatuses,
+          ownedUploadStatuses:
+              widget.syncQueueService?.ownedUploadStatuses ?? const {},
+          uploadingInstalledIds: _uploadingGames,
+          syncingOwnedKeys:
+              widget.syncQueueService?.syncingIdentityKeys ?? const {},
+        ) ??
+        _mergedLibraryGames.where((candidate) {
+          return candidate.installedGame?.installationGuid ==
+                  game.installationGuid ||
+              (game.catalogItemId.isNotEmpty &&
+                  candidate.catalogItemId == game.catalogItemId);
+        }).firstOrNull;
+    if (libraryGame == null) {
+      _selectPageFromContent(AppPage.library);
+      return;
+    }
+    _openGameDetail(libraryGame);
+  }
+
+  void _openGameDetailByCatalogItemId(String catalogItemId) {
+    final repository = _libraryRepository;
+    final libraryGame =
+        repository?.findGameByCatalogItemId(
+          catalogItemId,
+          localUploadStatuses: _uploadStatuses,
+          ownedUploadStatuses:
+              widget.syncQueueService?.ownedUploadStatuses ?? const {},
+          uploadingInstalledIds: _uploadingGames,
+          syncingOwnedKeys:
+              widget.syncQueueService?.syncingIdentityKeys ?? const {},
+        ) ??
+        _mergedLibraryGames
+            .where((game) => game.catalogItemId == catalogItemId)
+            .firstOrNull;
+    if (libraryGame == null) {
+      _selectPageFromContent(AppPage.library);
+      return;
+    }
+    _openGameDetail(libraryGame);
+  }
+
+  Future<void> _launchLibraryGame(LibraryGame game) async {
+    final installed = game.installedGame;
+    if (installed == null) return;
+    final ok = await EpicProtocol.launch(
+      EpicProtocol.launchApp(
+        installed.appName,
+        namespace: installed.catalogNamespace,
+        itemId: installed.catalogItemId,
+      ),
+    );
+    _addLog(
+      ok
+          ? 'Launching ${installed.displayName}'
+          : 'Could not launch ${installed.displayName} (Epic launcher missing?)',
+    );
+  }
+
+  Future<void> _installLibraryGame(LibraryGame game) async {
+    final owned = game.ownedGame;
+    if (owned == null) return;
+    final ok = await EpicProtocol.launch(
+      EpicProtocol.installApp(
+        owned.appName,
+        namespace: owned.namespace,
+        itemId: owned.catalogItemId,
+      ),
+    );
+    _addLog(
+      ok
+          ? 'Install requested for ${owned.title}'
+          : 'Could not request install for ${owned.title}',
+    );
+  }
+
+  Future<void> _moveLibraryGame(GameInfo game) async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (context) => MoveGamePage(game: game)),
+    );
+
+    if (result == true) {
+      _addLog('Game moved: ${game.displayName}');
+      await _scanGames();
+    }
+  }
+
+  Future<void> _syncLibraryGames(List<LibraryGame> games) async {
+    final installedGames = games
+        .where((game) => game.isInstalled)
+        .map((game) => game.installedGame!)
+        .toList(growable: false);
+    final cloudGames = games
+        .where((game) => !game.isInstalled && game.ownedGame != null)
+        .map((game) => game.ownedGame!)
+        .toList(growable: false);
+
+    for (final game in installedGames) {
+      await _uploadManifest(game);
+    }
+    if (cloudGames.isNotEmpty) {
+      await _syncOwnedGames(cloudGames);
+    }
   }
 
   Future<void> _uploadManifest(GameInfo game) async {
@@ -845,6 +1221,16 @@ class _AppShellState extends State<AppShell> with WindowListener {
           _addLog('Launch at startup disabled');
         }
       }
+      if (oldSettings.diskMonitoringEnabled !=
+          newSettings.diskMonitoringEnabled) {
+        if (newSettings.diskMonitoringEnabled) {
+          await _driveDiscoveryService?.start();
+          _addLog('Disk monitoring enabled');
+        } else {
+          _driveDiscoveryService?.stop();
+          _addLog('Disk monitoring disabled');
+        }
+      }
     }
   }
 
@@ -883,12 +1269,11 @@ class _AppShellState extends State<AppShell> with WindowListener {
         : 0.0;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: DesktopTheme.background,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          Container(decoration: AppColors.radialGradientBackground),
-          Container(decoration: AppColors.accentGlowBackground),
+          const ColoredBox(color: DesktopTheme.background),
           Padding(
             padding: EdgeInsets.only(left: 220, top: titleBarHeight),
             child: Column(
@@ -986,11 +1371,21 @@ class _AppShellState extends State<AppShell> with WindowListener {
             onSettingsChanged: _onSettingsChanged,
           );
         }
-        return DashboardPage(
-          playtimeService: _playtimeService,
+        return DesktopHomePage(
           installedGames: _games,
-          db: _db,
-          epicAuthService: widget.epicAuthService,
+          ownedGamesCount: _ownedGames.length,
+          playtimeService: _playtimeService,
+          database: _db!,
+          driveDiscoveryService: _driveDiscoveryService,
+          progressByCatalogItemId: _officialProgressByCatalogItemId,
+          epicConnected:
+              widget.epicAuthService?.isAuthenticated == true &&
+              _officialProgressProof?.isAvailable == true,
+          onOpenLibrary: () => _selectPageFromContent(AppPage.library),
+          onOpenActivity: () => _selectPageFromContent(AppPage.playtime),
+          onOpenDiskDiscovery: () =>
+              _selectPageFromContent(AppPage.diskDiscovery),
+          onOpenGameDetails: _openInstalledGameDetail,
         );
       case AppPage.library:
         // Desktop: installed games with manifest upload
@@ -1021,6 +1416,11 @@ class _AppShellState extends State<AppShell> with WindowListener {
           uploadService: widget.uploadService,
           syncQueueService: widget.syncQueueService,
           metadataService: _libraryMetadataService,
+          epicProgressService: _epicProgressService,
+          progressByCatalogItemId: _officialProgressByCatalogItemId,
+          progressProof: _officialProgressProof,
+          onRefreshOfficialProgress: _syncOfficialProgress,
+          onOpenGameDetail: _openGameDetail,
           onRefreshMetadata: () async {
             final service = _libraryMetadataService;
             if (service == null) return;
@@ -1054,17 +1454,95 @@ class _AppShellState extends State<AppShell> with WindowListener {
               _onSettingsChanged(_settings.copyWith(libraryViewMode: mode)),
           onLibraryFiltersChanged: _onSettingsChanged,
           onNavigateToDashboard: () =>
-              setState(() => _currentPage = AppPage.dashboard),
+              _selectPageFromContent(AppPage.dashboard),
+        );
+      case AppPage.gameDetail:
+        final detailGame = _selectedDetailGame();
+        if (PlatformUtils.isMobile || detailGame == null) {
+          return DashboardPage(
+            playtimeService: _playtimeService,
+            installedGames: _games,
+            ownedGames: _ownedGames,
+            ownedGamesCount: _ownedGames.length,
+            db: _db,
+            epicAuthService: widget.epicAuthService,
+            epicProgressService: _epicProgressService,
+            progressByCatalogItemId: _officialProgressByCatalogItemId,
+            progressProof: _officialProgressProof,
+            onRefreshOfficialProgress: _syncOfficialProgress,
+            onOpenLibrary: () => _selectPageFromContent(AppPage.library),
+            onOpenProgress: () => _selectPageFromContent(AppPage.playtime),
+            onOpenSyncCenter: () => _selectPageFromContent(AppPage.syncCenter),
+            onOpenGameDetails: _openInstalledGameDetail,
+          );
+        }
+        return Navigator(
+          key: ValueKey('game-detail-${detailGame.identityKey}'),
+          onGenerateRoute: (_) => MaterialPageRoute(
+            builder: (_) => LibraryGameDetailPage(
+              key: ValueKey(detailGame.identityKey),
+              game: detailGame,
+              followService: _followService!,
+              playtimeService: _playtimeService,
+              epicProgressService: _epicProgressService,
+              onLaunch: _launchLibraryGame,
+              onInstall: _installLibraryGame,
+              onMove: _moveLibraryGame,
+              onSyncManifest: (game) => _syncLibraryGames([game]),
+              onBack: () => _selectPageFromContent(AppPage.library),
+            ),
+          ),
         );
       case AppPage.playtime:
-        return PlaytimePage(playtimeService: _playtimeService);
-      case AppPage.cloudSync:
+        return DesktopActivityPage(
+          database: _db!,
+          installedGames: _games,
+          progressByCatalogItemId: _officialProgressByCatalogItemId,
+          onOpenGameDetailByCatalogItemId: _openGameDetailByCatalogItemId,
+        );
+      case AppPage.tools:
+        return DesktopToolsPage(
+          syncQueueService: widget.syncQueueService,
+          driveDiscoveryService: _driveDiscoveryService,
+          onOpenSyncCenter: () => _selectPageFromContent(AppPage.syncCenter),
+          onOpenDiskDiscovery: () =>
+              _selectPageFromContent(AppPage.diskDiscovery),
+          onToggleConsole: () => setState(() => _showConsole = !_showConsole),
+        );
+      case AppPage.diskDiscovery:
+        final discovery = _driveDiscoveryService;
+        final recovery = _epicRecoveryService;
+        if (discovery == null || recovery == null) {
+          return DesktopToolsPage(
+            syncQueueService: widget.syncQueueService,
+            driveDiscoveryService: discovery,
+            onOpenSyncCenter: () => _selectPageFromContent(AppPage.syncCenter),
+            onOpenDiskDiscovery: () {},
+            onToggleConsole: () => setState(() => _showConsole = !_showConsole),
+          );
+        }
+        return DiskDiscoveryPage(
+          service: discovery,
+          recoveryService: recovery,
+          onBack: () => _selectPageFromContent(AppPage.tools),
+        );
+      case AppPage.syncCenter:
         if (PlatformUtils.isMobile || widget.syncQueueService == null) {
           return DashboardPage(
             playtimeService: _playtimeService,
             installedGames: _games,
+            ownedGames: _ownedGames,
+            ownedGamesCount: _ownedGames.length,
             db: _db,
             epicAuthService: widget.epicAuthService,
+            epicProgressService: _epicProgressService,
+            progressByCatalogItemId: _officialProgressByCatalogItemId,
+            progressProof: _officialProgressProof,
+            onRefreshOfficialProgress: _syncOfficialProgress,
+            onOpenLibrary: () => _selectPageFromContent(AppPage.library),
+            onOpenProgress: () => _selectPageFromContent(AppPage.playtime),
+            onOpenSyncCenter: () => _selectPageFromContent(AppPage.syncCenter),
+            onOpenGameDetails: _openInstalledGameDetail,
           );
         }
         return CloudSyncPage(
