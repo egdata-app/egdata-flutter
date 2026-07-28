@@ -17,6 +17,10 @@ export const EPIC_LAUNCHER_CLIENT_ID = '34a02cf8f4414e29b15921876da36f9a'
 const EPIC_LAUNCHER_CLIENT_SECRET = 'daafbccc737745039dffe53d94fc76cf'
 const EPIC_LAUNCHER_USER_AGENT =
   'UELauncher/11.0.1-14907503+++Portal+Release-Live Windows/10.0.19045.1.256.64bit'
+const DEFAULT_REFRESH_LEAD_TIME_MS = 5 * 60_000
+const DEFAULT_REFRESH_RETRY_BASE_DELAY_MS = 60_000
+const DEFAULT_REFRESH_RETRY_MAX_DELAY_MS = 15 * 60_000
+const MAX_TIMER_DELAY_MS = 2_147_483_647
 
 export const EPIC_AUTH_PARTITION = 'persist:egdata-epic-auth'
 export const EPIC_AUTH_ORIGINS = Object.freeze([
@@ -43,6 +47,19 @@ export interface EpicAuthServiceOptions {
   requestTimeoutMs?: number
   partition?: string
   now?: () => number
+  refreshLeadTimeMs?: number
+  refreshRetryBaseDelayMs?: number
+  refreshRetryMaxDelayMs?: number
+  onBackgroundRefresh?: (error: Error | null) => void
+}
+
+class TokenExchangeError extends EpicAuthError {
+  readonly retryable: boolean
+
+  constructor(retryable: boolean, options?: ErrorOptions) {
+    super('EPIC_LOGIN_FAILED', options)
+    this.retryable = retryable
+  }
 }
 
 function createEpicAuthWindow(partition: string): AuthWindow {
@@ -127,8 +144,15 @@ export class EpicAuthService implements EpicAuthorizedRequester {
   readonly #requestTimeoutMs: number
   readonly #partition: string
   readonly #now: () => number
+  readonly #refreshLeadTimeMs: number
+  readonly #refreshRetryBaseDelayMs: number
+  readonly #refreshRetryMaxDelayMs: number
+  readonly #onBackgroundRefresh: ((error: Error | null) => void) | undefined
   #tokens: TokenEnvelope | null = null
   #refreshPromise: Promise<void> | null = null
+  #refreshTimer: ReturnType<typeof setTimeout> | null = null
+  #refreshRetryAttempt = 0
+  #disposed = false
 
   constructor(options: EpicAuthServiceOptions) {
     this.#persistence = options.persistence
@@ -149,6 +173,16 @@ export class EpicAuthService implements EpicAuthorizedRequester {
     this.#requestTimeoutMs = options.requestTimeoutMs ?? 20_000
     this.#partition = options.partition ?? EPIC_AUTH_PARTITION
     this.#now = options.now ?? Date.now
+    this.#refreshLeadTimeMs = Math.max(0, options.refreshLeadTimeMs ?? DEFAULT_REFRESH_LEAD_TIME_MS)
+    this.#refreshRetryBaseDelayMs = Math.max(
+      1_000,
+      options.refreshRetryBaseDelayMs ?? DEFAULT_REFRESH_RETRY_BASE_DELAY_MS,
+    )
+    this.#refreshRetryMaxDelayMs = Math.max(
+      this.#refreshRetryBaseDelayMs,
+      options.refreshRetryMaxDelayMs ?? DEFAULT_REFRESH_RETRY_MAX_DELAY_MS,
+    )
+    this.#onBackgroundRefresh = options.onBackgroundRefresh
   }
 
   get isAuthenticated(): boolean {
@@ -173,6 +207,7 @@ export class EpicAuthService implements EpicAuthorizedRequester {
         return this.getState()
       }
       this.#tokens = parsed
+      this.#scheduleBackgroundRefresh(parsed.expiresAt)
       return this.getState()
     } catch {
       this.#tokens = null
@@ -191,22 +226,12 @@ export class EpicAuthService implements EpicAuthorizedRequester {
   async refresh(): Promise<void> {
     this.#assertConfigured()
     if (!this.#tokens) throw new EpicAuthError('EPIC_NOT_AUTHENTICATED')
-    if (this.#refreshPromise) return this.#refreshPromise
-
-    const refreshToken = this.#tokens.refreshToken
-    this.#refreshPromise = this.#exchange({
-      grant_type: 'refresh_token',
-      refresh_token: refreshToken,
-      token_type: 'eg1',
-    })
-      .catch(async (error) => {
-        await this.logout()
-        throw new EpicAuthError('EPIC_SESSION_EXPIRED', { cause: error })
-      })
-      .finally(() => {
-        this.#refreshPromise = null
-      })
-    return this.#refreshPromise
+    try {
+      await this.#refreshTokens()
+    } catch (error) {
+      await this.logout()
+      throw new EpicAuthError('EPIC_SESSION_EXPIRED', { cause: error })
+    }
   }
 
   async authorizedFetch(input: string | URL, init: RequestInit = {}): Promise<Response> {
@@ -220,6 +245,8 @@ export class EpicAuthService implements EpicAuthorizedRequester {
 
   async logout(): Promise<void> {
     this.#tokens = null
+    this.#cancelRefreshTimer()
+    this.#refreshRetryAttempt = 0
     const results = await Promise.allSettled([
       this.#persistence.clear(),
       session.fromPartition(this.#partition).clearStorageData({ storages: ['cookies'] }),
@@ -228,6 +255,11 @@ export class EpicAuthService implements EpicAuthorizedRequester {
       (result): result is PromiseRejectedResult => result.status === 'rejected',
     )
     if (failure) throw failure.reason
+  }
+
+  dispose(): void {
+    this.#disposed = true
+    this.#cancelRefreshTimer()
   }
 
   #assertConfigured(): void {
@@ -253,24 +285,112 @@ export class EpicAuthService implements EpicAuthorizedRequester {
         },
         body: new URLSearchParams(fields),
       })
-      if (!response.ok) throw new EpicAuthError('EPIC_LOGIN_FAILED')
+      if (!response.ok) {
+        const retryable =
+          response.status === 408 || response.status === 429 || response.status >= 500
+        throw new TokenExchangeError(retryable)
+      }
       let decoded: unknown
       try {
         decoded = await response.json()
       } catch (error) {
-        throw new EpicAuthError('EPIC_LOGIN_FAILED', { cause: error })
+        throw new TokenExchangeError(true, { cause: error })
       }
       const tokens = parseTokenResponse(decoded, this.#now())
-      if (!tokens) throw new EpicAuthError('EPIC_LOGIN_FAILED')
+      if (!tokens) throw new TokenExchangeError(false)
 
       const encrypted = this.#cipher.encrypt(JSON.stringify(tokens))
       await this.#persistence.save(encrypted)
       this.#tokens = tokens
+      this.#scheduleBackgroundRefresh(tokens.expiresAt)
     } catch (error) {
       if (error instanceof EpicAuthError) throw error
-      throw new EpicAuthError('EPIC_LOGIN_FAILED', { cause: error })
+      throw new TokenExchangeError(true, { cause: error })
     } finally {
       clearTimeout(timer)
+    }
+  }
+
+  #refreshTokens(): Promise<void> {
+    if (!this.#tokens) return Promise.reject(new EpicAuthError('EPIC_NOT_AUTHENTICATED'))
+    if (this.#refreshPromise) return this.#refreshPromise
+
+    const refreshToken = this.#tokens.refreshToken
+    this.#refreshPromise = this.#exchange({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      token_type: 'eg1',
+    }).finally(() => {
+      this.#refreshPromise = null
+    })
+    return this.#refreshPromise
+  }
+
+  #scheduleBackgroundRefresh(expiresAt: string, resetRetry = true): void {
+    this.#cancelRefreshTimer()
+    if (this.#disposed || !this.#tokens) return
+    if (resetRetry) this.#refreshRetryAttempt = 0
+
+    const delay = Math.max(0, Date.parse(expiresAt) - this.#now() - this.#refreshLeadTimeMs)
+    if (delay > MAX_TIMER_DELAY_MS) {
+      this.#setRefreshTimer(MAX_TIMER_DELAY_MS, () => {
+        this.#scheduleBackgroundRefresh(expiresAt, false)
+      })
+      return
+    }
+    this.#setRefreshTimer(delay, () => void this.#runBackgroundRefresh())
+  }
+
+  #scheduleBackgroundRetry(): void {
+    const exponent = Math.min(this.#refreshRetryAttempt, 30)
+    const delay = Math.min(
+      this.#refreshRetryBaseDelayMs * 2 ** exponent,
+      this.#refreshRetryMaxDelayMs,
+    )
+    this.#refreshRetryAttempt += 1
+    this.#setRefreshTimer(delay, () => void this.#runBackgroundRefresh())
+  }
+
+  #setRefreshTimer(delay: number, callback: () => void): void {
+    this.#refreshTimer = setTimeout(() => {
+      this.#refreshTimer = null
+      callback()
+    }, delay)
+    this.#refreshTimer.unref()
+  }
+
+  #cancelRefreshTimer(): void {
+    if (this.#refreshTimer) clearTimeout(this.#refreshTimer)
+    this.#refreshTimer = null
+  }
+
+  async #runBackgroundRefresh(): Promise<void> {
+    if (this.#disposed || !this.#tokens) return
+    try {
+      await this.#refreshTokens()
+      if (!this.#disposed) this.#notifyBackgroundRefresh(null)
+    } catch (error) {
+      if (this.#disposed || !this.#tokens) return
+      if (error instanceof TokenExchangeError && error.retryable) {
+        this.#scheduleBackgroundRetry()
+      } else {
+        await this.logout().catch(() => undefined)
+      }
+      this.#notifyBackgroundRefresh(
+        error instanceof Error
+          ? error
+          : new EpicAuthError('EPIC_LOGIN_FAILED', {
+              cause: error,
+            }),
+      )
+    }
+  }
+
+  #notifyBackgroundRefresh(error: Error | null): void {
+    try {
+      this.#onBackgroundRefresh?.(error)
+    } catch {
+      // A status observer must not interfere with authentication.
     }
   }
 

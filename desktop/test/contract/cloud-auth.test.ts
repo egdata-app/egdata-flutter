@@ -265,5 +265,125 @@ describe('EpicAuthService contract', () => {
     })
     expect(persistence.value).not.toContain('private-access-2')
     expect(persistence.value).not.toContain('private-refresh-2')
+    service.dispose()
+  })
+
+  it('renews a restored session once in the background shortly before expiry', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime('2026-01-01T00:00:00.000Z')
+    const persistence = new MemoryPersistence()
+    persistence.value = cipher.encrypt(
+      JSON.stringify({
+        version: 1,
+        accessToken: 'private-access-1',
+        refreshToken: 'private-refresh-1',
+        accountId: 'account-id',
+        expiresAt: '2026-01-01T01:00:00.000Z',
+      }),
+    )
+    const tokenRequest = vi.fn(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            access_token: 'private-access-2',
+            refresh_token: 'private-refresh-2',
+            account_id: 'account-id',
+            expires_in: 3600,
+          }),
+          { status: 200 },
+        ),
+      ),
+    )
+    const onBackgroundRefresh = vi.fn()
+    const service = new EpicAuthService({
+      persistence,
+      cipher,
+      clientId: 'environment-client-id',
+      clientSecret: 'environment-client-secret',
+      fetch: tokenRequest,
+      onBackgroundRefresh,
+    })
+
+    try {
+      await service.initialize()
+      await vi.advanceTimersByTimeAsync(54 * 60_000 + 59_999)
+      expect(tokenRequest).not.toHaveBeenCalled()
+
+      await vi.advanceTimersByTimeAsync(1)
+
+      expect(tokenRequest).toHaveBeenCalledOnce()
+      const requestBody = tokenRequest.mock.calls[0]?.[1]?.body
+      expect(requestBody).toBeInstanceOf(URLSearchParams)
+      expect((requestBody as URLSearchParams).get('grant_type')).toBe('refresh_token')
+      expect((requestBody as URLSearchParams).get('refresh_token')).toBe('private-refresh-1')
+      expect(onBackgroundRefresh).toHaveBeenCalledWith(null)
+      expect(service.getState()).toEqual({
+        authenticated: true,
+        accountId: 'account-id',
+        expiresAt: '2026-01-01T01:55:00.000Z',
+      })
+    } finally {
+      service.dispose()
+      vi.useRealTimers()
+    }
+  })
+
+  it('backs off after a temporary background renewal failure without losing the session', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime('2026-01-01T00:00:00.000Z')
+    const persistence = new MemoryPersistence()
+    persistence.value = cipher.encrypt(
+      JSON.stringify({
+        version: 1,
+        accessToken: 'private-access-1',
+        refreshToken: 'private-refresh-1',
+        accountId: 'account-id',
+        expiresAt: '2026-01-01T00:05:00.000Z',
+      }),
+    )
+    const tokenRequest = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            access_token: 'private-access-2',
+            refresh_token: 'private-refresh-2',
+            account_id: 'account-id',
+            expires_in: 3600,
+          }),
+          { status: 200 },
+        ),
+      )
+    const onBackgroundRefresh = vi.fn()
+    const service = new EpicAuthService({
+      persistence,
+      cipher,
+      clientId: 'environment-client-id',
+      clientSecret: 'environment-client-secret',
+      fetch: tokenRequest,
+      onBackgroundRefresh,
+    })
+
+    try {
+      await service.initialize()
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(tokenRequest).toHaveBeenCalledOnce()
+      expect(service.isAuthenticated).toBe(true)
+      expect(onBackgroundRefresh).toHaveBeenCalledTimes(1)
+      expect(onBackgroundRefresh.mock.calls[0]?.[0]).toBeInstanceOf(Error)
+
+      await vi.advanceTimersByTimeAsync(59_999)
+      expect(tokenRequest).toHaveBeenCalledOnce()
+      await vi.advanceTimersByTimeAsync(1)
+
+      expect(tokenRequest).toHaveBeenCalledTimes(2)
+      expect(service.isAuthenticated).toBe(true)
+      expect(onBackgroundRefresh).toHaveBeenLastCalledWith(null)
+    } finally {
+      service.dispose()
+      vi.useRealTimers()
+    }
   })
 })
