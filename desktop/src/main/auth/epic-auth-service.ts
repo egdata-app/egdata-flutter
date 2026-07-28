@@ -408,11 +408,19 @@ export class EpicAuthService implements EpicAuthorizedRequester {
 
   async #runBackgroundRefresh(): Promise<void> {
     if (this.#disposed || !this.#tokens) return
+    const sessionGeneration = this.#sessionGeneration
     try {
       await this.#refreshTokens()
-      if (!this.#disposed) this.#notifyBackgroundRefresh(null)
+      if (!this.#disposed && sessionGeneration === this.#sessionGeneration) {
+        this.#notifyBackgroundRefresh(null)
+      }
     } catch (error) {
-      if (error instanceof SessionInvalidatedError) return
+      if (
+        error instanceof SessionInvalidatedError ||
+        sessionGeneration !== this.#sessionGeneration
+      ) {
+        return
+      }
       if (this.#disposed || !this.#tokens) return
       if (error instanceof TokenExchangeError && error.retryable) {
         this.#scheduleBackgroundRetry()

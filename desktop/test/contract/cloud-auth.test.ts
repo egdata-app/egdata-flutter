@@ -499,93 +499,95 @@ describe('EpicAuthService contract', () => {
     }
   })
 
-  it('does not let an older background renewal overwrite a new login', async () => {
-    vi.useFakeTimers()
-    vi.setSystemTime('2026-01-01T00:00:00.000Z')
-    const persistence = new MemoryPersistence()
-    persistence.value = cipher.encrypt(
-      JSON.stringify({
-        version: 1,
-        accessToken: 'old-private-access',
-        refreshToken: 'old-private-refresh',
-        accountId: 'old-account-id',
-        expiresAt: '2026-01-01T00:05:00.000Z',
-      }),
-    )
-    let resolveRefreshRequest!: (response: Response) => void
-    const tokenRequest = vi.fn((_input: string | URL | Request, init?: RequestInit) => {
-      const body = init?.body
-      const grantType =
-        body instanceof URLSearchParams ? body.get('grant_type') : 'authorization_code'
-      if (grantType === 'refresh_token') {
-        return new Promise<Response>((resolve) => {
-          resolveRefreshRequest = resolve
+  it.each([200, 400, 503])(
+    'ignores an older background renewal response after a new login (status %i)',
+    async (staleStatus) => {
+      vi.useFakeTimers()
+      vi.setSystemTime('2026-01-01T00:00:00.000Z')
+      const persistence = new MemoryPersistence()
+      persistence.value = cipher.encrypt(
+        JSON.stringify({
+          version: 1,
+          accessToken: 'old-private-access',
+          refreshToken: 'old-private-refresh',
+          accountId: 'old-account-id',
+          expiresAt: '2026-01-01T00:05:00.000Z',
+        }),
+      )
+      let resolveRefreshRequest!: (response: Response) => void
+      const tokenRequest = vi.fn((_input: string | URL | Request, init?: RequestInit) => {
+        const body = init?.body
+        const grantType =
+          body instanceof URLSearchParams ? body.get('grant_type') : 'authorization_code'
+        if (grantType === 'refresh_token') {
+          return new Promise<Response>((resolve) => {
+            resolveRefreshRequest = resolve
+          })
+        }
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              access_token: 'new-private-access',
+              refresh_token: 'new-private-refresh',
+              account_id: 'new-account-id',
+              expires_in: 3600,
+            }),
+            { status: 200 },
+          ),
+        )
+      })
+      const onBackgroundRefresh = vi.fn()
+      const service = new EpicAuthService({
+        persistence,
+        cipher,
+        clientId: 'environment-client-id',
+        clientSecret: 'environment-client-secret',
+        createWindow: () => new FakeWindow(),
+        fetch: tokenRequest,
+        onBackgroundRefresh,
+      })
+
+      try {
+        await service.initialize()
+        await vi.advanceTimersByTimeAsync(0)
+        expect(tokenRequest).toHaveBeenCalledOnce()
+
+        await service.login()
+        expect(service.getState()).toMatchObject({
+          authenticated: true,
+          accountId: 'new-account-id',
         })
+
+        const staleBody =
+          staleStatus === 200
+            ? JSON.stringify({
+                access_token: 'stale-private-access',
+                refresh_token: 'stale-private-refresh',
+                account_id: 'old-account-id',
+                expires_in: 3600,
+              })
+            : null
+        resolveRefreshRequest(new Response(staleBody, { status: staleStatus }))
+        await vi.advanceTimersByTimeAsync(0)
+
+        expect(service.getState()).toMatchObject({
+          authenticated: true,
+          accountId: 'new-account-id',
+        })
+        const persisted = JSON.parse(cipher.decrypt(persistence.value!)) as {
+          accountId: string
+          accessToken: string
+        }
+        expect(persisted).toMatchObject({
+          accountId: 'new-account-id',
+          accessToken: 'new-private-access',
+        })
+        expect(onBackgroundRefresh).not.toHaveBeenCalled()
+        expect(vi.getTimerCount()).toBe(1)
+      } finally {
+        service.dispose()
+        vi.useRealTimers()
       }
-      return Promise.resolve(
-        new Response(
-          JSON.stringify({
-            access_token: 'new-private-access',
-            refresh_token: 'new-private-refresh',
-            account_id: 'new-account-id',
-            expires_in: 3600,
-          }),
-          { status: 200 },
-        ),
-      )
-    })
-    const onBackgroundRefresh = vi.fn()
-    const service = new EpicAuthService({
-      persistence,
-      cipher,
-      clientId: 'environment-client-id',
-      clientSecret: 'environment-client-secret',
-      createWindow: () => new FakeWindow(),
-      fetch: tokenRequest,
-      onBackgroundRefresh,
-    })
-
-    try {
-      await service.initialize()
-      await vi.advanceTimersByTimeAsync(0)
-      expect(tokenRequest).toHaveBeenCalledOnce()
-
-      await service.login()
-      expect(service.getState()).toMatchObject({
-        authenticated: true,
-        accountId: 'new-account-id',
-      })
-
-      resolveRefreshRequest(
-        new Response(
-          JSON.stringify({
-            access_token: 'stale-private-access',
-            refresh_token: 'stale-private-refresh',
-            account_id: 'old-account-id',
-            expires_in: 3600,
-          }),
-          { status: 200 },
-        ),
-      )
-      await vi.advanceTimersByTimeAsync(0)
-
-      expect(service.getState()).toMatchObject({
-        authenticated: true,
-        accountId: 'new-account-id',
-      })
-      const persisted = JSON.parse(cipher.decrypt(persistence.value!)) as {
-        accountId: string
-        accessToken: string
-      }
-      expect(persisted).toMatchObject({
-        accountId: 'new-account-id',
-        accessToken: 'new-private-access',
-      })
-      expect(onBackgroundRefresh).not.toHaveBeenCalled()
-      expect(vi.getTimerCount()).toBe(1)
-    } finally {
-      service.dispose()
-      vi.useRealTimers()
-    }
-  })
+    },
+  )
 })
