@@ -160,6 +160,7 @@ export class EpicAuthService implements EpicAuthorizedRequester {
   #refreshRetryAttempt = 0
   #sessionGeneration = 0
   #tokenMutation: Promise<void> = Promise.resolve()
+  #authorizationExchangeActive = false
   #disposed = false
 
   constructor(options: EpicAuthServiceOptions) {
@@ -269,6 +270,7 @@ export class EpicAuthService implements EpicAuthorizedRequester {
 
   dispose(): void {
     this.#disposed = true
+    this.#sessionGeneration += 1
     this.#cancelRefreshTimer()
   }
 
@@ -279,6 +281,13 @@ export class EpicAuthService implements EpicAuthorizedRequester {
   }
 
   async #exchange(fields: Record<string, string>): Promise<void> {
+    const isAuthorizationExchange = fields.grant_type === 'authorization_code'
+    if (isAuthorizationExchange) {
+      this.#sessionGeneration += 1
+      this.#cancelRefreshTimer()
+      this.#refreshPromise = null
+      this.#authorizationExchangeActive = true
+    }
     const sessionGeneration = this.#sessionGeneration
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), this.#requestTimeoutMs)
@@ -316,22 +325,30 @@ export class EpicAuthService implements EpicAuthorizedRequester {
       throw new TokenExchangeError(true, { cause: error })
     } finally {
       clearTimeout(timer)
+      if (isAuthorizationExchange && sessionGeneration === this.#sessionGeneration) {
+        this.#authorizationExchangeActive = false
+        if (this.#tokens) this.#scheduleBackgroundRefresh(this.#tokens.expiresAt)
+      }
     }
   }
 
   #refreshTokens(): Promise<void> {
     if (!this.#tokens) return Promise.reject(new EpicAuthError('EPIC_NOT_AUTHENTICATED'))
+    if (this.#authorizationExchangeActive) {
+      return Promise.reject(new TokenExchangeError(true))
+    }
     if (this.#refreshPromise) return this.#refreshPromise
 
     const refreshToken = this.#tokens.refreshToken
-    this.#refreshPromise = this.#exchange({
+    const refreshPromise = this.#exchange({
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
       token_type: 'eg1',
     }).finally(() => {
-      this.#refreshPromise = null
+      if (this.#refreshPromise === refreshPromise) this.#refreshPromise = null
     })
-    return this.#refreshPromise
+    this.#refreshPromise = refreshPromise
+    return refreshPromise
   }
 
   #commitTokens(tokens: TokenEnvelope, sessionGeneration: number): Promise<void> {
@@ -395,6 +412,7 @@ export class EpicAuthService implements EpicAuthorizedRequester {
       await this.#refreshTokens()
       if (!this.#disposed) this.#notifyBackgroundRefresh(null)
     } catch (error) {
+      if (error instanceof SessionInvalidatedError) return
       if (this.#disposed || !this.#tokens) return
       if (error instanceof TokenExchangeError && error.retryable) {
         this.#scheduleBackgroundRetry()
