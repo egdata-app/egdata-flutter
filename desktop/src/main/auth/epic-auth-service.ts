@@ -62,6 +62,12 @@ class TokenExchangeError extends EpicAuthError {
   }
 }
 
+class SessionInvalidatedError extends EpicAuthError {
+  constructor() {
+    super('EPIC_SESSION_EXPIRED')
+  }
+}
+
 function createEpicAuthWindow(partition: string): AuthWindow {
   return new BrowserWindow({
     width: 520,
@@ -152,6 +158,8 @@ export class EpicAuthService implements EpicAuthorizedRequester {
   #refreshPromise: Promise<void> | null = null
   #refreshTimer: ReturnType<typeof setTimeout> | null = null
   #refreshRetryAttempt = 0
+  #sessionGeneration = 0
+  #tokenMutation: Promise<void> = Promise.resolve()
   #disposed = false
 
   constructor(options: EpicAuthServiceOptions) {
@@ -244,11 +252,12 @@ export class EpicAuthService implements EpicAuthorizedRequester {
   }
 
   async logout(): Promise<void> {
+    this.#sessionGeneration += 1
     this.#tokens = null
     this.#cancelRefreshTimer()
     this.#refreshRetryAttempt = 0
     const results = await Promise.allSettled([
-      this.#persistence.clear(),
+      this.#queueTokenMutation(() => this.#persistence.clear()),
       session.fromPartition(this.#partition).clearStorageData({ storages: ['cookies'] }),
     ])
     const failure = results.find(
@@ -269,6 +278,7 @@ export class EpicAuthService implements EpicAuthorizedRequester {
   }
 
   async #exchange(fields: Record<string, string>): Promise<void> {
+    const sessionGeneration = this.#sessionGeneration
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), this.#requestTimeoutMs)
     try {
@@ -299,10 +309,7 @@ export class EpicAuthService implements EpicAuthorizedRequester {
       const tokens = parseTokenResponse(decoded, this.#now())
       if (!tokens) throw new TokenExchangeError(false)
 
-      const encrypted = this.#cipher.encrypt(JSON.stringify(tokens))
-      await this.#persistence.save(encrypted)
-      this.#tokens = tokens
-      this.#scheduleBackgroundRefresh(tokens.expiresAt)
+      await this.#commitTokens(tokens, sessionGeneration)
     } catch (error) {
       if (error instanceof EpicAuthError) throw error
       throw new TokenExchangeError(true, { cause: error })
@@ -324,6 +331,23 @@ export class EpicAuthService implements EpicAuthorizedRequester {
       this.#refreshPromise = null
     })
     return this.#refreshPromise
+  }
+
+  #commitTokens(tokens: TokenEnvelope, sessionGeneration: number): Promise<void> {
+    return this.#queueTokenMutation(async () => {
+      if (sessionGeneration !== this.#sessionGeneration) throw new SessionInvalidatedError()
+      const encrypted = this.#cipher.encrypt(JSON.stringify(tokens))
+      await this.#persistence.save(encrypted)
+      if (sessionGeneration !== this.#sessionGeneration) throw new SessionInvalidatedError()
+      this.#tokens = tokens
+      this.#scheduleBackgroundRefresh(tokens.expiresAt)
+    })
+  }
+
+  #queueTokenMutation(operation: () => Promise<void>): Promise<void> {
+    const result = this.#tokenMutation.then(operation)
+    this.#tokenMutation = result.catch(() => undefined)
+    return result
   }
 
   #scheduleBackgroundRefresh(expiresAt: string, resetRetry = true): void {
