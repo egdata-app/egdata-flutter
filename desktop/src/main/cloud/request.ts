@@ -1,3 +1,4 @@
+import { EpicAuthError } from '../auth/errors'
 import type { EpicAuthorizedRequester } from '../auth/types'
 import { EpicCloudError, type EpicCloudErrorCode } from './errors'
 
@@ -55,6 +56,12 @@ export async function authorizedFetchWithOneRefresh(
   try {
     await auth.refresh()
   } catch (error) {
+    if (error instanceof EpicAuthError && error.code === 'EPIC_LOGIN_FAILED') {
+      throw new EpicCloudError(options.failureCode, { cause: error })
+    }
+    if (error instanceof EpicAuthError && error.code === 'EPIC_SESSION_EXPIRED') {
+      throw new EpicCloudError('EPIC_SESSION_EXPIRED', { cause: error })
+    }
     await auth.logout().catch(() => undefined)
     throw new EpicCloudError('EPIC_SESSION_EXPIRED', { cause: error })
   }

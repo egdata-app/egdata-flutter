@@ -162,6 +162,15 @@ class DesktopIpcServices {
     this.#auth = new EpicAuthService({
       persistence: tokenStorage,
       cipher: new SafeStorageTokenCipher(safeStorage),
+      onBackgroundRefresh: (error) => {
+        const status = this.#authStatus()
+        this.#send(IPC_CHANNELS.auth.statusEvent, status)
+        if (error) {
+          void this.#logger.warn('auth', 'Background Epic session renewal failed', { error })
+        } else {
+          void this.#logger.debug('auth', 'Epic session renewed in the background')
+        }
+      },
     })
     this.#library = new EpicLibraryService({ auth: this.#auth, platform: this.#platform })
     this.#libraryTools = new LibraryToolsService({
@@ -637,6 +646,7 @@ class DesktopIpcServices {
       powerMonitor.removeListener('resume', this.#powerResumeListener)
       this.#scheduledUploads?.dispose()
       this.#scheduledUploads = null
+      this.#auth.dispose()
       this.#catalog.stop()
       this.#catalog.close()
       this.#disposeQueue?.()
