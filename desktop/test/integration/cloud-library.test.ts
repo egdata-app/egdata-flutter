@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 
 import { describe, expect, it, vi } from 'vitest'
 
+import { EpicAuthError } from '../../src/main/auth/errors'
 import type { EpicAuthorizedRequester } from '../../src/main/auth/types'
 import { EpicLibraryService } from '../../src/main/cloud'
 
@@ -69,6 +70,25 @@ describe('EpicLibraryService', () => {
     expect(refresh).toHaveBeenCalledTimes(1)
     expect(authorizedFetch).toHaveBeenCalledTimes(2)
     expect(logout).toHaveBeenCalledTimes(1)
+  })
+
+  it('preserves the session when token renewal fails temporarily', async () => {
+    const authorizedFetch = vi.fn(() => Promise.resolve(new Response(null, { status: 401 })))
+    const refresh = vi.fn(() => Promise.reject(new EpicAuthError('EPIC_LOGIN_FAILED')))
+    const logout = vi.fn(() => Promise.resolve())
+    const auth: EpicAuthorizedRequester = {
+      isAuthenticated: true,
+      authorizedFetch,
+      refresh,
+      logout,
+    }
+
+    await expect(
+      new EpicLibraryService({ auth, platform: 'Windows' }).getLibrary(),
+    ).rejects.toMatchObject({ code: 'EPIC_LIBRARY_REQUEST_FAILED' })
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(authorizedFetch).toHaveBeenCalledTimes(1)
+    expect(logout).not.toHaveBeenCalled()
   })
 
   it('bounds reading of a stalled response body', async () => {

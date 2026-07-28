@@ -237,6 +237,7 @@ export class EpicAuthService implements EpicAuthorizedRequester {
     try {
       await this.#refreshTokens()
     } catch (error) {
+      if (error instanceof TokenExchangeError && error.retryable) throw error
       await this.logout()
       throw new EpicAuthError('EPIC_SESSION_EXPIRED', { cause: error })
     }
