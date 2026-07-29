@@ -13,9 +13,7 @@ Var legacyScanName
 Var legacyDisplayName
 Var legacyPublisher
 Var legacyInstallLocation
-Var legacyUninstallString
 Var legacyExpectedUninstaller
-Var legacyExpectedUninstallString
 Var legacyProcessStatus
 Var legacyExitCode
 Var legacyWaitCount
@@ -109,9 +107,6 @@ electronProcessDone:
 
   legacyInvalidRegistration:
     !insertmacro abortLegacyMigration "Setup found an unsupported or damaged previous egdata.app installation. Uninstall it from Windows Settings, then run Setup again."
-
-  legacyMissingUninstaller:
-    !insertmacro abortLegacyMigration "Setup could not find the previous egdata.app uninstaller. Repair or remove the old installation, then run Setup again."
 
   legacyStopProcess:
     ${nsProcess::FindProcess} "${LEGACY_PROCESS_NAME}" $legacyProcessStatus
