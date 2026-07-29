@@ -6,6 +6,7 @@
 !define LEGACY_UNINSTALL_KEY "ab497711-5d34-47ed-8d75-b0b70e1c7cd6_is1"
 !define LEGACY_UNINSTALL_PATH "${LEGACY_UNINSTALL_PARENT}\${LEGACY_UNINSTALL_KEY}"
 !define LEGACY_PROCESS_NAME "egdata_flutter.exe"
+!define ELECTRON_PROCESS_NAME "egdata.app.exe"
 
 Var legacyScanIndex
 Var legacyScanName
@@ -26,6 +27,22 @@ Var legacyWaitCount
 !macroend
 
 !macro customInit
+  # Close any running Electron egdata.app process to release file locks.
+  ${nsProcess::FindProcess} "${ELECTRON_PROCESS_NAME}" $legacyProcessStatus
+  StrCmp $legacyProcessStatus 603 electronProcessDone
+  StrCmp $legacyProcessStatus 0 0 legacyProcessFailure
+
+  DetailPrint "Closing running egdata.app process."
+  ${nsProcess::CloseProcess} "${ELECTRON_PROCESS_NAME}" $legacyProcessStatus
+  Sleep 1000
+  ${nsProcess::FindProcess} "${ELECTRON_PROCESS_NAME}" $legacyProcessStatus
+  StrCmp $legacyProcessStatus 603 electronProcessDone
+
+  DetailPrint "The running egdata.app process did not close; terminating it."
+  ${nsProcess::KillProcess} "${ELECTRON_PROCESS_NAME}" $legacyProcessStatus
+  Sleep 500
+
+electronProcessDone:
   # The released Flutter installer is x64, but check both registry views so
   # Windows on ARM and redirected registry installations behave safely.
   SetRegView 64
@@ -75,10 +92,6 @@ Var legacyWaitCount
     ReadRegStr $legacyInstallLocation HKLM "${LEGACY_UNINSTALL_PATH}" "InstallLocation"
     IfErrors legacyInvalidRegistration
 
-    ClearErrors
-    ReadRegStr $legacyUninstallString HKLM "${LEGACY_UNINSTALL_PATH}" "UninstallString"
-    IfErrors legacyInvalidRegistration
-
     StrCmp $legacyDisplayName "egdata.app" 0 legacyInvalidRegistration
     StrCmp $legacyPublisher "Ignacio Aldama Vicente" 0 legacyInvalidRegistration
     StrCmp $legacyInstallLocation "" legacyInvalidRegistration
@@ -88,9 +101,11 @@ Var legacyWaitCount
     StrCpy $legacyInstallLocation $legacyInstallLocation -1
     StrCpy $legacyExpectedUninstaller "$legacyInstallLocation\unins000.exe"
 
-    StrCpy $legacyExpectedUninstallString '$\"$legacyExpectedUninstaller$\"'
-    StrCmp $legacyUninstallString $legacyExpectedUninstallString 0 legacyInvalidRegistration
-    IfFileExists "$legacyExpectedUninstaller" legacyStopProcess legacyMissingUninstaller
+    IfFileExists "$legacyExpectedUninstaller" legacyStopProcess legacyCleanStaleRegistry
+
+  legacyCleanStaleRegistry:
+    DeleteRegKey HKLM "${LEGACY_UNINSTALL_PATH}"
+    Goto legacyMigrationDone
 
   legacyInvalidRegistration:
     !insertmacro abortLegacyMigration "Setup found an unsupported or damaged previous egdata.app installation. Uninstall it from Windows Settings, then run Setup again."
