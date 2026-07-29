@@ -8,7 +8,6 @@
 !define LEGACY_PROCESS_NAME "egdata_flutter.exe"
 !define ELECTRON_PROCESS_NAME "egdata.app.exe"
 
-Var legacyScanIndex
 Var legacyScanName
 Var legacyDisplayName
 Var legacyPublisher
@@ -44,32 +43,16 @@ electronProcessDone:
   # The released Flutter installer is x64, but check both registry views so
   # Windows on ARM and redirected registry installations behave safely.
   SetRegView 64
-  StrCpy $legacyScanIndex 0
-
-  legacyScan64:
-    ClearErrors
-    EnumRegKey $legacyScanName HKLM "${LEGACY_UNINSTALL_PARENT}" $legacyScanIndex
-    IfErrors legacyScan32Start
-    StrCmp $legacyScanName "${LEGACY_UNINSTALL_KEY}" legacyFound64
-    IntOp $legacyScanIndex $legacyScanIndex + 1
-    Goto legacyScan64
-
-  legacyFound64:
-    Goto legacyValidateRegistration
-
-  legacyScan32Start:
-    SetRegView 32
-    StrCpy $legacyScanIndex 0
+  ClearErrors
+  ReadRegStr $legacyDisplayName HKLM "${LEGACY_UNINSTALL_PATH}" "DisplayName"
+  IfErrors legacyScan32
+  Goto legacyValidateRegistration
 
   legacyScan32:
+    SetRegView 32
     ClearErrors
-    EnumRegKey $legacyScanName HKLM "${LEGACY_UNINSTALL_PARENT}" $legacyScanIndex
+    ReadRegStr $legacyDisplayName HKLM "${LEGACY_UNINSTALL_PATH}" "DisplayName"
     IfErrors legacyNotInstalled
-    StrCmp $legacyScanName "${LEGACY_UNINSTALL_KEY}" legacyFound32
-    IntOp $legacyScanIndex $legacyScanIndex + 1
-    Goto legacyScan32
-
-  legacyFound32:
     Goto legacyValidateRegistration
 
   legacyNotInstalled:

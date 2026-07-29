@@ -25,6 +25,10 @@ describe('Windows packaging migration', () => {
     )
     expect(installer).toContain('!define LEGACY_PROCESS_NAME "egdata_flutter.exe"')
     expect(installer).toContain('!define ELECTRON_PROCESS_NAME "egdata.app.exe"')
+    expect(installer).not.toContain('EnumRegKey')
+    expect(installer).toContain(
+      'ReadRegStr $legacyDisplayName HKLM "${LEGACY_UNINSTALL_PATH}" "DisplayName"',
+    )
     expect(installer).toContain(
       'StrCmp $legacyDisplayName "egdata.app" 0 legacyInvalidRegistration',
     )
