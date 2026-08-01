@@ -10,6 +10,13 @@ export type UploadErrorCode =
   | 'LOCAL_BINARY_MANIFEST_MISSING'
   | 'LOCAL_ITEM_PERMISSION_DENIED'
 
+export interface AcceptedUploadJob {
+  jobId: string
+  workflowId: string
+  statusUrl: string
+  deduplicated: boolean
+}
+
 export interface UploadResult {
   itemId: string
   state: UploadResultState
@@ -20,6 +27,7 @@ export interface UploadResult {
   statusCode?: number
   errorCode?: UploadErrorCode
   safeDetail?: string
+  job?: AcceptedUploadJob
 }
 
 export interface LocalUploadOptions {

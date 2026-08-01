@@ -269,6 +269,14 @@ class DesktopIpcServices {
             ...(result.manifestHash ? { serverManifestHash: result.manifestHash } : {}),
             ...(result.statusCode ? { statusCode: result.statusCode } : {}),
             ...(result.errorCode ? { errorCode: result.errorCode } : {}),
+            ...(result.job
+              ? {
+                  jobId: result.job.jobId,
+                  workflowId: result.job.workflowId,
+                  jobStatusUrl: result.job.statusUrl,
+                  jobDeduplicated: result.job.deduplicated,
+                }
+              : {}),
           }
           if (result.state === 'uploaded') {
             await this.#logger.info('uploads', 'Cloud manifest uploaded', uploadContext)
@@ -1544,6 +1552,7 @@ function queueErrorCode(error: string): SafeError['code'] {
   if (error.includes('EPIC_SESSION')) return 'EPIC_SESSION_EXPIRED'
   if (error.includes('EPIC_MANIFEST')) return 'EPIC_MANIFEST_DOWNLOAD_FAILED'
   if (error.includes('UPLOAD_TIMEOUT')) return 'UPLOAD_TIMEOUT'
+  if (error.includes('UPLOAD_RESPONSE_INVALID')) return 'UPLOAD_RESPONSE_INVALID'
   if (error.includes('SYNC_CANCELLED')) return 'SYNC_CANCELLED'
   return 'UPLOAD_REJECTED'
 }

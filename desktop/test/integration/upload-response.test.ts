@@ -3,6 +3,38 @@ import { describe, expect, it } from 'vitest'
 import { classifyUploadResponse } from '../../src/main/uploads/index'
 
 describe('upload response classification', () => {
+  it('classifies the current egdata.app acceptance envelope as uploaded', () => {
+    const result = classifyUploadResponse(
+      'item',
+      201,
+      JSON.stringify({
+        success: true,
+        message: 'Manifest uploaded and accepted for processing',
+        data: {
+          fileHash: 'manifest-hash',
+          job: {
+            jobId: 'api-manifest-processing-job',
+            workflowId: 'api-manifest-processing-job',
+            statusUrl: '/v1/jobs/api-manifest-processing-job',
+            deduplicated: false,
+          },
+        },
+      }),
+    )
+
+    expect(result).toMatchObject({
+      state: 'uploaded',
+      message: 'Manifest uploaded and accepted for processing',
+      manifestHash: 'manifest-hash',
+      job: {
+        jobId: 'api-manifest-processing-job',
+        workflowId: 'api-manifest-processing-job',
+        statusUrl: '/v1/jobs/api-manifest-processing-job',
+        deduplicated: false,
+      },
+    })
+  })
+
   for (const alias of ['uploaded', 'success', 'created', 'ok']) {
     it(`classifies ${alias} as uploaded`, () => {
       expect(classifyUploadResponse('item', 200, JSON.stringify({ status: alias })).state).toBe(
