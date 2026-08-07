@@ -21,6 +21,7 @@ export interface CloudSyntheticItem {
   CatalogNamespace: string
   InstallationGuid: string
   DisplayName: string
+  BuildLabel: string
   AppVersionString: string
   MainGameCatalogNamespace: string
   MainGameCatalogItemId: string

@@ -43,6 +43,7 @@ describe('cloud contribution contract', () => {
         CatalogNamespace: 'namespace value',
         InstallationGuid: 'asset:id/one',
         DisplayName: 'Friendly Game',
+        BuildLabel: 'Live',
         AppVersionString: '1.0.0',
         MainGameCatalogNamespace: 'namespace value',
         MainGameCatalogItemId: 'catalog/id',

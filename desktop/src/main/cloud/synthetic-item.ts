@@ -21,6 +21,7 @@ export function createCloudSyntheticItem(
     CatalogNamespace: item.namespace,
     InstallationGuid: item.assetId,
     DisplayName: item.title,
+    BuildLabel: 'Live',
     AppVersionString: item.buildVersion?.trim() || '1.0.0',
     MainGameCatalogNamespace: item.namespace,
     MainGameCatalogItemId: item.catalogItemId,
