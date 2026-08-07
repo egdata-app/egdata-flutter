@@ -64,4 +64,14 @@ describe('cloud contribution contract', () => {
     expect(payload.item.AppVersionString).toBe('9.1')
     expect(manifestFilenameForAsset(item.assetId)).toBe('asset_id_one.manifest')
   })
+
+  it('falls back to the app name when Epic omits the title', () => {
+    const payload = createCloudUploadPayload(
+      { ...item, title: '   ' },
+      new Uint8Array([8]),
+      'Windows',
+    )
+
+    expect(payload.item.DisplayName).toBe(item.appName)
+  })
 })

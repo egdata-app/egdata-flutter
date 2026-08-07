@@ -14,13 +14,14 @@ export function createCloudSyntheticItem(
   const name = safePathName(item.appName)
   const installLocation =
     platform === 'Windows' ? `C:\\Program Files\\Epic Games\\${name}` : `/Applications/${name}.app`
+  const displayName = item.title.trim() || item.appName
   return {
     InstallLocation: installLocation,
     AppName: item.appName,
     CatalogItemId: item.catalogItemId,
     CatalogNamespace: item.namespace,
     InstallationGuid: item.assetId,
-    DisplayName: item.title,
+    DisplayName: displayName,
     BuildLabel: 'Live',
     AppVersionString: item.buildVersion?.trim() || '1.0.0',
     MainGameCatalogNamespace: item.namespace,
