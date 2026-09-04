@@ -39,7 +39,7 @@ import 'package:windows_single_instance/windows_single_instance.dart';
 import 'package:desktop_webview_window/desktop_webview_window.dart';
 
 // App version - keep in sync with pubspec.yaml
-const String appVersion = '1.0.20';
+const String appVersion = '1.2.1';
 
 // Global key for navigation from the MethodChannel
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
