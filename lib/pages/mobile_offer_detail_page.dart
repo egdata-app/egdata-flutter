@@ -40,6 +40,7 @@ class MobileOfferDetailPage extends StatefulWidget {
   final PlaytimeService? playtimeService;
   final AppSettings? settings;
   final String country;
+  final ApiService? apiService;
 
   const MobileOfferDetailPage({
     super.key,
@@ -52,6 +53,7 @@ class MobileOfferDetailPage extends StatefulWidget {
     this.initialTitle,
     this.initialImageUrl,
     this.country = 'US',
+    this.apiService,
   });
 
   @override
@@ -59,7 +61,7 @@ class MobileOfferDetailPage extends StatefulWidget {
 }
 
 class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
-  final ApiService _apiService = ApiService();
+  late final ApiService _apiService = widget.apiService ?? ApiService();
   final ScrollController _scrollController = ScrollController();
 
   // Data state
@@ -107,7 +109,7 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
   void dispose() {
     _scrollController.dispose();
     _scrollOffset.dispose();
-    _apiService.dispose();
+    if (widget.apiService == null) _apiService.dispose();
     super.dispose();
   }
 
@@ -127,60 +129,76 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
   }
 
   Future<void> _toggleFollow() async {
-    if (_offer == null || _isFollowLoading) return;
+    final offer = _offer;
+    if (!mounted || offer == null || _isFollowLoading) return;
+    // Keep dependencies alive across awaits even if this page is removed.
+    final offerId = widget.offerId;
+    final followService = widget.followService;
+    final pushService = widget.pushService;
 
     setState(() => _isFollowLoading = true);
 
     try {
       if (_isFollowing) {
         // Unfollow: unsubscribe from all topics and delete from database
-        final topics = await widget.followService.getNotificationTopics(
-          widget.offerId,
-        );
+        final topics = await followService.getNotificationTopics(offerId);
         if (topics.isNotEmpty &&
-            widget.pushService != null &&
+            pushService != null &&
             PlatformUtils.isMobile) {
-          await widget.pushService!.unsubscribeFromTopics(topics: topics);
+          await pushService.unsubscribeFromTopics(topics: topics);
         }
-        await widget.followService.unfollowGame(widget.offerId);
+        await followService.unfollowGame(offerId);
         // Track unfollow
         await AnalyticsService().logFollowGame(
-          gameId: widget.offerId,
-          gameName: _offer!.title,
+          gameId: offerId,
+          gameName: offer.title,
           followed: false,
         );
       } else {
         // Follow: save to database and auto-subscribe to "all" topic
         final game = FollowedGame(
-          offerId: widget.offerId,
-          title: _offer!.title,
-          namespace: _offer!.namespace,
-          thumbnailUrl: _getWideImageUrl(_offer!) ?? _getThumbnailUrl(_offer!),
+          offerId: offerId,
+          title: offer.title,
+          namespace: offer.namespace,
+          thumbnailUrl: _getWideImageUrl(offer) ?? _getThumbnailUrl(offer),
           followedAt: DateTime.now(),
         );
-        await widget.followService.followGame(game);
+        await followService.followGame(game);
 
         // Auto-subscribe to "all notifications" by default on mobile
-        if (widget.pushService != null && PlatformUtils.isMobile) {
-          final allTopic = OfferNotificationTopic.all.getTopicForOffer(
-            widget.offerId,
+        if (pushService != null && PlatformUtils.isMobile) {
+          final allTopic = OfferNotificationTopic.all.getTopicForOffer(offerId);
+          await _persistTopics(
+            [allTopic],
+            offerId: offerId,
+            followService: followService,
+            pushService: pushService,
           );
-          await _updateTopics([allTopic]);
         }
 
         // Track follow
         await AnalyticsService().logFollowGame(
-          gameId: widget.offerId,
-          gameName: _offer!.title,
+          gameId: offerId,
+          gameName: offer.title,
           followed: true,
         );
       }
-
-      setState(() {
-        _isFollowing = !_isFollowing;
-      });
+    } catch (e) {
+      debugPrint('Failed to update follow status: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not update follow status. Please try again.'),
+          ),
+        );
+      }
     } finally {
-      setState(() => _isFollowLoading = false);
+      if (mounted) {
+        setState(() {
+          _isFollowing = followService.isFollowing(offerId);
+          _isFollowLoading = false;
+        });
+      }
     }
   }
 
@@ -206,39 +224,59 @@ class _MobileOfferDetailPageState extends State<MobileOfferDetailPage> {
   }
 
   Future<void> _updateTopics(List<String> newTopics) async {
+    if (!mounted || _isFollowLoading) return;
+    final offerId = widget.offerId;
+    final followService = widget.followService;
+    final pushService = widget.pushService;
     setState(() => _isFollowLoading = true);
 
     try {
-      final currentTopics = await widget.followService.getNotificationTopics(
-        widget.offerId,
-      );
-
-      // Calculate topics to add and remove
-      final toAdd = newTopics.where((t) => !currentTopics.contains(t)).toList();
-      final toRemove = currentTopics
-          .where((t) => !newTopics.contains(t))
-          .toList();
-
-      // Update FCM subscriptions
-      if (widget.pushService != null && PlatformUtils.isMobile) {
-        if (toAdd.isNotEmpty) {
-          await widget.pushService!.subscribeToTopics(topics: toAdd);
-        }
-        if (toRemove.isNotEmpty) {
-          await widget.pushService!.unsubscribeFromTopics(topics: toRemove);
-        }
-      }
-
-      // Update database
-      await widget.followService.updateNotificationTopics(
-        widget.offerId,
+      await _persistTopics(
         newTopics,
+        offerId: offerId,
+        followService: followService,
+        pushService: pushService,
       );
-    } finally {
+    } catch (e) {
+      debugPrint('Failed to update notification topics: $e');
       if (mounted) {
-        setState(() => _isFollowLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not update notifications. Please try again.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isFollowLoading = false);
+    }
+  }
+
+  Future<void> _persistTopics(
+    List<String> newTopics, {
+    required String offerId,
+    required FollowService followService,
+    required PushService? pushService,
+  }) async {
+    final currentTopics = await followService.getNotificationTopics(offerId);
+
+    // Calculate topics to add and remove
+    final toAdd = newTopics.where((t) => !currentTopics.contains(t)).toList();
+    final toRemove = currentTopics
+        .where((t) => !newTopics.contains(t))
+        .toList();
+
+    // Update FCM subscriptions
+    if (pushService != null && PlatformUtils.isMobile) {
+      if (toAdd.isNotEmpty) {
+        await pushService.subscribeToTopics(topics: toAdd);
+      }
+      if (toRemove.isNotEmpty) {
+        await pushService.unsubscribeFromTopics(topics: toRemove);
       }
     }
+
+    // Update database
+    await followService.updateNotificationTopics(offerId, newTopics);
   }
 
   Future<void> _loadData() async {

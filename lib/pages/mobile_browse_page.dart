@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:fluquery/fluquery.dart';
 import '../main.dart';
+import '../hooks/use_handled_infinite_query.dart';
 import '../models/followed_game.dart';
 import '../models/settings.dart';
 import '../services/analytics_service.dart';
@@ -174,7 +175,7 @@ class MobileBrowsePage extends HookWidget {
     );
 
     // Infinite query for pagination
-    final searchQuery = useInfiniteQuery<SearchResponse, Object, int>(
+    final searchQuery = useHandledInfiniteQuery<SearchResponse, Object, int>(
       queryKey: queryKey,
       queryFn: (ctx) async {
         try {

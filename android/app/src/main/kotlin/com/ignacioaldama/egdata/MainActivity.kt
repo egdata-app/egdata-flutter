@@ -17,6 +17,7 @@ import androidx.work.WorkManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import io.flutter.plugin.text.ProcessTextPlugin
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
@@ -64,6 +65,12 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        // Keep the built-in text action behavior while making each reply idempotent.
+        if (!flutterEngine.plugins.has(SafeProcessTextPlugin::class.java)) {
+            flutterEngine.plugins.remove(ProcessTextPlugin::class.java)
+            flutterEngine.plugins.add(SafeProcessTextPlugin(flutterEngine.processTextChannel))
+        }
 
         // Widget channel
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->

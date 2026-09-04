@@ -61,6 +61,10 @@ android {
         compose = true
     }
 
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
+
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"
     }
@@ -69,6 +73,8 @@ android {
 flutter { source = "../.." }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.14.1")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     implementation("androidx.work:work-runtime-ktx:2.9.0")
     implementation("com.github.bumptech.glide:glide:4.16.0")

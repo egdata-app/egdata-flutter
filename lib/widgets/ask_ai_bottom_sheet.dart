@@ -90,6 +90,7 @@ class _AskAIBottomSheetState extends State<AskAIBottomSheet> {
   }
 
   Future<void> _connectAndSend(String message) async {
+    if (_isConnecting || _isSending) return;
     setState(() {
       _isConnecting = true;
       _userMessage = message;
@@ -100,12 +101,18 @@ class _AskAIBottomSheetState extends State<AskAIBottomSheet> {
       _session = await widget.chatService.createSession(
         title: widget.offerTitle,
       );
+      if (!mounted) return;
 
       // Get user ID and connect to WebSocket
       final userId = await UserService.getUserId();
+      if (!mounted) return;
+      await _eventSubscription?.cancel();
+      _wsService?.dispose();
+      if (!mounted) return;
       _wsService = ChatWebSocketService();
 
       await _wsService!.connect(userId: userId, sessionId: _session!.id);
+      if (!mounted) return;
 
       setState(() {
         _isConnecting = false;
@@ -178,7 +185,7 @@ class _AskAIBottomSheetState extends State<AskAIBottomSheet> {
 
   void _submit() {
     final text = _controller.text.trim();
-    if (text.isEmpty || _isSending) return;
+    if (text.isEmpty || _isSending || _isConnecting) return;
 
     _focusNode.unfocus();
     _controller.clear();
@@ -191,7 +198,7 @@ class _AskAIBottomSheetState extends State<AskAIBottomSheet> {
   }
 
   void _submitSuggestion(String text) {
-    if (_isSending) return;
+    if (_isSending || _isConnecting) return;
 
     _focusNode.unfocus();
 

@@ -60,11 +60,23 @@ class ReferencedOffersEvent extends ChatEvent {
 class ChatWebSocketService {
   static const String wsBaseUrl = 'wss://ai.egdata.app';
 
+  final WebSocketChannel Function(Uri) _connectChannel;
   WebSocketChannel? _channel;
+  StreamSubscription<dynamic>? _subscription;
+  bool _isConnected = false;
+  bool _disposed = false;
+  int _connectionId = 0;
   final StreamController<ChatEvent> _eventController =
       StreamController<ChatEvent>.broadcast();
 
-  bool get isConnected => _channel != null;
+  ChatWebSocketService({WebSocketChannel Function(Uri)? connectChannel})
+    : _connectChannel = connectChannel ?? WebSocketChannel.connect;
+
+  bool get isConnected => _isConnected;
+
+  void _emit(ChatEvent event) {
+    if (!_disposed) _eventController.add(event);
+  }
 
   /// Stream of chat events (tool_progress, text_delta, complete, error)
   Stream<ChatEvent> get events => _eventController.stream;
@@ -74,17 +86,24 @@ class ChatWebSocketService {
     required String userId,
     required String sessionId,
   }) async {
-    // Close existing connection if any
-    await disconnect();
+    if (_disposed) throw StateError('Chat service is disposed');
+    final disconnecting = disconnect();
+    final connectionId = _connectionId;
+    await disconnecting;
+    if (_disposed || connectionId != _connectionId) return;
 
     try {
-      final uri = Uri.parse('$wsBaseUrl/?agentId=$userId&sessionId=$sessionId');
-      debugPrint('[WebSocket] Connecting to: $uri');
-      _channel = WebSocketChannel.connect(uri);
+      final uri = Uri.parse(wsBaseUrl).replace(
+        path: '/',
+        queryParameters: {'agentId': userId, 'sessionId': sessionId},
+      );
+      final channel = _connectChannel(uri);
+      _channel = channel;
 
-      // Listen to incoming messages
-      _channel!.stream.listen(
+      // The stream AND ready future report handshake failures. Handle both.
+      _subscription = channel.stream.listen(
         (message) {
+          if (_disposed || connectionId != _connectionId) return;
           debugPrint('[WebSocket] Received message: $message');
           try {
             final data = json.decode(message);
@@ -92,29 +111,44 @@ class ChatWebSocketService {
             final event = _parseEvent(data);
             if (event != null) {
               debugPrint('[WebSocket] Event: ${event.type}');
-              _eventController.add(event);
+              _emit(event);
             } else {
               debugPrint('[WebSocket] Unknown event type, ignoring');
             }
           } catch (e) {
             debugPrint('[WebSocket] Parse error: $e');
-            _eventController.add(ErrorEvent('Failed to parse message: $e'));
+            _emit(ErrorEvent('Failed to parse message: $e'));
           }
         },
         onError: (error) {
           debugPrint('[WebSocket] Error: $error');
-          _eventController.add(ErrorEvent('WebSocket error: $error'));
+          if (connectionId == _connectionId && _isConnected) {
+            _isConnected = false;
+            _emit(const ErrorEvent('Connection lost. Please try again.'));
+          }
         },
         onDone: () {
           debugPrint('[WebSocket] Connection closed');
-          // Connection closed
-          _channel = null;
+          if (connectionId == _connectionId) {
+            final wasConnected = _isConnected;
+            _channel = null;
+            _isConnected = false;
+            if (wasConnected) {
+              _emit(const ErrorEvent('Connection closed. Please try again.'));
+            }
+          }
         },
       );
+      await channel.ready;
+      if (_disposed || connectionId != _connectionId || _channel != channel) {
+        return;
+      }
+      _isConnected = true;
       debugPrint('[WebSocket] Connected successfully');
     } catch (e) {
       debugPrint('[WebSocket] Connection failed: $e');
-      _eventController.add(ErrorEvent('Failed to connect: $e'));
+      if (_disposed || connectionId != _connectionId) return;
+      await disconnect();
       rethrow;
     }
   }
@@ -124,7 +158,7 @@ class ChatWebSocketService {
     required String message,
     required String sessionId,
   }) async {
-    if (_channel == null) {
+    if (!isConnected || _channel == null) {
       debugPrint('[WebSocket] Cannot send: not connected');
       throw Exception('WebSocket not connected');
     }
@@ -141,10 +175,19 @@ class ChatWebSocketService {
 
   /// Disconnect from the WebSocket
   Future<void> disconnect() async {
-    debugPrint('[WebSocket] Disconnecting...');
-    await _channel?.sink.close();
+    _connectionId++;
+    final channel = _channel;
+    final subscription = _subscription;
     _channel = null;
-    debugPrint('[WebSocket] Disconnected');
+    _subscription = null;
+    _isConnected = false;
+    // Cancel listeners before closing so old connections cannot clear new ones.
+    try {
+      await subscription?.cancel();
+      await channel?.sink.close();
+    } catch (e) {
+      debugPrint('[WebSocket] Error closing connection: $e');
+    }
   }
 
   /// Parse incoming event data
@@ -193,7 +236,9 @@ class ChatWebSocketService {
 
   /// Dispose of resources
   void dispose() {
-    disconnect();
+    if (_disposed) return;
+    _disposed = true;
+    unawaited(disconnect());
     _eventController.close();
   }
 }

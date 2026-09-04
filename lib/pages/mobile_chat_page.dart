@@ -108,11 +108,13 @@ class MobileChatPage extends HookWidget {
     // Connect to WebSocket on mount
     useEffect(() {
       StreamSubscription? subscription;
+      var active = true;
 
       Future<void> connectAndLoadHistory() async {
         try {
           // Load chat history first
           final history = await _loadChatHistory(session.id);
+          if (!active) return;
 
           // If we have existing messages from the Ask AI bottom sheet, add them
           if (existingUserMessage != null &&
@@ -143,11 +145,11 @@ class MobileChatPage extends HookWidget {
 
           // Get persistent user ID and connect to WebSocket
           final userId = await UserService.getUserId();
-          await wsService.connect(userId: userId, sessionId: session.id);
-          isConnected.value = true;
+          if (!active) return;
 
           // Listen to WebSocket events
           subscription = wsService.events.listen((event) {
+            if (!active) return;
             debugPrint('[Chat] Received event: ${event.runtimeType}');
             if (event is ToolProgressEvent) {
               // Update current tool being executed
@@ -227,6 +229,7 @@ class MobileChatPage extends HookWidget {
               }
             } else if (event is ErrorEvent) {
               // Handle error
+              isConnected.value = wsService.isConnected;
               debugPrint('WebSocket error: ${event.message}');
               if (streamingMessageId.value != null) {
                 final currentMessages = messages.value;
@@ -248,16 +251,28 @@ class MobileChatPage extends HookWidget {
               }
             }
           });
+          await wsService.connect(userId: userId, sessionId: session.id);
+          if (!active) return;
+          isConnected.value = wsService.isConnected;
         } catch (e) {
           debugPrint('[Chat] Error connecting to WebSocket: $e');
+          if (active && context.mounted) {
+            isConnected.value = false;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Could not connect to chat. Please try again.'),
+              ),
+            );
+          }
         } finally {
-          isLoading.value = false;
+          if (active) isLoading.value = false;
         }
       }
 
       connectAndLoadHistory();
 
       return () {
+        active = false;
         subscription?.cancel();
         wsService.dispose();
       };
@@ -349,7 +364,7 @@ class MobileChatPage extends HookWidget {
         initialMessageSent.value = true;
         // Use a small delay to ensure everything is ready
         Future.delayed(const Duration(milliseconds: 100), () {
-          sendMessage(initialMessage!);
+          if (context.mounted) sendMessage(initialMessage!);
         });
       }
       return null;
@@ -374,7 +389,7 @@ class MobileChatPage extends HookWidget {
             ),
             if (!isConnected.value)
               Text(
-                'Connecting...',
+                isLoading.value ? 'Connecting...' : 'Disconnected',
                 style: TextStyle(color: AppColors.textMuted, fontSize: 12),
               ),
           ],
