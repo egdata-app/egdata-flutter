@@ -10,6 +10,11 @@ on:
         description: "Version to release (e.g., 1.4.0 or 1.4.0-beta.1)"
         required: true
         type: string
+      publish_release:
+        description: "Publish a GitHub Release after successful builds"
+        required: true
+        type: boolean
+        default: true
 
 jobs:
   release-metadata:
@@ -321,6 +326,7 @@ jobs:
         run: flutter build ios --simulator --no-codesign
 
   create-release:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.publish_release }}
     needs: [release-metadata, build-windows, build-macos, build-android, build-ios]
     runs-on: ubuntu-latest
     permissions:
