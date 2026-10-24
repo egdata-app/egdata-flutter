@@ -6,8 +6,14 @@ import path from 'node:path'
 import { z } from 'zod'
 
 import { groupLocalManifests, toPublicManifestItem } from './grouping'
+import { parseNewLauncherIndex, type ManifestDiscoverySource } from './new-launcher'
 import { parseLocalItem } from './parser'
-import { isAbsoluteManifestDirectory, resolveDefaultManifestDirectory } from './paths'
+import {
+  isAbsoluteManifestDirectory,
+  normalizeInstallPath,
+  resolveDefaultManifestDirectory,
+  resolveNewLauncherDirectory,
+} from './paths'
 import type {
   LocalManifestDiagnostic,
   LocalManifestErrorCode,
@@ -108,6 +114,7 @@ async function fallbackManifest(
 async function resolveBinaryManifest(parsed: {
   manifestLocation: string
   installLocation: string
+  installationGuid: string
 }): Promise<{ path?: string; fileName?: string; denied: boolean }> {
   const requested = parsed.manifestLocation.trim()
   if (requested) {
@@ -115,6 +122,26 @@ async function resolveBinaryManifest(parsed: {
     if (state === 'yes') {
       return { path: requested, fileName: path.basename(requested), denied: false }
     }
+    if (state === 'denied') return { denied: true }
+    // Legacy .item records may point to the .egstore directory rather than a file.
+    if (/^[A-Za-z0-9_-]{1,128}$/.test(parsed.installationGuid)) {
+      const candidate = path.join(requested, `${parsed.installationGuid}.manifest`)
+      const candidateState = await readableFile(candidate)
+      if (candidateState === 'yes') {
+        return { path: candidate, fileName: path.basename(candidate), denied: false }
+      }
+      if (candidateState === 'denied') return { denied: true }
+    }
+  }
+  if (parsed.installLocation && /^[A-Za-z0-9_-]{1,128}$/.test(parsed.installationGuid)) {
+    const candidate = path.join(
+      parsed.installLocation,
+      '.egstore',
+      `${parsed.installationGuid}.manifest`,
+    )
+    const state = await readableFile(candidate)
+    if (state === 'yes')
+      return { path: candidate, fileName: path.basename(candidate), denied: false }
     if (state === 'denied') return { denied: true }
   }
   return fallbackManifest(parsed.installLocation)
@@ -152,30 +179,117 @@ export class LocalManifestScanner {
     const sources = new Map<string, LocalManifestSource>()
     const errors: LocalManifestDiagnostic[] = []
 
+    const discovered: ManifestDiscoverySource[] = []
+    const legacyAvailable = await this.readLegacyDirectory(directory, discovered, errors)
+    const newDirectory =
+      input.manifestDirectory ?? resolveNewLauncherDirectory(this.platform, this.environment)
+    const newAvailable =
+      this.platform === 'win32' && newDirectory
+        ? await this.readNewLauncher(newDirectory, discovered, errors)
+        : false
+    const directoryAvailable = legacyAvailable || newAvailable
+    if (!directoryAvailable && errors.length === 0) {
+      errors.push(
+        diagnostic(
+          'LOCAL_MANIFEST_DIRECTORY_MISSING',
+          'The Epic manifest directory was not found.',
+        ),
+      )
+    }
+
+    const identities = new Set<string>()
+    for (const discovery of discovered) {
+      const { parsed, rawItemText, itemPath, sourceName } = discovery
+      // Prefer original legacy JSON for the same installation/build when both
+      // indexes describe it, but retain independent add-ons and changed builds.
+      const identity = JSON.stringify([
+        parsed.installationGuid.toLowerCase(),
+        normalizeInstallPath(this.platform, parsed.installLocation),
+        parsed.catalogNamespace,
+        parsed.catalogItemId,
+        parsed.appName,
+        parsed.appVersion,
+      ])
+      if (parsed.installationGuid && identities.has(identity)) continue
+      identities.add(identity)
+      const itemId = randomUUID()
+      let binary: { path?: string; fileName?: string; denied: boolean }
+      if (discovery.exactBinary) {
+        const state = await readableFile(parsed.manifestLocation)
+        binary =
+          state === 'yes'
+            ? {
+                path: parsed.manifestLocation,
+                fileName: path.basename(parsed.manifestLocation),
+                denied: false,
+              }
+            : { denied: state === 'denied' }
+      } else {
+        binary = await resolveBinaryManifest(parsed)
+      }
+      const diagnosticCodes: LocalManifestErrorCode[] = []
+      if (binary.denied) {
+        diagnosticCodes.push('LOCAL_ITEM_PERMISSION_DENIED')
+        errors.push(
+          diagnostic(
+            'LOCAL_ITEM_PERMISSION_DENIED',
+            'The binary manifest could not be read.',
+            sourceName,
+            itemId,
+          ),
+        )
+      } else if (!binary.path) {
+        diagnosticCodes.push('LOCAL_BINARY_MANIFEST_MISSING')
+        errors.push(
+          diagnostic(
+            'LOCAL_BINARY_MANIFEST_MISSING',
+            'No binary manifest was found for this item.',
+            sourceName,
+            itemId,
+          ),
+        )
+      }
+      sources.set(itemId, {
+        itemId,
+        sourceName,
+        rawItemText,
+        itemPath,
+        ...(binary.path ? { manifestPath: binary.path } : {}),
+        ...(binary.fileName ? { manifestFileName: binary.fileName } : {}),
+        parsed,
+        diagnosticCodes,
+      })
+    }
+
+    this.storeSession(sessionId, sources)
+    const sourceList = [...sources.values()]
+    return {
+      sessionId,
+      directoryAvailable,
+      items: sourceList.map(toPublicManifestItem),
+      groups: groupLocalManifests(sourceList, this.platform),
+      errors,
+    }
+  }
+
+  private async readLegacyDirectory(
+    directory: string,
+    discovered: ManifestDiscoverySource[],
+    errors: LocalManifestDiagnostic[],
+  ): Promise<boolean> {
     let entries
     try {
       entries = await readdir(directory, { withFileTypes: true })
     } catch (error) {
       const missing = isNodeError(error, 'ENOENT') || isNodeError(error, 'ENOTDIR')
-      errors.push(
-        missing
-          ? diagnostic(
-              'LOCAL_MANIFEST_DIRECTORY_MISSING',
-              'The Epic manifest directory was not found.',
-            )
-          : diagnostic(
-              'LOCAL_ITEM_PERMISSION_DENIED',
-              'The Epic manifest directory could not be read.',
-            ),
-      )
-      this.storeSession(sessionId, sources)
-      return {
-        sessionId,
-        directoryAvailable: false,
-        items: [],
-        groups: [],
-        errors,
-      }
+      if (!missing)
+        errors.push(
+          diagnostic(
+            'LOCAL_ITEM_PERMISSION_DENIED',
+            'The Epic manifest directory could not be read.',
+          ),
+        )
+      return false
     }
 
     const itemEntries = entries
@@ -212,52 +326,52 @@ export class LocalManifestScanner {
         continue
       }
 
-      const itemId = randomUUID()
-      const binary = await resolveBinaryManifest(parsed)
-      const diagnosticCodes: LocalManifestErrorCode[] = []
-      if (binary.denied) {
-        diagnosticCodes.push('LOCAL_ITEM_PERMISSION_DENIED')
-        errors.push(
-          diagnostic(
-            'LOCAL_ITEM_PERMISSION_DENIED',
-            'The binary manifest could not be read.',
-            entry.name,
-            itemId,
-          ),
-        )
-      } else if (!binary.path) {
-        diagnosticCodes.push('LOCAL_BINARY_MANIFEST_MISSING')
-        errors.push(
-          diagnostic(
-            'LOCAL_BINARY_MANIFEST_MISSING',
-            'No binary manifest was found for this item.',
-            entry.name,
-            itemId,
-          ),
-        )
-      }
-
-      sources.set(itemId, {
-        itemId,
+      discovered.push({
         sourceName: entry.name,
         rawItemText,
         itemPath,
-        ...(binary.path ? { manifestPath: binary.path } : {}),
-        ...(binary.fileName ? { manifestFileName: binary.fileName } : {}),
         parsed,
-        diagnosticCodes,
       })
     }
+    return true
+  }
 
-    this.storeSession(sessionId, sources)
-    const sourceList = [...sources.values()]
-    return {
-      sessionId,
-      directoryAvailable: true,
-      items: sourceList.map(toPublicManifestItem),
-      groups: groupLocalManifests(sourceList, this.platform),
-      errors,
+  private async readNewLauncher(
+    directory: string,
+    discovered: ManifestDiscoverySource[],
+    errors: LocalManifestDiagnostic[],
+  ): Promise<boolean> {
+    const indexPath = path.join(directory, 'installations.jsonl')
+    let text: string
+    try {
+      const details = await stat(indexPath)
+      if (details.size > 16 * 1024 * 1024) {
+        errors.push(
+          diagnostic(
+            'LOCAL_ITEM_INVALID_JSON',
+            'The Epic installation index is too large.',
+            'installations.jsonl',
+          ),
+        )
+        return true
+      }
+      text = await readFile(indexPath, 'utf8')
+    } catch (error) {
+      if (!isNodeError(error, 'ENOENT') && !isNodeError(error, 'ENOTDIR')) {
+        errors.push(
+          diagnostic(
+            'LOCAL_ITEM_PERMISSION_DENIED',
+            'The Epic installation index could not be read.',
+            'installations.jsonl',
+          ),
+        )
+      }
+      return false
     }
+    const result = parseNewLauncherIndex(text, indexPath)
+    discovered.push(...result.sources)
+    errors.push(...result.errors)
+    return true
   }
 
   getSessionItemIds(sessionId: string): string[] {

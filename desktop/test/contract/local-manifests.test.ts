@@ -9,6 +9,7 @@ import {
   localManifestGroupKey,
   parseLocalItem,
   resolveDefaultManifestDirectory,
+  resolveNewLauncherDirectory,
   toPublicManifestItem,
   type LocalManifestSource,
 } from '../../src/main/manifests/index'
@@ -38,6 +39,21 @@ describe('local manifest paths and parsing', () => {
     expect(resolveDefaultManifestDirectory('darwin', { HOME: '/Users/tester' })).toBe(
       '/Users/tester/Library/Application Support/Epic/EpicGamesLauncher/Data/Manifests',
     )
+  })
+
+  it('resolves both Windows launcher sources from isolated environment paths', () => {
+    expect(resolveDefaultManifestDirectory('win32', { ProgramData: 'D:\\Shared' })).toBe(
+      'D:\\Shared\\Epic\\EpicGamesLauncher\\Data\\Manifests',
+    )
+    expect(resolveNewLauncherDirectory('win32', { LOCALAPPDATA: 'D:\\Local' })).toBe(
+      'D:\\Local\\com.epicgames.eglv2',
+    )
+    expect(resolveNewLauncherDirectory('win32', { USERPROFILE: 'D:\\Users\\tester' })).toBe(
+      'D:\\Users\\tester\\AppData\\Local\\com.epicgames.eglv2',
+    )
+    expect(resolveNewLauncherDirectory('win32', {})).toBeUndefined()
+    expect(resolveNewLauncherDirectory('win32', { LOCALAPPDATA: 'relative' })).toBeUndefined()
+    expect(resolveNewLauncherDirectory('darwin', { LOCALAPPDATA: 'D:\\Local' })).toBeUndefined()
   })
 
   it('parses only safe field types without reconstructing source JSON', async () => {

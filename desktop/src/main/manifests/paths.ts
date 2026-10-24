@@ -9,6 +9,10 @@ export function resolveDefaultManifestDirectory(
   environment: NodeJS.ProcessEnv = process.env,
 ): string {
   if (platform === 'win32') {
+    const programData = environment.ProgramData || environment.PROGRAMDATA
+    if (programData && path.win32.isAbsolute(programData)) {
+      return path.win32.join(programData, 'Epic', 'EpicGamesLauncher', 'Data', 'Manifests')
+    }
     return WINDOWS_MANIFEST_DIRECTORY
   }
 
@@ -40,6 +44,19 @@ export function resolveDefaultManifestDirectory(
   }
 
   throw new Error('Could not determine the macOS home directory')
+}
+
+/** The Windows launcher v2 stores its installation index in per-user app data. */
+export function resolveNewLauncherDirectory(
+  platform: LocalManifestPlatform,
+  environment: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  if (platform !== 'win32') return undefined
+  const localAppData =
+    environment.LOCALAPPDATA ||
+    (environment.USERPROFILE && path.win32.join(environment.USERPROFILE, 'AppData', 'Local'))
+  if (!localAppData || !path.win32.isAbsolute(localAppData)) return undefined
+  return path.win32.join(localAppData, 'com.epicgames.eglv2')
 }
 
 export function isAbsoluteManifestDirectory(
